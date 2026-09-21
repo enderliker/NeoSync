@@ -25,14 +25,17 @@ public final class InstallationPlan {
     private final String digest;
     private final List<File> files;
     private final List<String> changes;
+    @Nullable
+    private final SyncManifest previous;
 
-    private InstallationPlan(byte[] bytes, SyncManifest manifest, Identity identity, List<File> files, List<String> changes) {
+    private InstallationPlan(byte[] bytes, SyncManifest manifest, Identity identity, List<File> files, List<String> changes, @Nullable SyncManifest previous) {
         this.manifestBytes = bytes.clone();
         this.manifest = manifest;
         this.identity = identity;
         this.digest = SyncManifest.sha256(bytes);
         this.files = List.copyOf(files);
         this.changes = List.copyOf(changes);
+        this.previous = previous;
     }
 
     public record Identity(String host, int gamePort, URI origin, UUID serverId) {}
@@ -72,7 +75,7 @@ public final class InstallationPlan {
             previous.files().stream().filter(file -> !nextHashes.contains(file.sha256()))
                     .forEach(file -> changes.add("Omit previous file from the new profile: " + file.fileName() + " (" + file.sha256() + ")"));
         }
-        return new InstallationPlan(bytes, manifest, identity, files, changes);
+        return new InstallationPlan(bytes, manifest, identity, files, changes, previous);
     }
 
     public static URI externalSource(URI url) throws IOException {
@@ -111,6 +114,10 @@ public final class InstallationPlan {
 
     public List<File> files() {
         return files;
+    }
+
+    public java.util.Optional<SyncManifest> previous() {
+        return java.util.Optional.ofNullable(previous);
     }
 
     public long totalBytes() {

@@ -25,6 +25,24 @@ the installation UI and full restart/join acceptance check are not available yet
   and bounds metadata expansion and TOML nesting without loading classes.
   ZIP64, nested JARs, alternate loader metadata, service providers, custom feature
   requirements, and multi-release archives are explicitly unsupported initially.
+- The profile store now prepares fresh revision directories under a store lock,
+  rehashes reusable bytes, uses independent cache copies, and publishes a verified
+  revision followed by its pointer with atomic renames. It checks free space for
+  three copies plus 64 MiB. Review also binds the prior prepared manifest, so a
+  concurrent update requires another review. No current or prior revision is
+  edited to install mods.
+- Bounded local records bind the identity, manifest, sources, and consent. An
+  active marker must derive the actual selected game directory before its storage
+  root is used. Verification rejects extra/missing/changed mod files. It runs
+  after FML loading and provides no guarantee against execution of local tampering.
+
+The MVP serializes preparation across each storage root. It preserves orphaned
+completed revisions after interrupted publication and does not automatically
+prune cache/revisions or retry against different sources. Managed ancestors are
+checked for symlinks; this does not protect against arbitrary concurrent writes
+by other software running with the same user privileges. Process-interruption
+recovery and power-loss durability are different guarantees; hardware/filesystem
+power-loss behavior has not been tested.
 
 Phase 3 initially requires direct external HTTPS URLs without query parameters,
 credentials, or fragments, on ports 443 or 8443. This conservative subset avoids
@@ -56,3 +74,11 @@ language-loader mismatches, manifest version substitution, rejected archive path
 and arrangements, metadata expansion, parser depth, malformed ZIPs, and
 cancellation. Compatibility rules were checked against the pinned FML 4.0.44
 mod-file and dependency readers; this remains a deliberately limited subset.
+
+The profile increment passed `applyAllFormatting :tests:runUnitTests`: 178 tests,
+zero failures/errors/skips. Six additional scenarios cover isolated copying and
+activation records, cancellation before/during preparation and between publication
+renames, injected disk-write failure, stale reviews, competing filesystem locks,
+symlinked roots, marker redirection/traversal, missing markers, cache corruption,
+and extra active files. Disk exhaustion is injected as an I/O failure; a real
+full-volume test and a killed-process recovery probe remain acceptance work.
