@@ -38,7 +38,7 @@ starting the graphical run. From the repository root:
   -PneosyncAcceptanceMode=install --max-workers=2
 ```
 
-The driver checks default-negative keyboard focus, declines each consent screen
+The driver dispatches mouse clicks through the screen, checks default-negative keyboard focus, declines each consent screen
 with Enter in separate attempts, checks that no store/staging area was created,
 then explicitly accepts both screens. It writes `install-report.txt` and the
 prepared directory to `prepared.txt`, displays activation instructions, and exits.
@@ -51,6 +51,32 @@ Mode `original` with the original directory must report activation still pending
 To check changed snapshots, change the server's `displayName`, restart the server,
 and use mode `changed` with the prepared directory. This must require fresh review
 and cancel by default. Every mode writes a separate report.
+
+Mode `crash`, using the original directory after a successful installation,
+starts another transaction from verified cache bytes and intentionally calls
+`Runtime.halt(73)` after the revision rename but before the profile-pointer rename.
+Save the current `profile.json` hash and revision directory listing first. Require
+the `HALT` checkpoint report, an unchanged pointer, and one additional complete
+orphan revision afterward. Gradle must report the expected nonzero process exit;
+this mode does not produce an ordinary `PASS` report. Relaunch the prior revision
+to verify recovery. This tests process interruption, not power loss.
+
+Mode `space` uses `referenceGame` from its properties file to read an existing
+prepared snapshot and cache. Launch it with a fresh game directory on a private
+64 MiB tmpfs to exercise the actual free-space refusal. On Linux with unprivileged
+user/mount namespaces, use `unshare --user --map-root-user --mount --propagation
+private` to create the temporary mount; never fill the host filesystem. Run Gradle
+with `--no-daemon` inside that namespace so the test inherits the mount, and set
+`GRADLE_USER_HOME` to the existing cache explicitly because the namespace changes
+Java's default user home. Require the `space-report.txt` PASS result confirming
+the volume size and absence of a published profile. The mount disappears when
+the namespace exits. The separate unit suite injects write failures after staging
+and verifies preservation of an existing profile.
+
+The agent waits for Minecraft's class initialization to finish before invoking
+its instance accessor. A loaded-but-uninitialized class is not sufficient: an
+earlier driver raced static initializers and deadlocked before the client started.
+This is test instrumentation, not an initialization change in the product.
 
 Inspect the generated screenshots under each game directory's `screenshots`.
 Stop the test server with `stop` afterward. Keep reports, JARs, certificates,

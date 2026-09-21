@@ -48,6 +48,7 @@ public final class ClientDriver {
                 if (minecraft == null) {
                     for (Class<?> type : instrumentation.getAllLoadedClasses()) {
                         if (type.getName().equals("net.minecraft.client.Minecraft")) {
+                            if (!initialized(type)) continue;
                             gameLoader = type.getClassLoader();
                             minecraft = call(type, "getInstance");
                             break;
@@ -85,6 +86,17 @@ public final class ClientDriver {
             return;
         }
         String mode = settings.getProperty("mode", "install");
+        if ((mode.equals("crash") || mode.equals("space")) && (lastScreen.equals("TitleScreen") || lastScreen.equals("DiscoveryScreen"))) {
+            done = true;
+            Thread worker = new Thread(() -> {
+                try { storageProbe(mode.equals("crash")); } catch (Throwable error) {
+                    try { Files.writeString(Path.of(settings.getProperty("report")), "FAIL: " + error); } catch (Exception ignored) {}
+                    Runtime.getRuntime().halt(74);
+                }
+            }, "NeoSync publication crash probe");
+            worker.start();
+            return;
+        }
         if (field(minecraft, "player") != null && field(minecraft, "level") != null) {
             Object modList = call(type("net.neoforged.fml.ModList"), "get");
             Object container = call(modList, "getModContainerById", "clumps");
@@ -173,6 +185,56 @@ public final class ClientDriver {
         connecting = true;
     }
 
+    private static boolean initialized(Class<?> type) throws Exception {
+        // Observing a loaded class is insufficient: calling getInstance can race Minecraft's static initializers.
+        Class<?> unsafeClass = Class.forName("sun.misc.Unsafe");
+        Field singleton = unsafeClass.getDeclaredField("theUnsafe");
+        singleton.setAccessible(true);
+        return !(boolean) unsafeClass.getMethod("shouldBeInitialized", Class.class).invoke(singleton.get(null), type);
+    }
+
+    private static void storageProbe(boolean crash) throws Exception {
+        Path game = ((java.io.File) field(minecraft, "gameDirectory")).toPath();
+        Object store = call(type("net.neoforged.neoforge.neosync.protocol.ProfileStore"), "open", game);
+        Object reference = crash ? store : call(type("net.neoforged.neoforge.neosync.protocol.ProfileStore"), "open", Path.of(settings.getProperty("referenceGame")));
+        Object prepared = ((List<?>) call(reference, "preparedProfiles")).getFirst();
+        Object identity = call(prepared, "identity");
+        String digest = (String) call(prepared, "digest");
+        Object manifest = call(prepared, "manifest");
+        byte[] bytes = Files.readAllBytes(((Path) call(prepared, "gameDirectory")).getParent().resolve("manifest.json"));
+        Object capability = type("net.neoforged.neoforge.neosync.protocol.SyncCapability").getConstructor(int.class, String.class)
+                .newInstance(((java.net.URI) call(identity, "origin")).getPort(), digest);
+        Object endpoint = call(type("net.neoforged.neoforge.neosync.protocol.SyncEndpoint"), "create", call(identity, "host"), call(identity, "gamePort"), capability);
+        var available = new java.util.HashMap<String, Path>();
+        for (Object artifact : (List<?>) call(manifest, "files")) {
+            String hash = (String) call(artifact, "sha256");
+            available.put(hash, ((Path) call(reference, "root")).resolve("cache/sha256").resolve(hash + ".jar"));
+        }
+        Object plan = call(type("net.neoforged.neoforge.neosync.protocol.InstallationPlan"), "create", endpoint, bytes, available.keySet(), crash ? manifest : null,
+                call(manifest, "loaderVersion"), call(manifest, "neoForgeVersion"));
+        Object consent = call(plan, "accept", true, true);
+        Class<?> progressType = type("net.neoforged.neoforge.neosync.protocol.ProfileStore$Progress");
+        Object progress = java.lang.reflect.Proxy.newProxyInstance(gameLoader, new Class<?>[] { progressType }, (proxy, method, arguments) -> {
+            if (crash && arguments != null && arguments.length == 3 && arguments[0].toString().startsWith("Recording")) {
+                Files.writeString(Path.of(settings.getProperty("report")), "HALT: revision renamed; profile pointer not yet changed\n");
+                Runtime.getRuntime().halt(73);
+            }
+            return null;
+        });
+        Object token = type("net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation").getConstructor().newInstance();
+        try {
+            call(store, "prepare", plan, consent, available, "4.0.44", token, progress);
+        } catch (java.lang.reflect.InvocationTargetException error) {
+            if (crash || !(error.getCause() instanceof java.io.IOException) || !error.getCause().getMessage().contains("Not enough free disk space")) throw error;
+            require(Files.getFileStore(game).getTotalSpace() <= 64L * 1024 * 1024, "Real limited filesystem has at most 64 MiB");
+            require(((List<?>) call(store, "preparedProfiles")).isEmpty(), "Insufficient space publishes no profile");
+            evidence.add("Preparation rejected by the actual filesystem free-space check before copying artifacts.");
+            call(minecraft, "execute", (Runnable) () -> { try { finish(); } catch (Exception e) { throw new RuntimeException(e); } });
+            return;
+        }
+        throw new AssertionError("Storage failure checkpoint was not reached");
+    }
+
     private static void require(boolean condition, String message) {
         if (!condition) throw new AssertionError(message);
         if (!evidence.contains(message)) evidence.add(message);
@@ -194,7 +256,9 @@ public final class ClientDriver {
     private static void click(Object screen, String text) throws Exception {
         Object button = button(screen, text);
         if (button == null) throw new IllegalStateException("Missing button: " + text);
-        call(button, "onPress");
+        double x = (int) call(button, "getX") + (int) call(button, "getWidth") / 2.0;
+        double y = (int) call(button, "getY") + (int) call(button, "getHeight") / 2.0;
+        require((boolean) call(screen, "mouseClicked", x, y, 0), "Mouse click reached the selected button");
     }
     private static Object button(Object screen, String text) throws Exception {
         for (Object child : (List<?>) call(screen, "children")) {
@@ -229,6 +293,7 @@ public final class ClientDriver {
                 Class<?> expected = method.getParameterTypes()[i];
                 if (expected == boolean.class) expected = Boolean.class;
                 if (expected == int.class) expected = Integer.class;
+                if (expected == double.class) expected = Double.class;
                 if (arguments[i] != null && !expected.isInstance(arguments[i])) matches = false;
             }
             if (!matches) continue;

@@ -54,6 +54,6 @@ filename = URL.rsplit("/", 1)[1]
     "files": [{"fileName": filename, "sources": [{"type": "external", "url": URL}]}],
 }, indent=2) + "\n")
 (server / "server.properties").write_text("server-ip=127.0.0.1\nserver-port=25575\nonline-mode=false\nenable-status=true\nview-distance=2\nsimulation-distance=2\nlevel-name=neosync-phase3-world\n")
-for mode in ("install", "resume", "original", "changed"):
-    (root / f"{mode}.properties").write_text(f"mode={mode}\nserver=127.0.0.1:25575\nreport={root}/{mode}-report.txt\nprepared={root}/prepared.txt\n")
+for mode in ("install", "resume", "original", "changed", "crash", "space"):
+    (root / f"{mode}.properties").write_text(f"mode={mode}\nserver=127.0.0.1:25575\nreport={root}/{mode}-report.txt\nprepared={root}/prepared.txt\nreferenceGame={root}/original\n")
 print(f"Fixture ready at {root}. Start the loopback server, then run the graphical client driver.")

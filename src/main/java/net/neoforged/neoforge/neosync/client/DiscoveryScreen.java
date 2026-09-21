@@ -25,6 +25,9 @@ final class DiscoveryScreen extends Screen {
     private Runnable action;
     private String actionLabel = "";
     private String backLabel = "Cancel";
+    private int presentation;
+    @Nullable
+    private Button negativeAction;
 
     DiscoveryScreen(Screen parent, Runnable cancel) {
         super(Component.literal("NeoSync"));
@@ -37,6 +40,7 @@ final class DiscoveryScreen extends Screen {
         this.backLabel = backLabel;
         this.actionLabel = actionLabel;
         this.action = action;
+        presentation++;
         rebuildWidgets();
     }
 
@@ -45,6 +49,7 @@ final class DiscoveryScreen extends Screen {
         int buttonWidth = Math.min(180, width / 2 - 24);
         var back = addRenderableWidget(Button.builder(Component.literal(backLabel), button -> onClose())
                 .bounds(width / 2 - buttonWidth - 4, height - 30, buttonWidth, 20).build());
+        negativeAction = back;
         if (action != null) {
             addRenderableWidget(Button.builder(Component.literal(actionLabel), button -> {
                 Runnable selected = action;
@@ -55,6 +60,15 @@ final class DiscoveryScreen extends Screen {
         }
         setInitialFocus(back);
         addRenderableWidget(new TextPanel());
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        int previous = presentation;
+        boolean handled = super.mouseClicked(mouseX, mouseY, button);
+        // Mouse dispatch restores focus to the clicked widget after its action, even if the action replaced that widget.
+        if (previous != presentation && negativeAction != null) setInitialFocus(negativeAction);
+        return handled;
     }
 
     @Override
