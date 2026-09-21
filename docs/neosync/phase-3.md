@@ -19,6 +19,12 @@ the installation UI and full restart/join acceptance check are not available yet
   Same-origin redirects are limited to three. A different origin stops the
   attempt and requires the administrator's direct URL followed by a new review;
   no bytes are requested from the new origin. No client screen enables it yet.
+- JAR verification compares top-level javafml mod IDs, versions, language-loader
+  ranges, and client dependencies with the approved artifact. It checks hashes
+  before and after inspection, bounds the central directory before ZIP indexing,
+  and bounds metadata expansion and TOML nesting without loading classes.
+  ZIP64, nested JARs, alternate loader metadata, service providers, custom feature
+  requirements, and multi-release archives are explicitly unsupported initially.
 
 Phase 3 initially requires direct external HTTPS URLs without query parameters,
 credentials, or fragments, on ports 443 or 8443. This conservative subset avoids
@@ -43,3 +49,10 @@ preservation, and blocked external LAN addresses. Initial test placement conflic
 with FML's module packages; tests now use the existing test namespace. A real
 framing test exposed Netty's removal of ambiguous Content-Length headers; the
 decoder now rejects that response before normalization.
+
+The metadata increment passed `applyAllFormatting :tests:runUnitTests`: 172
+tests, zero failures/errors/skips. Added cases cover identity/dependency and
+language-loader mismatches, manifest version substitution, rejected archive paths
+and arrangements, metadata expansion, parser depth, malformed ZIPs, and
+cancellation. Compatibility rules were checked against the pinned FML 4.0.44
+mod-file and dependency readers; this remains a deliberately limited subset.
