@@ -35,6 +35,8 @@ tests/src/generated/resources/.cache/
 # FML changelog
 changelog.txt
 *.py
+!tests/neosync/acceptance/prepare_fixture.py
+__pycache__/
 *.7z
 /logs/
 

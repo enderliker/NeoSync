@@ -21,8 +21,10 @@ This document records the agreed design and roadmap. The
 [Phase 1 investigation](docs/neosync/phase-1.md) documents source-confirmed
 integration points, protocol and profile decisions, and remaining runtime checks.
 Discovery and requirements reporting are implemented in
-[Phase 2](docs/neosync/phase-2.md). Mod downloads, profile installation, and restart
-automation are not implemented yet. Keep this distinction explicit as each phase
+[Phase 2](docs/neosync/phase-2.md). [Phase 3](docs/neosync/phase-3.md) adds consented
+external downloads, verified isolated profiles, and manual activation instructions.
+The installed-build one-mod flow has passed; automatic restart is not implemented.
+Keep this distinction explicit as each phase
 progresses; a design or source trace is not a runtime compatibility result.
 
 ## Product goal
@@ -213,6 +215,12 @@ for a manual restart.
 
 **Exit criterion:** complete the flow with one mod: discover, review its source,
 accept, download, verify, prepare the profile, restart, and join.
+
+**Implementation:** the installed graphical client completed this flow with
+Clumps 19.0.0.1 and a real dedicated server using the repository's production
+launcher harness. This verifies game-directory selection, not a specific external
+launcher. See [Phase 3](docs/neosync/phase-3.md) for supported sources/artifacts,
+security coverage, manual activation, and remaining validation limits.
 
 ### Phase 4 — Server hosting
 

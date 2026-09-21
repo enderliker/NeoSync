@@ -1,7 +1,12 @@
 # Phase 3: installation MVP
 
-Status: implementation in progress. The client still provides Phase 2 discovery;
-the installation UI and full restart/join acceptance check are not available yet.
+Status: the installation MVP and its installed-build one-mod acceptance flow are
+implemented and verified on Linux with JDK 21. The client reviewed and downloaded
+Clumps 19.0.0.1 from its public HTTPS CDN, prepared an isolated revision, relaunched
+with that game directory, verified the selected profile, refreshed discovery,
+and joined a real dedicated server. External launcher certification, automatic
+restart, server-hosted artifacts, and broader modpack compatibility remain outside
+this result.
 
 ## Implemented increments
 
@@ -18,7 +23,7 @@ the installation UI and full restart/join acceptance check are not available yet
   hostname, limits concurrency and deadlines, and removes failed partial files.
   Same-origin redirects are limited to three. A different origin stops the
   attempt and requires the administrator's direct URL followed by a new review;
-  no bytes are requested from the new origin. No client screen enables it yet.
+  no bytes are requested from the new origin.
 - JAR verification compares top-level javafml mod IDs, versions, language-loader
   ranges, and client dependencies with the approved artifact. It checks hashes
   before and after inspection, bounds the central directory before ZIP indexing,
@@ -35,6 +40,47 @@ the installation UI and full restart/join acceptance check are not available yet
   active marker must derive the actual selected game directory before its storage
   root is used. Verification rejects extra/missing/changed mod files. It runs
   after FML loading and provides no guarantee against execution of local tampering.
+- The client displays review, default-negative unverified-source confirmation,
+  cancellable progress, prepared state, and manual restart instructions. It
+  rechecks an active profile before discovery, including ordinary servers.
+  Startup reports the selected profile and offers fresh discovery/reconnection.
+  Download work has a separate one-hour transaction timeout; each artifact still
+  has its own 15-minute total and 30-second idle limit.
+
+## Server configuration and manual activation
+
+Keep the [Phase 2 HTTPS setup](phase-2.md#server-setup). Select each client-required
+file explicitly in `config/neosync-server.json`, including client dependencies.
+Supply a stable external source, for example the tested MIT-licensed artifact:
+
+```json
+{
+  "fileName": "Clumps-neoforge-1.21.1-19.0.0.1.jar",
+  "sources": [{
+    "type": "external",
+    "url": "https://cdn.modrinth.com/data/Wnxd13zP/versions/jo7lDoK4/Clumps-neoforge-1.21.1-19.0.0.1.jar"
+  }]
+}
+```
+
+This is a `files` entry, not the complete server configuration. The JAR must
+already be in the server's loaded inventory. Check the actual mod's client needs
+and distribution terms before selecting it; the example is a controlled test,
+not a rule to send every server mod. Restart the server to publish changes.
+Provider hints remain unverified. Server-only sources are reported as unsupported.
+
+On joining, review the exact files, sources, changes, and total download bytes.
+Accept installation, then separately accept the unverified-source warning. Either
+cancel action leaves the current installation unchanged. After preparation,
+choose **Restart instructions** or **Later**. Close Minecraft and create/edit a
+launcher installation using the displayed NeoSync/base NeoForge version and
+the exact absolute **Game Directory** displayed by NeoSync. Launch it, then use
+**Review and reconnect**. Simply relaunching the original directory does not
+activate the prepared mods. NeoSync never edits launcher accounts or credentials.
+
+The tested repository harness selects this directory before FML scans mods. An
+official-launcher installation was unavailable on this machine, so no external
+launcher is certified by this test.
 
 The MVP serializes preparation across each storage root. It preserves orphaned
 completed revisions after interrupted publication and does not automatically
@@ -96,3 +142,32 @@ range (`[1.21.1]`), with round-trip coverage for exact, bounded, union, and
 recommended versions. That initial server boot did not advertise NeoSync and
 does not count as a successful installation acceptance run.
 The serialization correction passed all 184 unit tests and `checkFormatting`.
+
+## Installed-build acceptance evidence
+
+On September 21, 2026, the generated production server loaded Clumps and positively
+advertised one artifact. The graphical client driver entered through the real
+`ConnectScreen.startConnecting` hook and passed:
+
+- The installation review and source warning focus **No, cancel**. Enter cancels
+  each independently, with no profile store or artifact staging area created.
+- Review shows Clumps, its version, 18,382 bytes, the public CDN URL, and its
+  unverified status. The warning explains that installed mods execute code.
+- Explicit acceptance downloads the actual file, verifies SHA-256
+  `b524ccdace2ef8fd19f5b2074f7de1103ac5065c52553f064c00e098346c293e`, validates
+  metadata, and prepares the fresh game directory. Instructions show the exact
+  path and installed loader version. Three screenshots were visually inspected.
+- A second installed client process selects that revision's game directory.
+  Startup verification passes, discovery runs again, FML reports Clumps loaded,
+  and normal login reaches the dedicated server. Its log records the player's
+  successful login and join. No required-channel rejection probe is claimed for
+  Clumps; the separate Phase 2 probe covers that earlier integration point.
+- A third process launched with the original game directory reports pending
+  activation, preserving the distinction between prepared and active profiles.
+
+The checked-in [driver and setup](../../tests/neosync/acceptance/README.md) explain
+reproduction. Certificates, downloaded JARs, worlds, screenshots, and local reports
+are fixture output, not distributable project files. Narrator native-library
+loading failed in this environment; keyboard behavior was tested, spoken
+narration was not. These tests used synthetic launcher credentials and a
+loopback-only offline test server, not a personal Minecraft account.

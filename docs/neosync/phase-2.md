@@ -1,5 +1,9 @@
 # Phase 2: discovery and requirements
 
+This records the discovery milestone. [Phase 3](phase-3.md) extends the client
+with consented installation and manual profile activation; use that document for
+the current installation behavior and supported-source limits.
+
 NeoSync now has a discovery implementation that advertises a server manifest,
 retrieves it before gameplay login, and shows required files, versions, sizes,
 and sources. It compares the manifest with the client's loaded mod inventory and

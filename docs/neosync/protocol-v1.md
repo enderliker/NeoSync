@@ -2,8 +2,9 @@
 
 Status: implementation contract from [Phase 1](phase-1.md).
 [Phase 2](phase-2.md) implements discovery, bounded manifest validation and serving,
-and requirements reporting. Installation, artifact serving, persistent identity
-review, and other later-phase behavior below are not yet available. Version 1
+and requirements reporting. [Phase 3](phase-3.md) implements reviewed external
+downloads, persistent profile associations, transactional preparation, and manual
+activation. Server artifact hosting and automatic restart remain later work. Version 1
 initially targets direct connections to Minecraft 1.21.1 servers with public HTTPS
 or an explicitly approved, trusted LAN endpoint.
 
@@ -220,6 +221,11 @@ External artifact redirects are limited to three hops, with all checks repeated
 at each hop. A changed source origin must be included in consent before fetching
 artifact bytes there; if it is discovered only after acceptance, pause and request
 an updated decision. Do not forward credentials or cookies across origins.
+
+The Phase 3 MVP accepts stable direct URLs without query parameters. It follows
+only same-origin redirects; a different origin stops the attempt and requires an
+administrator-configured direct URL followed by a new review. It does not persist
+query tokens or silently extend the accepted source set.
 
 An explicitly selected private/LAN server may use its exact approved endpoint
 for the manifest and server files if TLS identity is valid. This does not grant

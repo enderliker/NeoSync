@@ -56,6 +56,10 @@ public abstract class RunProductionClient extends JavaExec {
     @InputDirectory
     public abstract DirectoryProperty getInstallationDir();
 
+    /** Existing game directory selected before FML mod discovery; defaults to the installation directory. */
+    @InputDirectory
+    public abstract DirectoryProperty getGameDirectory();
+
     /**
      * The pre-processed libraries as a file collection.
      */
@@ -91,6 +95,7 @@ public abstract class RunProductionClient extends JavaExec {
     @Inject
     public RunProductionClient(ExecOperations execOperations) {
         this.execOperations = execOperations;
+        getGameDirectory().convention(getInstallationDir());
     }
 
     @TaskAction
@@ -122,7 +127,7 @@ public abstract class RunProductionClient extends JavaExec {
         var placeholders = new HashMap<String, String>();
         placeholders.put("auth_player_name", "Dev");
         placeholders.put("version_name", minecraftVersion);
-        placeholders.put("game_directory", installDir.toAbsolutePath().toString());
+        placeholders.put("game_directory", getGameDirectory().get().getAsFile().getAbsolutePath());
         placeholders.put("auth_uuid", "00000000-0000-4000-8000-000000000000");
         placeholders.put("auth_access_token", "0");
         placeholders.put("clientid", "0");

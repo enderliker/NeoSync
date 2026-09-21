@@ -1,0 +1,13 @@
+// Configure only the main build; Gradle also evaluates init scripts for buildSrc.
+gradle.projectsEvaluated {
+    def target = gradle.rootProject.findProject(':neoforge')
+    if (target == null || !target.hasProperty('neosyncAcceptanceRoot')) return
+    def fixture = new File(target.property('neosyncAcceptanceRoot').toString())
+    target.tasks.named('runProductionClient').configure {
+        gameDirectory.set(new File(target.property('neosyncAcceptanceGame').toString()))
+        jvmArgs "-javaagent:${new File(fixture, 'driver.jar')}=${new File(fixture, target.property('neosyncAcceptanceMode').toString() + '.properties')}"
+        jvmArgs "-Djavax.net.ssl.trustStore=${new File(fixture, 'truststore')}"
+        jvmArgs '-Djavax.net.ssl.trustStorePassword=changeit'
+        jvmArgs '-Xmx2G'
+    }
+}

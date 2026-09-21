@@ -1,9 +1,9 @@
 # Phase 1: design and feasibility
 
 Status: design and source investigation completed. This document records the
-Phase 1 findings; see [Phase 2](phase-2.md) for the implemented discovery subset
-and current validation. Profile selection and launcher integration remain future
-work. This investigation did not establish a successful multiplayer session or
+Phase 1 findings; see [Phase 2](phase-2.md) for discovery and [Phase 3](phase-3.md)
+for subsequent installation and manual profile activation evidence. Automatic
+launcher integration remains future work. This investigation did not establish a successful multiplayer session or
 launcher smoke test.
 
 The baseline is commit `6c69a6559056e7781980c3f4fc0ae40147f1bdf8`, Minecraft 1.21.1,
@@ -36,7 +36,7 @@ inspected repository sources, the pinned loader source archives, and Mojang's
 The detailed contract is in [protocol-v1.md](protocol-v1.md), with a
 [manifest schema](manifest.schema.json) and [example](examples/manifest.json).
 These contracts guide the implementation. Phase 2 adds the manifest endpoint;
-artifact downloads and installation remain unimplemented.
+artifact downloads and installation were subsequently added in Phase 3.
 
 ### Component boundaries
 

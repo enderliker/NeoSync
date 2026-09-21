@@ -85,6 +85,24 @@ public final class ProfileStore {
         return profile == null ? Optional.empty() : Optional.of(readRevision(profile, profile.prepared()));
     }
 
+    public java.util.List<Prepared> preparedProfiles() throws IOException {
+        Path profiles = root.resolve("profiles");
+        if (!Files.exists(profiles, LinkOption.NOFOLLOW_LINKS)) return java.util.List.of();
+        ManagedPaths.directory(profiles, false);
+        var result = new java.util.ArrayList<Prepared>();
+        int count = 0;
+        try (var entries = Files.newDirectoryStream(profiles)) {
+            for (var directory : entries) {
+                if (++count > 1024 || !directory.getFileName().toString().matches(ID_PATTERN)) throw new IOException("Invalid local profile inventory.");
+                ManagedPaths.directory(directory, false);
+                if (!Files.exists(directory.resolve("profile.json"), LinkOption.NOFOLLOW_LINKS)) continue;
+                var profile = readProfile(directory);
+                result.add(readRevision(profile, profile.prepared()));
+            }
+        }
+        return java.util.List.copyOf(result);
+    }
+
     public Map<String, Path> reusable(SyncManifest manifest, Map<String, Path> localFiles, DiscoveryCancellation token) throws IOException {
         var result = new HashMap<String, Path>();
         for (var artifact : manifest.files()) {

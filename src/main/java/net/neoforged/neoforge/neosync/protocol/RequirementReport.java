@@ -21,7 +21,7 @@ public record RequirementReport(boolean ready, int missingFiles, List<String> li
         boolean ready = manifest.loaderVersion().equals(loaderVersion) && manifest.neoForgeVersion().equals(neoForgeVersion);
         lines.add(manifest.displayName());
         int modCount = manifest.files().stream().mapToInt(file -> file.mods().size()).sum();
-        lines.add("Required: " + modCount + " mods in " + manifest.files().size() + " files.");
+        lines.add("Required: " + count(modCount, "mod") + " in " + count(manifest.files().size(), "file") + ".");
         if (!ready) lines.add("Required loader: NeoSync " + manifest.loaderVersion() + " with NeoForge " + manifest.neoForgeVersion() + ". Your loader version differs.");
         int missing = 0;
         for (var file : manifest.files()) {
@@ -54,9 +54,13 @@ public record RequirementReport(boolean ready, int missingFiles, List<String> li
                         : "Source: " + source.url().getHost() + " (unverified)");
             }
         }
-        lines.add(2, missing + " files need installation or replacement.");
+        lines.add(2, count(missing, "file") + (missing == 1 ? " needs" : " need") + " installation or replacement.");
         lines.add(3, ready ? "The listed requirements are available. Normal server compatibility checks will still run."
-                : "You cannot join with this mod set. Automatic installation is not available in this build.");
+                : "You cannot join with this mod set. An isolated profile and a new launch are required to apply different mods.");
         return new RequirementReport(ready, missing, lines);
+    }
+
+    private static String count(int count, String noun) {
+        return count + " " + noun + (count == 1 ? "" : "s");
     }
 }
