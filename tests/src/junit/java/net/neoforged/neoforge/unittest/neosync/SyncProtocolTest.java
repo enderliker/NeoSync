@@ -49,6 +49,13 @@ class SyncProtocolTest {
         return JsonParser.parseString(new String(manifest(), StandardCharsets.UTF_8)).getAsJsonObject();
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = { "[1.21.1]", "[4,)", "(,2.0]", "[1.0],[2.0]", "1.0" })
+    void serializesDependencyRangesThatCanBeParsedAgain(String spec) throws Exception {
+        var range = org.apache.maven.artifact.versioning.VersionRange.createFromVersionSpec(spec);
+        assertEquals(range, org.apache.maven.artifact.versioning.VersionRange.createFromVersionSpec(SyncManifest.versionSpec(range)));
+    }
+
     private static void reject(JsonObject value) {
         assertThrows(IOException.class, () -> SyncManifest.parse(value.toString().getBytes(StandardCharsets.UTF_8)));
     }

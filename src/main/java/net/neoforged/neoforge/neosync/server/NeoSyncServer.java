@@ -185,7 +185,7 @@ public final class NeoSyncServer {
                     if (!dependencyInfo.getSide().isContained(Dist.CLIENT)) continue;
                     var dependency = new JsonObject();
                     dependency.addProperty("id", dependencyInfo.getModId());
-                    dependency.addProperty("versionRange", dependencyInfo.getVersionRange().toString());
+                    dependency.addProperty("versionRange", SyncManifest.versionSpec(dependencyInfo.getVersionRange()));
                     dependency.addProperty("type", dependencyInfo.getType().name().toLowerCase(Locale.ROOT));
                     dependencies.add(dependency);
                 }

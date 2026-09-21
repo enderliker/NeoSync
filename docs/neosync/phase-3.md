@@ -89,3 +89,10 @@ discovery provider, so the verifier permits them while rejecting NeoForge and
 ModLauncher service-provider descriptors. A regression case checks that those
 application descriptors are read as data without instantiating their providers.
 The correction passed the complete 179-test suite and `checkFormatting`.
+
+The first real Clumps server run found that Maven serializes an exact range as
+`[1.21.1,1.21.1]`, which its parser rejects. The server now emits a valid exact
+range (`[1.21.1]`), with round-trip coverage for exact, bounded, union, and
+recommended versions. That initial server boot did not advertise NeoSync and
+does not count as a successful installation acceptance run.
+The serialization correction passed all 184 unit tests and `checkFormatting`.

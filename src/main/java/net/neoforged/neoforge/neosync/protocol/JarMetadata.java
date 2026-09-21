@@ -100,7 +100,7 @@ public final class JarMetadata {
             if (!declared.equals(approved)) throw new IOException("The JAR's mod IDs or versions differ from the reviewed manifest.");
             for (var mod : expected.mods()) {
                 var actual = dependencies(config, mod.id());
-                var reviewed = mod.dependencies().stream().map(dependency -> dependency.id() + "|" + dependency.type() + "|" + dependency.range()).sorted().toList();
+                var reviewed = mod.dependencies().stream().map(dependency -> dependency.id() + "|" + dependency.type() + "|" + SyncManifest.versionSpec(dependency.range())).sorted().toList();
                 if (!actual.equals(reviewed)) throw new IOException("The JAR's client dependencies differ from the reviewed manifest: " + mod.id());
             }
         } catch (RuntimeException e) {
@@ -120,7 +120,7 @@ public final class JarMetadata {
             if (!Set.of("BOTH", "CLIENT", "SERVER").contains(side)) throw new IOException("Unsupported dependency side.");
             String type = string(dependency, "type", "required").toLowerCase(Locale.ROOT);
             if (!Set.of("required", "optional", "incompatible", "discouraged").contains(type)) throw new IOException("Unsupported dependency type.");
-            if (!side.equals("SERVER")) result.add(string(dependency, "modId", "") + "|" + type + "|" + range(string(dependency, "versionRange", "[0,)")));
+            if (!side.equals("SERVER")) result.add(string(dependency, "modId", "") + "|" + type + "|" + SyncManifest.versionSpec(range(string(dependency, "versionRange", "[0,)"))));
         }
         return result.stream().sorted().toList();
     }

@@ -166,6 +166,18 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
         }
     }
 
+    public static String versionSpec(VersionRange range) {
+        if (range.getRecommendedVersion() != null) return range.getRecommendedVersion().toString();
+        return range.getRestrictions().stream().map(restriction -> {
+            var lower = restriction.getLowerBound();
+            var upper = restriction.getUpperBound();
+            // Maven's toString emits [v,v] for an exact range, but its parser only accepts [v].
+            if (lower != null && lower.equals(upper) && restriction.isLowerBoundInclusive() && restriction.isUpperBoundInclusive()) return "[" + lower + "]";
+            return (restriction.isLowerBoundInclusive() ? "[" : "(") + (lower == null ? "" : lower.toString()) + ","
+                    + (upper == null ? "" : upper.toString()) + (restriction.isUpperBoundInclusive() ? "]" : ")");
+        }).collect(java.util.stream.Collectors.joining(","));
+    }
+
     public static String sha256(byte[] bytes) {
         return HexFormat.of().formatHex(sha256Digest().digest(bytes));
     }
