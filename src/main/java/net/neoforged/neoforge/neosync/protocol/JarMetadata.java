@@ -60,9 +60,10 @@ public final class JarMetadata {
                         || (expansion += entry.getSize()) > SyncManifest.MAX_FILE_BYTES)
                     throw new IOException("The JAR exceeds the archive expansion limit.");
                 String lower = name.toLowerCase(Locale.ROOT);
-                if (lower.endsWith(".jar") || lower.startsWith("meta-inf/jarjar/") || lower.startsWith("meta-inf/services/")
+                if (lower.endsWith(".jar") || lower.startsWith("meta-inf/jarjar/")
+                        || lower.startsWith("meta-inf/services/net.neoforged.") || lower.startsWith("meta-inf/services/cpw.mods.")
                         || lower.equals("meta-inf/mods.toml") || lower.equals("fabric.mod.json") || lower.endsWith("neosync-profile.json")) {
-                    throw new IOException("Nested archives, alternative loaders, and service-provider artifacts are not supported by this installation MVP.");
+                    throw new IOException("Nested archives, alternative loaders, and loader service providers are not supported by this installation MVP.");
                 }
                 if (lower.startsWith("meta-inf/") && !entry.isDirectory() && !lower.endsWith(".class")) {
                     if (entry.getSize() > MAX_ENTRY || (metadata += (int) entry.getSize()) > MAX_METADATA) throw new IOException("The JAR exceeds the metadata size limit.");

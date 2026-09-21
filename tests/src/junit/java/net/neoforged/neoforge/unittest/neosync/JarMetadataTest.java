@@ -89,10 +89,16 @@ class JarMetadataTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = { "../../outside", "neosync-profile.json", "META-INF/jarjar/dependency.jar", "META-INF/services/provider", "META-INF/mods.toml", "fabric.mod.json" })
+    @ValueSource(strings = { "../../outside", "neosync-profile.json", "META-INF/jarjar/dependency.jar", "META-INF/services/net.neoforged.neoforgespi.language.IModLanguageLoader", "META-INF/mods.toml", "fabric.mod.json" })
     void rejectsUnsafePathsAndUnsupportedLoadingArrangements(String entry, @TempDir Path directory) throws Exception {
         Path path = jar(directory, TOML, Map.of(entry, new byte[] { 1 }));
         assertThrows(IOException.class, () -> JarMetadata.verify(path, artifact(path), "4.0.44", new DiscoveryCancellation()));
+    }
+
+    @Test
+    void permitsInternalApplicationServicesWithoutLoadingThem(@TempDir Path directory) throws Exception {
+        Path path = jar(directory, TOML, Map.of("META-INF/services/example.InternalService", "example.UnloadedImplementation".getBytes(StandardCharsets.UTF_8)));
+        JarMetadata.verify(path, artifact(path), "4.0.44", new DiscoveryCancellation());
     }
 
     @Test

@@ -23,7 +23,7 @@ the installation UI and full restart/join acceptance check are not available yet
   ranges, and client dependencies with the approved artifact. It checks hashes
   before and after inspection, bounds the central directory before ZIP indexing,
   and bounds metadata expansion and TOML nesting without loading classes.
-  ZIP64, nested JARs, alternate loader metadata, service providers, custom feature
+  ZIP64, nested JARs, alternate loader metadata, loader service providers, custom feature
   requirements, and multi-release archives are explicitly unsupported initially.
 - The profile store now prepares fresh revision directories under a store lock,
   rehashes reusable bytes, uses independent cache copies, and publishes a verified
@@ -82,3 +82,10 @@ renames, injected disk-write failure, stale reviews, competing filesystem locks,
 symlinked roots, marker redirection/traversal, missing markers, cache corruption,
 and extra active files. Disk exhaustion is injected as an I/O failure; a real
 full-volume test and a killed-process recovery probe remain acceptance work.
+
+Inspection of the MIT-licensed Clumps 19.0.0.1 artifact showed ordinary internal
+application service descriptors. These do not introduce a language loader or
+discovery provider, so the verifier permits them while rejecting NeoForge and
+ModLauncher service-provider descriptors. A regression case checks that those
+application descriptors are read as data without instantiating their providers.
+The correction passed the complete 179-test suite and `checkFormatting`.
