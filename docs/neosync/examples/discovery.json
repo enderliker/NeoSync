@@ -1,0 +1,7 @@
+{
+  "protocols": [
+    1
+  ],
+  "httpsPort": 8443,
+  "manifestSha256": "aea744121debd0838d3c4df15c307a485766fbd5b97ef35408fcf8745acaa402"
+}

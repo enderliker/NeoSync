@@ -1,0 +1,24 @@
+--- a/net/minecraft/client/gui/screens/ConnectScreen.java
++++ b/net/minecraft/client/gui/screens/ConnectScreen.java
+@@ -79,8 +_,10 @@
+             p_279200_.prepareForMultiplayer();
+             p_279200_.updateReportEnvironment(ReportEnvironment.thirdParty(p_279481_.ip));
+             p_279200_.quickPlayLog().setWorldData(QuickPlayLog.Type.MULTIPLAYER, p_279481_.ip, p_279481_.name);
+-            p_279200_.setScreen(connectscreen);
+-            connectscreen.connect(p_279200_, p_279150_, p_279481_, p_320013_);
++            net.neoforged.neoforge.neosync.client.NeoSyncClient.begin(p_279200_, p_279473_, p_279150_, () -> {
++                p_279200_.setScreen(connectscreen);
++                connectscreen.connect(p_279200_, p_279150_, p_279481_, p_320013_);
++            });
+         }
+     }
+ 
+@@ -102,6 +_,8 @@
+                     }
+ 
+                     if (optional.isEmpty()) {
++                        ConnectScreen.LOGGER.error("Couldn't connect to server: Unknown host \"{}\"", p_249536_.getHost());
++                        net.neoforged.neoforge.network.DualStackUtils.logInitialPreferences();
+                         p_251955_.execute(
+                             () -> p_251955_.setScreen(
+                                     new DisconnectedScreen(ConnectScreen.this.parent, ConnectScreen.this.connectFailedTitle, ConnectScreen.UNKNOWN_HOST_MESSAGE)

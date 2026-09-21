@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "serverId": "95d92dfd-680a-4a1c-b983-3d7a7fa8b14b",
+  "revision": "example-1",
+  "displayName": "Example NeoSync Server",
+  "minecraftVersion": "1.21.1",
+  "loader": {
+    "id": "neosync",
+    "version": "0.1.0-dev",
+    "neoForgeVersion": "21.1.0"
+  },
+  "files": [
+    {
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "size": 1048576,
+      "fileName": "example-library-1.0.0.jar",
+      "required": true,
+      "mods": [
+        {
+          "id": "example_library",
+          "version": "1.0.0",
+          "displayName": "Example Library",
+          "dependencies": []
+        }
+      ],
+      "sources": [
+        {
+          "type": "external",
+          "url": "https://downloads.example.invalid/example-library-1.0.0.jar",
+          "provider": {
+            "id": "modrinth",
+            "projectId": "exampleproject",
+            "fileId": "exampleversion"
+          }
+        }
+      ]
+    },
+    {
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "size": 2097152,
+      "fileName": "example-content-1.0.0.jar",
+      "required": true,
+      "mods": [
+        {
+          "id": "example_content",
+          "version": "1.0.0",
+          "displayName": "Example Content",
+          "dependencies": [
+            {
+              "id": "example_library",
+              "versionRange": "[1.0.0,2.0.0)",
+              "type": "required"
+            }
+          ]
+        },
+        {
+          "id": "example_companion",
+          "version": "1.0.0",
+          "displayName": "Example Companion",
+          "dependencies": []
+        }
+      ],
+      "sources": [
+        {
+          "type": "external",
+          "url": "https://downloads.example.invalid/example-content-1.0.0.jar"
+        },
+        {"type": "server"}
+      ]
+    },
+    {
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "size": 524288,
+      "fileName": "example-private-content-1.0.0.jar",
+      "required": true,
+      "mods": [
+        {
+          "id": "example_private_content",
+          "version": "1.0.0",
+          "displayName": "Example Private Content",
+          "dependencies": []
+        }
+      ],
+      "sources": [{"type": "server"}]
+    }
+  ]
+}

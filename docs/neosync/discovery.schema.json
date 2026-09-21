@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:neosync:discovery:1",
+  "title": "NeoSync status capability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocols", "httpsPort", "manifestSha256"],
+  "properties": {
+    "protocols": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "uniqueItems": true,
+      "items": {"type": "integer", "minimum": 1, "maximum": 65535}
+    },
+    "httpsPort": {"type": "integer", "minimum": 1, "maximum": 65535},
+    "manifestSha256": {"type": "string", "pattern": "^[0-9a-f]{64}$", "minLength": 64, "maxLength": 64}
+  }
+}
