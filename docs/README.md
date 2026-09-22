@@ -1,36 +1,33 @@
-# NeoSync
+# NeoSync documentation
 
-NeoSync is an open-source project based on NeoForge for Minecraft 1.21.1,
-maintained in a standalone repository with its own Git history. It aims to let
-players review and install the mods required by a compatible server, prepare an
-isolated profile, and restart Minecraft to join.
+[← Project overview](../README.md)
 
-[Phase 2 discovery](neosync/phase-2.md) checks server requirements before gameplay
-login and reports missing or incompatible files. Server configuration is required
-to select its client inventory and expose an HTTPS manifest. Mod downloads,
-profile installation, and restart automation are not available yet.
+NeoSync's installation MVP supports reviewed direct HTTPS downloads, verified
+isolated profiles, and manual activation. The full one-mod flow has passed with
+the repository's launcher harness. Provider resolution, browser-assisted
+downloads, server hosting, and automatic restart remain future work.
 
-See the [Phase 1 design](neosync/phase-1.md) and [AGENTS.md](../AGENTS.md) for the
-roadmap and security requirements.
+## Setup and development
 
-## Contributing
+| Guide | What it covers |
+| --- | --- |
+| [Server setup](neosync/phase-2.md#server-setup) | Client inventory selection, HTTPS certificates, and manifest discovery. |
+| [Installation and activation](neosync/phase-3.md#server-configuration-and-manual-activation) | Direct artifact sources and selecting the prepared game directory. |
+| [Contributing](CONTRIBUTING.md) | JDK 21, Gradle setup, Minecraft patches, validation, and contribution terms. |
+| [Acceptance harness](../tests/neosync/acceptance/README.md) | Reproducing the installed client/server flow and recovery checks. |
+| [Porting](PORTING.md) | Upstream maintenance and integration points for another Minecraft version. |
 
-Use this repository's issues and pull requests. Start with the
-[NeoSync contribution guide](CONTRIBUTING.md) for JDK requirements, setup, the
-Minecraft patch workflow, validation, and contribution terms.
+## Design and validation
 
-[PORTING.md](PORTING.md) covers upstream maintenance and the integration points
-that must be checked when adding support for another Minecraft version.
+| Document | Status and purpose |
+| --- | --- |
+| [Development guide and roadmap](../AGENTS.md) | Accepted product design, security requirements, and phase exit criteria. |
+| [Phase 1](neosync/phase-1.md) | Historical design and source investigation. |
+| [Phase 2](neosync/phase-2.md) | Discovery implementation, setup, and validation evidence. |
+| [Phase 3](neosync/phase-3.md) | Installation implementation, complete one-mod results, and compatibility limits. |
+| [Protocol version 1](neosync/protocol-v1.md) | Manifest, identity, consent, transport, and profile contracts. |
+| [Manual downloads](neosync/manual-downloads.md) | Planned browser handoff for author-restricted downloads; not implemented. |
 
-All project documentation, code, comments, logs, and user-facing messages are
-written in English.
-
-## Upstream and licensing
-
-NeoSync builds on [NeoForge](https://github.com/neoforged/NeoForge). Existing
-package names and development tooling still reflect that origin. Upstream
-[NeoForge documentation](https://docs.neoforged.net/) remains useful for its APIs;
-NeoSync-specific support and proposals belong in this repository.
-
-The project retains the LGPL-2.1-only license and applicable upstream notices.
-See [LICENSE.txt](../LICENSE.txt) and [licensing notes](../README-LICENSE.md).
+All project documentation and user-facing text are written in English.
+NeoSync retains applicable NeoForge attribution and licenses; see the
+[licensing notes](../README-LICENSE.md) and [LICENSE.txt](../LICENSE.txt).
