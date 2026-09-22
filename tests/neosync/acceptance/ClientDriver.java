@@ -139,6 +139,8 @@ public final class ClientDriver {
         } else if (hasButton(screen, "Accept installation")) {
             require(label(call(screen, "getFocused")).equals("No, cancel"), "Installation review defaults to No");
             require(text.contains(settings.getProperty("expectedName", "Clumps")) && text.contains(settings.getProperty("expectedSource", "cdn.modrinth.com")) && text.contains("unverified"), "Review names the exact file and unverified source");
+            if (Boolean.parseBoolean(settings.getProperty("expectProvider", "false")))
+                require(text.contains("modrinth") && text.contains("provider metadata matched") && text.contains("approved SHA-256 and provider hash"), "Review identifies Modrinth and explains the pending independent byte checks");
             if (mode.equals("changed")) {
                 evidence.add("Changed server snapshot requires fresh installation review.");
                 call(screen, "keyPressed", 257, 0, 0);

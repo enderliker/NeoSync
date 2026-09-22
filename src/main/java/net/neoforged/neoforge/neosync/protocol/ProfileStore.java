@@ -163,6 +163,7 @@ public final class ProfileStore {
                         ArtifactHttpClient.download(plan, consent, file, output, token, count -> progress.transfer("Downloading " + artifact.fileName(), base + count, plan.totalBytes()));
                     }
                     progress.update("Verifying " + artifact.fileName(), complete, plan.totalBytes());
+                    if (file.provider() != null) file.provider().verify(output, artifact, token);
                     JarMetadata.verify(output, artifact, javaFmlVersion, token);
                     Path cached = cache.resolve(artifact.sha256() + ".jar");
                     if (!Files.exists(cached, LinkOption.NOFOLLOW_LINKS) || !matches(cached, artifact, token)) {
@@ -315,13 +316,19 @@ public final class ProfileStore {
         var files = SyncJson.array(consent.get("files"), 0, 2048);
         if (files.size() != manifest.files().size()) throw new IOException("The local consent file set changed.");
         for (int i = 0; i < files.size(); i++) {
-            var file = SyncJson.object(files.get(i), Set.of("sha256", "source"), Set.of());
+            var file = SyncJson.object(files.get(i), Set.of("sha256", "source"), Set.of("provider"));
             var artifact = manifest.files().get(i);
             URI source;
             try {
                 source = InstallationPlan.externalSource(URI.create(SyncJson.string(file.get("source"), 2048)));
             } catch (IllegalArgumentException e) {
                 throw new IOException("Invalid local consent source.", e);
+            }
+            if (file.has("provider")) {
+                var provider = net.neoforged.neoforge.neosync.provider.ProviderArtifact.readAudit(
+                        SyncJson.object(file.get("provider"), Set.of("id", "projectId", "fileId", "algorithm", "hash", "manual"), Set.of()), source, artifact);
+                if (!SyncJson.string(file.get("sha256"), 64).equals(artifact.sha256())) throw new IOException("The provider audit file identity changed.");
+                continue;
             }
             URI hostedSource = InstallationPlan.serverSource(profile.identity(), artifact.sha256());
             if (!SyncJson.string(file.get("sha256"), 64).equals(artifact.sha256())
@@ -376,6 +383,7 @@ public final class ProfileStore {
             var entry = new JsonObject();
             entry.addProperty("sha256", file.artifact().sha256());
             entry.addProperty("source", file.source().toString());
+            if (file.provider() != null) entry.add("provider", file.provider().audit());
             files.add(entry);
         }
         object.add("files", files);

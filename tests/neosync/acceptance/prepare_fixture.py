@@ -18,7 +18,9 @@ URL = "https://cdn.modrinth.com/data/Wnxd13zP/versions/jo7lDoK4/Clumps-neoforge-
 SHA256 = "b524ccdace2ef8fd19f5b2074f7de1103ac5065c52553f064c00e098346c293e"
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--hosting", action="store_true", help="Generate a unique mod solely for this local server; never download a third-party fixture")
+choices = parser.add_mutually_exclusive_group()
+choices.add_argument("--providers", action="store_true", help="Resolve the exact Clumps bytes through live Modrinth metadata")
+choices.add_argument("--hosting", action="store_true", help="Generate a unique mod solely for this local server; never download a third-party fixture")
 parser.add_argument("--root", required=True, type=Path)
 parser.add_argument("--jdk", required=True, type=Path)
 parser.add_argument("--server", required=True, type=Path, help="Disposable installed production server")
@@ -76,6 +78,9 @@ else:
     (server / "mods" / filename).write_bytes(artifact)
     selection = {"fileName": filename, "sources": [{"type": "external", "url": URL}]}
     mod_id, display_name, expected_source, phase = "clumps", "Clumps", "cdn.modrinth.com", "Phase 3"
+    if args.providers:
+        selection = {"fileName": filename, "resolveProviders": True}
+        phase = "Phase 5"
 (server / "config/neosync-server.json").write_text(json.dumps({
     "enabled": True, "displayName": f"NeoSync {phase} Acceptance", "mode": "https",
     "bindAddress": "127.0.0.1", "port": 8443, "httpsPort": 8443,
@@ -85,5 +90,5 @@ else:
 }, indent=2) + "\n")
 (server / "server.properties").write_text("server-ip=127.0.0.1\nserver-port=25575\nonline-mode=false\nenable-status=true\nview-distance=2\nsimulation-distance=2\nlevel-name=neosync-acceptance-world\n")
 for mode in ("install", "resume", "original", "changed", "crash", "space"):
-    (root / f"{mode}.properties").write_text(f"mode={mode}\nserver=127.0.0.1:25575\nreport={root}/{mode}-report.txt\nprepared={root}/prepared.txt\nreferenceGame={root}/original\nexpectedModId={mod_id}\nexpectedName={display_name}\nexpectedSource={expected_source}\n")
+    (root / f"{mode}.properties").write_text(f"mode={mode}\nserver=127.0.0.1:25575\nreport={root}/{mode}-report.txt\nprepared={root}/prepared.txt\nreferenceGame={root}/original\nexpectedModId={mod_id}\nexpectedName={display_name}\nexpectedSource={expected_source}\nexpectProvider={str(args.providers).lower()}\n")
 print(f"Fixture ready at {root}. Start the loopback server, then run the graphical client driver.")

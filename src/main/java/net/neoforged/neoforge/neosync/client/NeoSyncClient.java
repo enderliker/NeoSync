@@ -171,7 +171,8 @@ public final class NeoSyncClient {
                 if (ready) return new Review(report, true, store, null, Map.of(), null, null);
                 var available = store.reusable(manifest, localFiles, token);
                 try {
-                    var plan = InstallationPlan.create(endpoint, bytes, available.keySet(), pending == null ? null : pending.manifest(), SyncManifest.NEOSYNC_VERSION, NeoForgeVersion.getVersion(), approvedAddress);
+                    var resolvedSources = new net.neoforged.neoforge.neosync.provider.SourceResolver(new net.neoforged.neoforge.neosync.provider.ProviderHttpClient()).resolve(manifest, token);
+                    var plan = InstallationPlan.create(endpoint, bytes, available.keySet(), pending == null ? null : pending.manifest(), SyncManifest.NEOSYNC_VERSION, NeoForgeVersion.getVersion(), approvedAddress, resolvedSources);
                     return new Review(report, false, store, plan, available, null, null);
                 } catch (IOException e) {
                     return new Review(report, false, store, null, Map.of(), null, e.getMessage());

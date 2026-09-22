@@ -188,8 +188,26 @@ public final class NeoSyncServer {
         var names = new HashSet<String>();
         var cancellation = new DiscoveryCancellation();
         long total = 0;
-        for (var entry : SyncJson.array(config.get("files"), 0, 2048)) {
-            var selection = SyncJson.object(entry, Set.of("fileName", "sources"), Set.of("hosting"));
+        var selections = SyncJson.array(config.get("files"), 0, 2048);
+        var automatic = new HashMap<Path, ArtifactFiles.Fingerprint>();
+        for (var entry : selections) {
+            var selection = SyncJson.object(entry, Set.of("fileName"), Set.of("sources", "hosting", "resolveProviders"));
+            if (selection.has("resolveProviders")) {
+                if (!SyncJson.bool(selection.get("resolveProviders")) || selection.has("sources") || selection.has("hosting"))
+                    throw new IOException("Automatic provider resolution cannot be combined with configured or hosted sources.");
+                Path path = modsDirectory.resolve(SyncJson.matching(selection.get("fileName"), 128, SyncManifest.FILE_PATTERN));
+                if (!loadedFiles.containsKey(path)) throw new IOException("A selected provider file is not in the loaded server inventory.");
+                automatic.put(path, ArtifactFiles.fingerprint(path, cancellation));
+            } else SyncManifest.parseSources(selection.get("sources"));
+        }
+        var resolved = net.neoforged.neoforge.neosync.provider.AutomaticSources.resolve(automatic,
+                new net.neoforged.neoforge.neosync.provider.ProviderHttpClient(), cancellation);
+        for (var entry : selections) {
+            var selection = entry.getAsJsonObject().deepCopy();
+            if (selection.has("resolveProviders")) {
+                selection.remove("resolveProviders");
+                selection.add("sources", net.neoforged.neoforge.neosync.provider.AutomaticSources.sources(resolved.get(modsDirectory.resolve(selection.get("fileName").getAsString()))));
+            }
             String fileName = SyncJson.matching(selection.get("fileName"), 128, SyncManifest.FILE_PATTERN);
             if (!names.add(fileName)) throw new IOException("Duplicate selected client file.");
             SyncManifest.parseSources(selection.get("sources"));
@@ -197,6 +215,7 @@ public final class NeoSyncServer {
             var info = loadedFiles.get(path);
             if (info == null) throw new IOException("A selected client file is not in the loaded server inventory: " + fileName);
             var fingerprint = ArtifactFiles.fingerprint(path, cancellation);
+            if (automatic.containsKey(path) && !automatic.get(path).equals(fingerprint)) throw new IOException("The selected file changed after provider resolution.");
             if (policy.validateSelection(selection, fingerprint.sha256())) {
                 if (inventory == null) throw new IOException("Server artifact hosting is disabled.");
                 inventory.add(path, fingerprint, cancellation);

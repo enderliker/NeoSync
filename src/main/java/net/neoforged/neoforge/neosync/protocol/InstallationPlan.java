@@ -16,6 +16,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import net.neoforged.neoforge.neosync.provider.ProviderArtifact;
 import org.jetbrains.annotations.Nullable;
 
 /** An immutable, validated review snapshot. Creating a plan performs no writes or artifact requests. */
@@ -44,7 +45,11 @@ public final class InstallationPlan {
 
     public record Identity(String host, int gamePort, URI origin, UUID serverId) {}
 
-    public record File(SyncManifest.Artifact artifact, URI source, boolean available, boolean providedByServer) {}
+    public record File(SyncManifest.Artifact artifact, URI source, boolean available, boolean providedByServer, @Nullable ProviderArtifact provider) {
+        public File(SyncManifest.Artifact artifact, URI source, boolean available, boolean providedByServer) {
+            this(artifact, source, available, providedByServer, null);
+        }
+    }
 
     public static InstallationPlan create(SyncEndpoint endpoint, byte[] bytes, Set<String> verifiedAvailable,
             @Nullable SyncManifest previous, String loaderVersion, String neoForgeVersion) throws IOException {
@@ -54,6 +59,13 @@ public final class InstallationPlan {
     /** The address must be the destination approved for and used by manifest discovery in this review. Never restore it from disk. */
     public static InstallationPlan create(SyncEndpoint endpoint, byte[] bytes, Set<String> verifiedAvailable,
             @Nullable SyncManifest previous, String loaderVersion, String neoForgeVersion, @Nullable InetAddress approvedAddress) throws IOException {
+        return create(endpoint, bytes, verifiedAvailable, previous, loaderVersion, neoForgeVersion, approvedAddress, Map.of());
+    }
+
+    public static InstallationPlan create(SyncEndpoint endpoint, byte[] bytes, Set<String> verifiedAvailable,
+            @Nullable SyncManifest previous, String loaderVersion, String neoForgeVersion, @Nullable InetAddress approvedAddress,
+            Map<String, ProviderArtifact> resolved) throws IOException {
+        resolved = Map.copyOf(resolved);
         if (approvedAddress != null && !SyncEndpoint.isPublic(approvedAddress) && !SyncEndpoint.isLocal(approvedAddress))
             throw new IOException("The approved server address is blocked by the network destination policy.");
         bytes = bytes.clone();
@@ -70,7 +82,13 @@ public final class InstallationPlan {
             var source = artifact.sources().stream().filter(candidate -> candidate.type().equals("external")).findFirst().orElse(artifact.sources().getFirst());
             boolean hosted = source.type().equals("server");
             URI url = hosted ? serverSource(identity, artifact.sha256()) : externalSource(source.url());
-            files.add(new File(artifact, url, verifiedAvailable.contains(artifact.sha256()), hosted));
+            var provider = resolved.get(artifact.sha256());
+            if (provider != null) {
+                provider.require(artifact);
+                if (hosted) throw new IOException("Hosted files cannot be substituted with provider files.");
+                url = provider.source();
+            }
+            files.add(new File(artifact, url, verifiedAvailable.contains(artifact.sha256()), hosted, provider));
         }
         var changes = new ArrayList<String>();
         Map<String, String> oldMods = previous == null ? Map.of()
@@ -179,6 +197,8 @@ public final class InstallationPlan {
     }
 
     private String sourceDescription(File file) {
+        if (file.provider() != null) return file.provider().identity().id() + " — " + file.source()
+                + " (unverified source; provider metadata matched; exact bytes will be checked against the approved SHA-256 and provider hash; not a safety guarantee)";
         return file.providedByServer() ? "Provided by the server " + manifest.displayName() + " (" + identity.host() + ":" + identity.gamePort()
                 + ") via " + identity.origin() + " (unverified source)" : file.source() + " (unverified source)";
     }

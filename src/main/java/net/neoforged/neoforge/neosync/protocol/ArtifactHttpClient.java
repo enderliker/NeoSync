@@ -60,6 +60,9 @@ public final class ArtifactHttpClient {
         consent.require(plan);
         if (!plan.files().contains(file)) throw new IOException("The artifact was not included in the installation review.");
         cancellation.check();
+        if (file.provider() == null && file.artifact().sources().stream().anyMatch(source -> source.provider() != null))
+            throw new IOException("Provider metadata must be resolved and reviewed before downloading this file.");
+        if (file.provider() != null && file.provider().manual()) throw new IOException("This reviewed file requires a browser download and local import.");
         if (!STREAMS.tryAcquire()) throw new IOException("NeoSync downloads are busy. Try again shortly.");
         try {
             URI current = file.source();
@@ -86,7 +89,18 @@ public final class ArtifactHttpClient {
                 } catch (java.security.NoSuchAlgorithmException e) {
                     throw new IOException("The system TLS configuration is unavailable.", e);
                 }
-                if (redirect == null) return;
+                if (redirect == null) {
+                    if (file.provider() != null) {
+                        try {
+                            file.provider().verify(target, file.artifact(), cancellation);
+                        } catch (IOException e) {
+                            Files.deleteIfExists(target);
+                            throw e;
+                        }
+                    }
+                    return;
+                }
+                if (file.provider() != null) throw new IOException("Provider artifact endpoints must not redirect. Review a new source before downloading.");
                 if (file.providedByServer()) throw new IOException("Server artifact endpoints must not redirect. No alternative source was downloaded.");
                 if (redirects == 3) throw new IOException("The artifact source exceeded the redirect limit.");
                 redirect = InstallationPlan.externalSource(redirect);
