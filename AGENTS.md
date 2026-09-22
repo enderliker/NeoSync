@@ -320,6 +320,35 @@ coverage before release.
 
 ## Working practices
 
+### Releases
+
+- Name release tags and titles `NeoSync-<neosync-version>-neoforge-<base-version>`,
+  for example `NeoSync-0.1.0-alpha.1-neoforge-21.1.251`. Use the same prefix for
+  downloadable assets, followed by `-installer.jar`, `-universal.jar`, or
+  `-sources.jar`. Keep the Minecraft version explicit in release notes.
+- Version NeoSync independently of its NeoForge base and synchronization protocol.
+  Keep `neosync_version` in `gradle.properties` and the runtime NeoSync identifier
+  aligned. Alpha, beta, and release-candidate versions must be GitHub prereleases.
+  A successful MVP acceptance flow is not a stable-release compatibility claim.
+- Use one installer for both the client and dedicated server, as NeoForge does.
+  Bundle NeoSync's own universal JAR and binary patches; never distribute
+  generated Minecraft game JARs, installed game directories, test mods, worlds,
+  accounts, certificates, or credentials as release assets.
+- Give launcher profiles and installed fork artifacts unique versioned paths.
+  Preserve the base NeoForge version presented to mod dependency checks. FML's
+  inherited local Maven layout may be retained for compatibility, but do not
+  upload modified artifacts to upstream Maven coordinates or fall back to an
+  upstream universal JAR when installing NeoSync.
+- Before publishing, validate the exact installer on both client and server,
+  run relevant tests and formatting checks, inspect asset contents, and provide
+  SHA-256 checksums and the source commit. State which operating systems,
+  launchers, and gameplay flows were actually tested, and any concrete limits.
+- Publish from a pushed commit and an immutable tag. Never replace released
+  binaries or move a published tag; issue a new NeoSync version for corrections.
+  See the [release guide](docs/neosync/releases.md) for packaging and publication.
+
+### Contributions
+
 - Follow [NeoSync's contribution guide](docs/CONTRIBUTING.md) for this fork's
   development workflow and contribution terms. Preserve inherited licenses and
   ownership notices; upstream CLA and Discord requirements are not prerequisites

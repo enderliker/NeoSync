@@ -41,6 +41,9 @@ public abstract class CreateLauncherProfile extends DefaultTask {
     public abstract Property<String> getNeoForgeVersion();
 
     @Input
+    public abstract Property<String> getVersionId();
+
+    @Input
     public abstract Property<String> getRawNeoFormVersion();
 
     @Nested
@@ -100,7 +103,7 @@ public abstract class CreateLauncherProfile extends DefaultTask {
         arguments.put("jvm", jvmArguments);
 
         var profile = new LauncherProfile(
-                "neoforge-%s".formatted(getNeoForgeVersion().get()),
+                getVersionId().get(),
                 time,
                 time,
                 "release",
@@ -127,4 +130,3 @@ record LauncherProfile(
         String inheritsFrom,
         Map<String, List<String>> arguments,
         List<Library> libraries) {}
-

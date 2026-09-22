@@ -43,6 +43,9 @@ public abstract class CreateInstallerProfile extends DefaultTask {
     public abstract Property<String> getNeoForgeVersion();
 
     @Input
+    public abstract Property<String> getVersionId();
+
+    @Input
     public abstract Property<String> getMcAndNeoFormVersion();
 
     @InputFile
@@ -169,9 +172,8 @@ public abstract class CreateInstallerProfile extends DefaultTask {
                 new LibraryDownload(new LibraryArtifact(
                         LibraryCollector.sha1Hash(universalJar),
                         Files.size(universalJar),
-                        "https://maven.neoforged.net/releases/net/neoforged/neoforge/%s/neoforge-%s-universal.jar".formatted(
-                                getNeoForgeVersion().get(),
-                                getNeoForgeVersion().get()),
+                        "https://github.com/enderliker/NeoSync/releases/download/%s/%s-universal.jar".formatted(
+                                getVersionId().get(), getVersionId().get()),
                         "net/neoforged/neoforge/%s/neoforge-%s-universal.jar".formatted(
                                 getNeoForgeVersion().get(),
                                 getNeoForgeVersion().get())
@@ -179,14 +181,14 @@ public abstract class CreateInstallerProfile extends DefaultTask {
 
         var profile = new InstallerProfile(
                 1,
-                "NeoForge",
-                "neoforge-%s".formatted(getNeoForgeVersion().get()),
+                "NeoSync",
+                getVersionId().get(),
                 icon,
                 getMinecraftVersion().get(),
                 "/version.json",
                 "/big_logo.png",
-                "Welcome to the simple NeoForge installer",
-                "https://mirrors.neoforged.net",
+                "NeoSync installer — client and dedicated server",
+                null,
                 true,
                 data,
                 processors,

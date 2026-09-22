@@ -11,6 +11,7 @@ downloads, server hosting, and automatic restart remain future work.
 
 | Guide | What it covers |
 | --- | --- |
+| [Releases and installation](neosync/releases.md) | Choosing the installer, client/server setup, version naming, and release validation. |
 | [Server setup](neosync/phase-2.md#server-setup) | Client inventory selection, HTTPS certificates, and manifest discovery. |
 | [Installation and activation](neosync/phase-3.md#server-configuration-and-manual-activation) | Direct artifact sources and selecting the prepared game directory. |
 | [Contributing](CONTRIBUTING.md) | JDK 21, Gradle setup, Minecraft patches, validation, and contribution terms. |

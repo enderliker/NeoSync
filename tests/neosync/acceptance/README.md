@@ -21,11 +21,11 @@ on game port 25575 and HTTPS port 8443. Use only a disposable server directory;
 the script replaces its test configuration. Accept Minecraft's EULA in that
 test server before starting it if it has not already been accepted.
 
-From the installed server directory, run:
+With Java 21 on `PATH`, run the generated script from the installed server
+directory. It selects the library path for that exact NeoSync release:
 
 ```sh
-NEOSYNC_FIXTURE_PASSWORD=fixture-password "$JAVA_HOME/bin/java" -Xmx1G \
-  @libraries/net/neoforged/neoforge/21.1.251/unix_args.txt nogui
+NEOSYNC_FIXTURE_PASSWORD=fixture-password ./run.sh nogui
 ```
 
 Require a positive `NeoSync discovery enabled for 1 client artifacts` log before

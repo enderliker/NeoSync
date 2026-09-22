@@ -59,6 +59,12 @@ public class NeoDevPlugin implements Plugin<Project> {
         var fmlVersion = project.getProviders().gradleProperty("fancy_mod_loader_version");
         var minecraftVersion = project.getProviders().gradleProperty("minecraft_version");
         var neoForgeVersion = project.provider(() -> project.getVersion().toString());
+        var neoSyncVersion = project.getProviders().gradleProperty("neosync_version");
+        // FML 4 hard-codes the local net.neoforged:neoforge layout. A unique version
+        // isolates our embedded files without changing the mod-facing compatibility version.
+        var installationVersion = neoForgeVersion.zip(neoSyncVersion, (nf, ns) -> nf + "-neosync-" + ns);
+        var releaseVersion = neoSyncVersion.zip(neoForgeVersion, (ns, nf) -> ns + "-neoforge-" + nf);
+        var versionId = releaseVersion.map(v -> "NeoSync-" + v);
         var mcAndNeoFormVersion = minecraftVersion.zip(rawNeoFormVersion, (mc, nf) -> mc + "-" + nf);
 
         var extension = project.getExtensions().create(NeoDevExtension.NAME, NeoDevExtension.class);
@@ -226,6 +232,8 @@ public class NeoDevPlugin implements Plugin<Project> {
         // TODO: signing?
         var universalJar = tasks.register("universalJar", Jar.class, task -> {
             task.setGroup(INTERNAL_GROUP);
+            task.getArchiveBaseName().set("NeoSync");
+            task.getArchiveVersion().set(releaseVersion);
             task.getArchiveClassifier().set("universal");
 
             task.from(project.zipTree(
@@ -235,7 +243,8 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.exclude("mcp/**");
 
             task.manifest(manifest -> {
-                manifest.attributes(Map.of("FML-System-Mods", "neoforge"));
+                manifest.attributes(Map.of("FML-System-Mods", "neoforge", "NeoSync-Version", neoSyncVersion.get(),
+                        "NeoForge-Base-Version", neoForgeVersion.get()));
                 // These attributes are used from NeoForgeVersion.java to find the NF version without command line arguments.
                 manifest.attributes(
                         Map.of(
@@ -276,7 +285,8 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.setGroup(INTERNAL_GROUP);
             task.getFmlVersion().set(fmlVersion);
             task.getMinecraftVersion().set(minecraftVersion);
-            task.getNeoForgeVersion().set(neoForgeVersion);
+            task.getNeoForgeVersion().set(installationVersion);
+            task.getVersionId().set(versionId);
             task.getRawNeoFormVersion().set(rawNeoFormVersion);
             task.setLibraries(configurations.launcherProfileClasspath);
             task.getRepositoryURLs().set(installerRepositoryUrls);
@@ -290,9 +300,10 @@ public class NeoDevPlugin implements Plugin<Project> {
         var createInstallerProfile = tasks.register("createInstallerProfile", CreateInstallerProfile.class, task -> {
             task.setGroup(INTERNAL_GROUP);
             task.getMinecraftVersion().set(minecraftVersion);
-            task.getNeoForgeVersion().set(neoForgeVersion);
+            task.getNeoForgeVersion().set(installationVersion);
+            task.getVersionId().set(versionId);
             task.getMcAndNeoFormVersion().set(mcAndNeoFormVersion);
-            task.getIcon().set(project.getRootProject().file("docs/assets/neoforged.ico"));
+            task.getIcon().set(project.getRootProject().file("docs/assets/neosync-icon.png"));
             // Anything that is on the launcher classpath should be downloaded by the installer.
             // (At least on the server side).
             task.addLibraries(configurations.launcherProfileClasspath);
@@ -328,7 +339,7 @@ public class NeoDevPlugin implements Plugin<Project> {
                 task.getTemplate().set(project.getRootProject().file("server_files/args.txt"));
                 task.getFmlVersion().set(fmlVersion);
                 task.getMinecraftVersion().set(minecraftVersion);
-                task.getNeoForgeVersion().set(neoForgeVersion);
+                task.getNeoForgeVersion().set(installationVersion);
                 task.getRawNeoFormVersion().set(rawNeoFormVersion);
                 // In theory, new BootstrapLauncher shouldn't need the module path in the ignore list anymore.
                 // However, in server installs libraries are passed as relative paths here.
@@ -347,6 +358,8 @@ public class NeoDevPlugin implements Plugin<Project> {
         // - The manifest must be the first entry in the jar so LegacyInstaller has to be the first input.
         var installerJar = tasks.register("installerJar", Zip.class, task -> {
             task.setGroup(INTERNAL_GROUP);
+            task.getArchiveBaseName().set("NeoSync");
+            task.getArchiveVersion().set(releaseVersion);
             task.getArchiveClassifier().set("installer");
             task.getArchiveExtension().set("jar");
             task.setMetadataCharset("UTF-8");
@@ -362,7 +375,7 @@ public class NeoDevPlugin implements Plugin<Project> {
                 spec.rename(s -> "install_profile.json");
             });
             task.from(project.getRootProject().file("src/main/resources/url.png"));
-            task.from(project.getRootProject().file("src/main/resources/neoforged_logo.png"), spec -> {
+            task.from(project.getRootProject().file("docs/assets/neosync-installer.png"), spec -> {
                 spec.rename(s -> "big_logo.png");
             });
             task.from(createUnixServerArgsFile.flatMap(CreateArgsFile::getArgsFile), spec -> {
@@ -381,7 +394,7 @@ public class NeoDevPlugin implements Plugin<Project> {
                 spec.into("data");
                 spec.rename(s -> "server.lzma");
             });
-            var mavenPath = neoForgeVersion.map(v -> "net/neoforged/neoforge/" + v);
+            var mavenPath = installationVersion.map(v -> "net/neoforged/neoforge/" + v);
             task.getInputs().property("mavenPath", mavenPath);
             task.from(project.getRootProject().files("server_files"), spec -> {
                 spec.into("data");
@@ -391,14 +404,12 @@ public class NeoDevPlugin implements Plugin<Project> {
                 });
             });
 
-            // This is true by default (see gradle.properties), and needs to be disabled explicitly when building (see release.yml).
-            String installerDebugProperty = "neogradle.runtime.platform.installer.debug";
-            if (project.getProperties().containsKey(installerDebugProperty) && Boolean.parseBoolean(project.getProperties().get(installerDebugProperty).toString())) {
-                task.from(universalJar.flatMap(AbstractArchiveTask::getArchiveFile), spec -> {
-                    spec.into(String.format("/maven/net/neoforged/neoforge/%s/", neoForgeVersion.get()));
-                    spec.rename(name -> String.format("neoforge-%s-universal.jar", neoForgeVersion.get()));
-                });
-            }
+            // Every NeoSync installer carries its own runtime; there is no upstream
+            // Maven fallback for these fork-specific bytes.
+            task.from(universalJar.flatMap(AbstractArchiveTask::getArchiveFile), spec -> {
+                spec.into(mavenPath.map(path -> "maven/" + path));
+                spec.rename(name -> "neoforge-" + installationVersion.get() + "-universal.jar");
+            });
         });
 
         var userdevJar = tasks.register("userdevJar", Jar.class, task -> {
@@ -422,6 +433,8 @@ public class NeoDevPlugin implements Plugin<Project> {
         project.getExtensions().getByType(JavaPluginExtension.class).withSourcesJar();
         var sourcesJarProvider = project.getTasks().named("sourcesJar", Jar.class);
         sourcesJarProvider.configure(task -> {
+            task.getArchiveBaseName().set("NeoSync");
+            task.getArchiveVersion().set(releaseVersion);
             task.exclude("net/minecraft/**");
             task.exclude("com/**");
             task.exclude("mcp/**");
@@ -441,7 +454,7 @@ public class NeoDevPlugin implements Plugin<Project> {
                 downloadAssets,
                 installerJar,
                 minecraftVersion,
-                neoForgeVersion,
+                versionId,
                 createCleanArtifacts.flatMap(CreateCleanArtifacts::getRawClientJar)
         );
         setupProductionServerTest(project, installerJar);
@@ -608,7 +621,7 @@ public class NeoDevPlugin implements Plugin<Project> {
                                       TaskProvider<? extends DownloadAssets> downloadAssets,
                                       TaskProvider<? extends AbstractArchiveTask> installer,
                                       Provider<String> minecraftVersion,
-                                           Provider<String> neoForgeVersion,
+                                           Provider<String> versionId,
                                            Provider<RegularFile> originalClientJar
     ) {
 
@@ -626,7 +639,7 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getLibraryFiles().addAll(IdentifiedFile.listFromConfiguration(project, configurations.launcherProfileClasspath));
             task.getAssetPropertiesFile().set(downloadAssets.flatMap(DownloadAssets::getAssetPropertiesFile));
             task.getMinecraftVersion().set(minecraftVersion);
-            task.getNeoForgeVersion().set(neoForgeVersion);
+            task.getVersionId().set(versionId);
             task.getInstallationDir().set(installClient.flatMap(InstallProductionClient::getInstallationDir));
             task.getOriginalClientJar().set(originalClientJar);
         };

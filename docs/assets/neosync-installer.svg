@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="120" viewBox="0 0 480 120">
+  <title>NeoSync installer</title>
+  <rect width="480" height="120" fill="#171b2b"/>
+  <path d="M30 91V27h16l32 40V27h16v64H78L46 51v40Z" fill="#9b8afb"/>
+  <path d="M78 27h16v24H78Z" fill="#72dfb0"/>
+  <text x="124" y="61" font-family="DejaVu Sans, sans-serif" font-weight="bold" font-size="40" fill="#f5f4ff">NeoSync</text>
+  <text x="126" y="88" font-family="DejaVu Sans, sans-serif" font-size="17" fill="#c1c6dc">Review. Prepare. Join.</text>
+</svg>
