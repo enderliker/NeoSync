@@ -11,23 +11,35 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.security.KeyStore;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.TrustManagerFactory;
+import net.neoforged.neoforge.neosync.protocol.ArtifactFiles;
 import net.neoforged.neoforge.neosync.protocol.ArtifactHttpClient;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
+import net.neoforged.neoforge.neosync.protocol.InstallationPlan;
+import net.neoforged.neoforge.neosync.protocol.ProfileStore;
+import net.neoforged.neoforge.neosync.protocol.SyncCapability;
+import net.neoforged.neoforge.neosync.protocol.SyncEndpoint;
 import net.neoforged.neoforge.neosync.protocol.SyncManifest;
+import net.neoforged.neoforge.neosync.server.HostedInventory;
+import net.neoforged.neoforge.neosync.server.HostingPolicy;
+import net.neoforged.neoforge.neosync.server.ManifestService;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
@@ -188,6 +200,82 @@ class ArtifactHttpClientTest {
         assertFalse(Files.exists(target));
     }
 
+    @Test
+    void downloadsHostedProfileOverTlsAndPreservesItOnFailedReplacement(@TempDir Path directory) throws Exception {
+        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
+        var fingerprint = ArtifactFiles.fingerprint(jar, new DiscoveryCancellation());
+        var root = JsonParser.parseString(new String(SyncProtocolTest.manifest(), StandardCharsets.UTF_8)).getAsJsonObject();
+        var file = root.getAsJsonArray("files").get(0).getAsJsonObject();
+        file.addProperty("sha256", fingerprint.sha256());
+        file.addProperty("size", fingerprint.size());
+        byte[] bytes = root.toString().getBytes(StandardCharsets.UTF_8);
+        var endpoint = SyncEndpoint.create("localhost", 25575, new SyncCapability(8443, SyncManifest.sha256(bytes)));
+        var plan = InstallationPlan.create(endpoint, bytes, Set.of(), null, "0.1.0-dev", "21.1.251", InetAddress.getLoopbackAddress());
+        var store = ProfileStore.open(Files.createDirectory(directory.resolve("game")));
+        var originalTls = SSLContext.getDefault();
+        SSLContext.setDefault(clientTls);
+        try (var inventory = new HostedInventory(directory.resolve("hosting"), 1024 * 1024)) {
+            inventory.add(jar, fingerprint, new DiscoveryCancellation());
+            var files = inventory.seal();
+            try (var service = new ManifestService(new InetSocketAddress(InetAddress.getLoopbackAddress(), 8443), serverTls, endpoint.manifestUri().getPath(), bytes,
+                    "/.well-known/neosync/v1/servers/25575/files/", files, new HostingPolicy(true, 1024 * 1024, 8, 65536, 120))) {
+                var prepared = store.prepare(plan, plan.accept(true, true), Map.of(), "4.0.44", new DiscoveryCancellation(), (action, count, total) -> {});
+                var active = ProfileStore.open(prepared.gameDirectory());
+                active.verify(prepared, "4.0.44", new DiscoveryCancellation());
+                assertEquals(prepared, active.active().orElseThrow());
+                assertTrue(Files.notExists(directory.resolve("game/mods")));
+                var next = InstallationPlan.create(endpoint, bytes, Set.of(), plan.manifest(), "0.1.0-dev", "21.1.251", InetAddress.getLoopbackAddress());
+                byte[] corrupt = Files.readAllBytes(jar);
+                corrupt[0] ^= 1;
+                Files.write(files.get(fingerprint.sha256()).path(), corrupt);
+                assertThrows(IOException.class, () -> store.prepare(next, next.accept(true, true), Map.of(), "4.0.44", new DiscoveryCancellation(), (action, count, total) -> {}));
+                assertEquals(prepared, store.prepared(plan.identity()).orElseThrow());
+                store.verify(prepared, "4.0.44", new DiscoveryCancellation());
+                Files.write(files.get(fingerprint.sha256()).path(), Files.readAllBytes(jar));
+                var cancellation = new DiscoveryCancellation();
+                assertThrows(IOException.class, () -> store.prepare(next, next.accept(true, true), Map.of(), "4.0.44", cancellation,
+                        (action, count, total) -> {
+                            if (action.startsWith("Downloading")) cancellation.close();
+                        }));
+                assertEquals(prepared, store.prepared(plan.identity()).orElseThrow());
+                try (var staging = Files.list(store.root().resolve("staging"))) {
+                    assertEquals(0, staging.count());
+                }
+                var consentPath = prepared.gameDirectory().getParent().resolve("consent.json");
+                String record = Files.readString(consentPath);
+                Files.writeString(consentPath, record.replace("/servers/25575/files/", "/servers/25576/files/"));
+                assertThrows(IOException.class, () -> ProfileStore.open(prepared.gameDirectory()));
+            }
+        } finally {
+            SSLContext.setDefault(originalTls);
+        }
+    }
+
+    @Test
+    void hostedApprovalNeverAuthorizesRedirectsOrExternalLanSources(@TempDir Path directory) throws Exception {
+        byte[] bytes = SyncProtocolTest.manifest();
+        var endpoint = SyncEndpoint.create("localhost", 25575, new SyncCapability(8443, SyncManifest.sha256(bytes)));
+        var unapproved = InstallationPlan.create(endpoint, bytes, Set.of(), null, "0.1.0-dev", "21.1.251");
+        Path target = directory.resolve("partial.jar");
+        assertThrows(IOException.class, () -> ArtifactHttpClient.download(unapproved, unapproved.accept(true, true), unapproved.files().getFirst(), target, new DiscoveryCancellation(), count -> {}));
+        var plan = InstallationPlan.create(endpoint, bytes, Set.of(), null, "0.1.0-dev", "21.1.251", InetAddress.getLoopbackAddress());
+        var originalTls = SSLContext.getDefault();
+        SSLContext.setDefault(clientTls);
+        try (var fixture = new Fixture("HTTP/1.1 302 Found\r\nLocation: /other-file\r\nContent-Length: 0\r\n\r\n", false, 8443)) {
+            var failure = assertThrows(IOException.class, () -> ArtifactHttpClient.download(plan, plan.accept(true, true), plan.files().getFirst(), target, new DiscoveryCancellation(), count -> {}));
+            assertTrue(failure.getMessage().contains("must not redirect"));
+            fixture.served.get(5, TimeUnit.SECONDS);
+            assertFalse(Files.exists(target));
+        } finally {
+            SSLContext.setDefault(originalTls);
+        }
+        byte[] external = new String(InstallationPlanTest.manifest(), StandardCharsets.UTF_8).replace("example.org", "localhost").getBytes(StandardCharsets.UTF_8);
+        var externalEndpoint = SyncEndpoint.create("localhost", 25575, new SyncCapability(8443, SyncManifest.sha256(external)));
+        var externalPlan = InstallationPlan.create(externalEndpoint, external, Set.of(), null, "0.1.0-dev", "21.1.251", InetAddress.getLoopbackAddress());
+        assertThrows(IOException.class, () -> ArtifactHttpClient.download(externalPlan, externalPlan.accept(true, true), externalPlan.files().getFirst(), target, new DiscoveryCancellation(), count -> {}));
+        assertFalse(Files.exists(target));
+    }
+
     private static final class Fixture implements AutoCloseable {
         final SSLServerSocket listener;
         final CompletableFuture<Void> served;
@@ -197,7 +285,11 @@ class ArtifactHttpClientTest {
         }
 
         Fixture(String response, boolean stall) throws IOException {
-            listener = (SSLServerSocket) serverTls.getServerSocketFactory().createServerSocket(0, 1, InetAddress.getLoopbackAddress());
+            this(response, stall, 0);
+        }
+
+        Fixture(String response, boolean stall, int port) throws IOException {
+            listener = (SSLServerSocket) serverTls.getServerSocketFactory().createServerSocket(port, 1, InetAddress.getLoopbackAddress());
             served = CompletableFuture.runAsync(() -> {
                 try (var socket = listener.accept()) {
                     socket.setSoTimeout(stall ? 35000 : 5000);

@@ -67,10 +67,17 @@ public final class ArtifactHttpClient {
             for (int redirects = 0;; redirects++) {
                 current = InstallationPlan.externalSource(current);
                 cancellation.check();
-                InetAddress[] addresses = InetAddress.getAllByName(SyncEndpoint.normalizeHost(current.getHost()));
-                if (addresses.length == 0) throw new IOException("The download source could not be resolved.");
-                for (var address : addresses) {
-                    if (!SyncEndpoint.isPublic(address)) throw new IOException("The external download source resolves to a blocked network destination.");
+                InetAddress[] addresses;
+                if (file.providedByServer() && plan.approvedAddress() != null) {
+                    if (!current.equals(InstallationPlan.serverSource(plan.identity(), file.artifact().sha256())))
+                        throw new IOException("The hosted artifact source changed after review.");
+                    addresses = new InetAddress[] { plan.approvedAddress() };
+                } else {
+                    addresses = InetAddress.getAllByName(SyncEndpoint.normalizeHost(current.getHost()));
+                    if (addresses.length == 0) throw new IOException("The download source could not be resolved.");
+                    for (var address : addresses) {
+                        if (!SyncEndpoint.isPublic(address)) throw new IOException("The download source resolves to a blocked network destination. Review this server endpoint again if it is on your local network.");
+                    }
                 }
                 cancellation.check();
                 URI redirect;
@@ -80,6 +87,7 @@ public final class ArtifactHttpClient {
                     throw new IOException("The system TLS configuration is unavailable.", e);
                 }
                 if (redirect == null) return;
+                if (file.providedByServer()) throw new IOException("Server artifact endpoints must not redirect. No alternative source was downloaded.");
                 if (redirects == 3) throw new IOException("The artifact source exceeded the redirect limit.");
                 redirect = InstallationPlan.externalSource(redirect);
                 if (!InstallationPlan.origin(current).equals(InstallationPlan.origin(redirect))) {

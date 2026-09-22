@@ -323,8 +323,9 @@ public final class ProfileStore {
             } catch (IllegalArgumentException e) {
                 throw new IOException("Invalid local consent source.", e);
             }
+            URI hostedSource = InstallationPlan.serverSource(profile.identity(), artifact.sha256());
             if (!SyncJson.string(file.get("sha256"), 64).equals(artifact.sha256())
-                    || artifact.sources().stream().noneMatch(candidate -> source.equals(candidate.url())))
+                    || artifact.sources().stream().noneMatch(candidate -> candidate.type().equals("server") ? source.equals(hostedSource) : source.equals(candidate.url())))
                 throw new IOException("The local consent source or file identity changed.");
         }
         return new Prepared(profile.id(), revision, profile.identity(), digest, manifest, directory.resolve("game"));

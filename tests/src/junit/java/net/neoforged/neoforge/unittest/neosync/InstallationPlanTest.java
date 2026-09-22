@@ -78,12 +78,26 @@ class InstallationPlanTest {
     }
 
     @Test
-    void rejectsChangedSnapshotLoaderAndServerOnlySource() throws Exception {
+    void rejectsChangedSnapshotAndLoader() throws Exception {
         byte[] bytes = manifest();
         assertThrows(IOException.class, () -> InstallationPlan.create(endpoint(bytes), SyncProtocolTest.manifest(), Set.of(), null, "0.1.0-dev", "21.1.251"));
         assertThrows(IOException.class, () -> InstallationPlan.create(endpoint(bytes), bytes, Set.of(), null, "0.2", "21.1.251"));
         assertThrows(IOException.class, () -> InstallationPlan.create(endpoint(bytes), bytes, Set.of(), null, "0.1.0-dev", "21.1.252"));
-        assertThrows(IOException.class, () -> plan(SyncProtocolTest.manifest()));
+    }
+
+    @Test
+    void derivesHostedSourcesFromLogicalIdentityAndBindsFreshConsent() throws Exception {
+        byte[] bytes = SyncProtocolTest.manifest();
+        var endpoint = SyncEndpoint.create("localhost", 25575, new SyncCapability(8443, SyncManifest.sha256(bytes)));
+        var plan = InstallationPlan.create(endpoint, bytes, Set.of(), null, "0.1.0-dev", "21.1.251", java.net.InetAddress.getLoopbackAddress());
+        var file = plan.files().getFirst();
+        assertTrue(file.providedByServer());
+        assertEquals("https://localhost:8443/.well-known/neosync/v1/servers/25575/files/" + SyncProtocolTest.HASH, file.source().toString());
+        assertTrue(plan.reviewLines().stream().anyMatch(line -> line.contains("Provided by the server") && line.contains("localhost:25575")));
+        assertTrue(plan.warningLines().stream().anyMatch(line -> line.contains("Provided by the server") && line.contains("localhost:8443")));
+        assertThrows(IOException.class, () -> plan.accept(true, false));
+        var changed = plan(manifest());
+        assertThrows(IOException.class, () -> plan.accept(true, true).require(changed));
     }
 
     @Test

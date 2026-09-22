@@ -111,3 +111,33 @@ routes, traversal/query/range/body rejection, ambiguous HTTP framing, request an
 concurrency quotas, paced bandwidth, and retry from zero after disconnect. The
 existing manifest TLS tests also passed. This is service-level execution, not
 an installed server or graphical client acceptance result.
+
+## Client consent and destination binding
+
+A `server` source derives its full URL from the reviewed origin, logical game
+port and artifact SHA-256. Review and the additional warning name the server and
+its HTTPS origin as the source; both screens keep **No, cancel** focused by
+default. Installed mods can execute code; neither TLS nor the manifest's hash
+is a trust guarantee. Consent belongs to one immutable in-memory plan.
+
+For LAN discovery, the endpoint permission covers the exact IP used to fetch the
+manifest. A hosted download pins that same IP with TLS hostname verification for
+the logical host; it never re-resolves it into a different LAN destination.
+External sources retain public-destination checks, even when the server's LAN
+endpoint was approved. Hosted responses cannot redirect, including to another
+path on the same origin. No fallback source is selected after consent. Endpoint
+permission is not restored from profile records on later launches.
+
+Hosted files use the existing staging, size/hash/JAR checks, atomic revision
+publication, and manual restart flow. The consent record's source must still
+match the manifest-derived origin, port and hash when a prepared profile opens.
+
+The client increment passed all 197 unit tests (zero failures/errors/skips) on
+September 22, 2026. A fresh TLS service delivered a generated JAR through the
+consented production downloader into a real isolated profile; reopening verified
+its source record and files. Corruption and transfer cancellation preserved that
+profile and cleared staging. Redirects, unapproved LAN downloads, external LAN
+URLs even with endpoint approval, and modified consent routes were rejected.
+The first test run exposed an IPv4/IPv6 fixture mismatch; the listener now uses
+the same loopback family as the pinned test address. Product TLS validation was
+not weakened. These are integration tests without Minecraft gameplay.

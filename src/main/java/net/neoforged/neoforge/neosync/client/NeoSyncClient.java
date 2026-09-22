@@ -124,7 +124,7 @@ public final class NeoSyncClient {
             }, destination -> {
                 if (destination.local) {
                     screen.show(List.of("The manifest service for " + endpoint.host() + ":" + endpoint.httpsPort() + " is on your local network.",
-                            "Allow an HTTPS request to this server endpoint? Certificate verification remains required. This does not download any mods."),
+                            "Allow HTTPS access to this server endpoint? Certificate verification remains required. Mods provided by this server will require a separate installation review and confirmation."),
                             "No, cancel", "Allow this endpoint", () -> fetch(endpoint, destination.address));
                 } else {
                     fetch(endpoint, destination.address);
@@ -171,7 +171,7 @@ public final class NeoSyncClient {
                 if (ready) return new Review(report, true, store, null, Map.of(), null, null);
                 var available = store.reusable(manifest, localFiles, token);
                 try {
-                    var plan = InstallationPlan.create(endpoint, bytes, available.keySet(), pending == null ? null : pending.manifest(), SyncManifest.NEOSYNC_VERSION, NeoForgeVersion.getVersion());
+                    var plan = InstallationPlan.create(endpoint, bytes, available.keySet(), pending == null ? null : pending.manifest(), SyncManifest.NEOSYNC_VERSION, NeoForgeVersion.getVersion(), approvedAddress);
                     return new Review(report, false, store, plan, available, null, null);
                 } catch (IOException e) {
                     return new Review(report, false, store, null, Map.of(), null, e.getMessage());
