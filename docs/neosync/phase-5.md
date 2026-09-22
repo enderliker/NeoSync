@@ -215,3 +215,15 @@ browser imports, cancellation, timeout, explicit selection, XDG parsing and a
 mixed manual/HTTPS-hosted fixture transaction with failed-replacement recovery.
 The HTTPS-hosted file in that test is a separate generated private artifact;
 it is not a fallback for the manual file.
+
+During the next installer build, a Mojang repository HEAD request failed with EOF;
+a retry then stalled in the inherited unbounded `LibraryCollector`. Both standalone
+HTTP/1.1 and HTTP/2 probes subsequently returned 200, so this was not treated as
+proof of an HTTP-version incompatibility. Installer repository discovery now uses
+four workers, bounded connect/request/response waits, one transient retry, and
+cleanup of outstanding requests. The resulting installer populated fresh client
+and server directories and passed `checkFormatting` and
+`scripts/prepare_release.py --check`. No upstream coordinates or library bytes
+were substituted to work around the failure. Its SHA-256 is
+`7632469f643ba9ef37581406fdfd0e9a75de58e3dfb60e16601ba74f36983970`;
+its embedded universal contains an empty provider credential resource.

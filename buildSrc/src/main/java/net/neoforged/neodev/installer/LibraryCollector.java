@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HexFormat;
@@ -25,6 +26,10 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 /**
@@ -33,19 +38,25 @@ import java.util.function.Function;
 class LibraryCollector {
     public static List<Library> resolveLibraries(List<URI> repositoryUrls, Collection<IdentifiedFile> libraries) throws IOException {
         var collector = new LibraryCollector(repositoryUrls);
-        for (var library : libraries) {
-            collector.addLibrary(library.getFile().getAsFile().get(), library.getIdentifier().get());
-        }
-
-        var result = collector.libraries.stream().map(future -> {
-            try {
-                return future.get();
-            } catch (Exception e) {
-                throw new RuntimeException(e);
+        try {
+            for (var library : libraries) {
+                collector.addLibrary(library.getFile().getAsFile().get(), library.getIdentifier().get());
             }
-        }).toList();
-        LOGGER.info("Collected {} libraries", result.size());
-        return result;
+
+            var result = collector.libraries.stream().map(future -> {
+                try {
+                    return future.get();
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }).toList();
+            LOGGER.info("Collected {} libraries", result.size());
+            return result;
+        } finally {
+            collector.libraries.forEach(future -> future.cancel(true));
+            collector.httpClient.shutdownNow();
+            collector.probes.shutdownNow();
+        }
     }
 
     private static final Logger LOGGER = Logging.getLogger(LibraryCollector.class);
@@ -66,7 +77,10 @@ class LibraryCollector {
 
     private final List<Future<Library>> libraries = new ArrayList<>();
 
+    private final ExecutorService probes = Executors.newFixedThreadPool(4);
+
     private final HttpClient httpClient = HttpClient.newBuilder()
+            .connectTimeout(Duration.ofSeconds(10))
             .followRedirects(HttpClient.Redirect.NORMAL)
             .build();
 
@@ -107,12 +121,12 @@ class LibraryCollector {
         for (var repositoryUrl : repositoryUrls) {
             var artifactUri = joinUris(repositoryUrl, path);
             var request = HttpRequest.newBuilder(artifactUri)
+                    .timeout(Duration.ofSeconds(20))
                     .method("HEAD", HttpRequest.BodyPublishers.noBody())
                     .build();
 
             Function<String, CompletableFuture<Library>> makeRequest = (String previousError) -> {
-                return httpClient.sendAsync(request, HttpResponse.BodyHandlers.discarding())
-                        .thenApply(response -> {
+                return probe(request).thenApply(response -> {
                             if (response.statusCode() != 200) {
                                 LOGGER.info("  Got {} for {}", response.statusCode(), artifactUri);
                                 String message = "Could not find %s: %d".formatted(artifactUri, response.statusCode());
@@ -146,6 +160,26 @@ class LibraryCollector {
         }
 
         libraries.add(libraryFuture);
+    }
+
+    private CompletableFuture<HttpResponse<Void>> probe(HttpRequest request) {
+        // Limit concurrent CDN connections, and retry one interrupted probe before trying another repository.
+        return CompletableFuture.supplyAsync(() -> {
+            for (int attempt = 0; attempt < 2; attempt++) {
+                var response = httpClient.sendAsync(request, HttpResponse.BodyHandlers.discarding());
+                try {
+                    return response.get(30, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new CompletionException(e);
+                } catch (ExecutionException | TimeoutException e) {
+                    if (attempt == 1) throw new CompletionException(e);
+                } finally {
+                    if (!response.isDone()) response.cancel(true);
+                }
+            }
+            throw new IllegalStateException("Repository probe attempts exhausted.");
+        }, probes);
     }
 
     static String sha1Hash(Path path) throws IOException {
