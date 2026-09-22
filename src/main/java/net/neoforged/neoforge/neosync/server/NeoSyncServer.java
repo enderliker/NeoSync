@@ -22,6 +22,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import javax.net.ssl.KeyManagerFactory;
@@ -30,12 +31,14 @@ import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
+import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.event.server.ServerAboutToStartEvent;
 import net.neoforged.neoforge.event.server.ServerStoppedEvent;
 import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion;
 import net.neoforged.neoforge.neosync.protocol.ArtifactFiles;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
+import net.neoforged.neoforge.neosync.protocol.JarMetadata;
 import net.neoforged.neoforge.neosync.protocol.SyncCapability;
 import net.neoforged.neoforge.neosync.protocol.SyncJson;
 import net.neoforged.neoforge.neosync.protocol.SyncManifest;
@@ -54,10 +57,13 @@ public final class NeoSyncServer {
     private static final class State {
         final ManifestService service;
         final SyncCapability capability;
+        @Nullable
+        final HostedInventory inventory;
         String original = "";
         String decorated = "";
 
-        State(ManifestService service, SyncCapability capability) {
+        State(ManifestService service, SyncCapability capability, @Nullable HostedInventory inventory) {
+            this.inventory = inventory;
             this.service = service;
             this.capability = capability;
         }
@@ -84,13 +90,14 @@ public final class NeoSyncServer {
         stopService();
         Path configPath = FMLPaths.CONFIGDIR.get().resolve("neosync-server.json");
         if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) return;
+        HostedInventory inventory = null;
         try {
             byte[] configBytes;
             try (var input = Files.newInputStream(configPath, LinkOption.NOFOLLOW_LINKS)) {
                 configBytes = input.readNBytes(SyncManifest.MAX_BYTES + 1);
             }
             var config = SyncJson.object(SyncJson.parse(configBytes, SyncManifest.MAX_BYTES), Set.of("enabled"),
-                    Set.of("mode", "bindAddress", "port", "httpsPort", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment"));
+                    Set.of("mode", "bindAddress", "port", "httpsPort", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
             if (!SyncJson.bool(config.get("enabled"))) return;
             String mode = SyncJson.string(config.get("mode"), 32);
             String bind = SyncJson.string(config.get("bindAddress"), 64);
@@ -104,15 +111,27 @@ public final class NeoSyncServer {
                 case "reverse-proxy" -> null;
                 default -> throw new IOException("The manifest service mode must be https or reverse-proxy.");
             };
-            byte[] manifest = createManifest(config);
+            var policy = HostingPolicy.parse(config.get("hosting"));
+            if (policy.enabled()) inventory = new HostedInventory(FMLPaths.CONFIGDIR.get().resolve("neosync-hosting"), policy.maxBytes());
+            byte[] manifest = createManifest(config, policy, inventory);
             SyncManifest parsed = SyncManifest.parse(manifest);
+            Map<String, HostedInventory.Entry> hosted = inventory == null ? Map.of() : inventory.seal();
+            for (var artifact : parsed.files()) {
+                var entry = hosted.get(artifact.sha256());
+                if (entry != null) JarMetadata.verify(entry.path(), artifact, FMLLoader.versionInfo().fmlVersion(), new DiscoveryCancellation());
+            }
             var capability = new SyncCapability(httpsPort, SyncManifest.sha256(manifest));
             String route = "/.well-known/neosync/v1/servers/" + gamePort + "/manifests/" + capability.manifestSha256() + ".json";
-            var service = new ManifestService(new InetSocketAddress(InetAddresses.forString(bind), port), tls, route, manifest);
-            state = new State(service, capability);
+            var service = new ManifestService(new InetSocketAddress(InetAddresses.forString(bind), port), tls, route, manifest,
+                    "/.well-known/neosync/v1/servers/" + gamePort + "/files/", hosted, policy);
+            state = new State(service, capability, inventory);
+            inventory = null;
+            if (!hosted.isEmpty()) LOGGER.info("NeoSync publicly hosts {} administrator-declared exclusive artifacts. Minecraft login restrictions do not protect these downloads.", hosted.size());
             LOGGER.info("NeoSync discovery enabled for {} client artifacts on port {}. Public HTTPS port: {}", parsed.files().size(), service.port(), httpsPort);
         } catch (Exception e) {
             LOGGER.error("NeoSync discovery could not start. Review config/neosync-server.json: {}", e.getMessage());
+        } finally {
+            closeInventory(inventory);
         }
     }
 
@@ -124,7 +143,19 @@ public final class NeoSyncServer {
     private static void stopService() {
         State previous = state;
         state = null;
-        if (previous != null) previous.service.close();
+        if (previous != null) {
+            previous.service.close();
+            closeInventory(previous.inventory);
+        }
+    }
+
+    private static void closeInventory(@Nullable HostedInventory inventory) {
+        if (inventory == null) return;
+        try {
+            inventory.close();
+        } catch (IOException e) {
+            LOGGER.warn("Could not clean the private hosting snapshot: {}", e.getMessage());
+        }
     }
 
     private static SSLContext serverTls(JsonObject config) throws Exception {
@@ -149,7 +180,7 @@ public final class NeoSyncServer {
         }
     }
 
-    private static byte[] createManifest(JsonObject config) throws IOException {
+    private static byte[] createManifest(JsonObject config, HostingPolicy policy, @Nullable HostedInventory inventory) throws IOException {
         var loadedFiles = new HashMap<Path, IModFileInfo>();
         ModList.get().getModFiles().forEach(info -> loadedFiles.put(info.getFile().getFilePath().toAbsolutePath().normalize(), info));
         Path modsDirectory = FMLPaths.MODSDIR.get().toAbsolutePath().normalize();
@@ -158,7 +189,7 @@ public final class NeoSyncServer {
         var cancellation = new DiscoveryCancellation();
         long total = 0;
         for (var entry : SyncJson.array(config.get("files"), 0, 2048)) {
-            var selection = SyncJson.object(entry, Set.of("fileName", "sources"), Set.of());
+            var selection = SyncJson.object(entry, Set.of("fileName", "sources"), Set.of("hosting"));
             String fileName = SyncJson.matching(selection.get("fileName"), 128, SyncManifest.FILE_PATTERN);
             if (!names.add(fileName)) throw new IOException("Duplicate selected client file.");
             SyncManifest.parseSources(selection.get("sources"));
@@ -166,6 +197,10 @@ public final class NeoSyncServer {
             var info = loadedFiles.get(path);
             if (info == null) throw new IOException("A selected client file is not in the loaded server inventory: " + fileName);
             var fingerprint = ArtifactFiles.fingerprint(path, cancellation);
+            if (policy.validateSelection(selection, fingerprint.sha256())) {
+                if (inventory == null) throw new IOException("Server artifact hosting is disabled.");
+                inventory.add(path, fingerprint, cancellation);
+            }
             total += fingerprint.size();
             if (total > SyncManifest.MAX_TOTAL_BYTES) throw new IOException("The selected mod set exceeds the size limit.");
             var file = new JsonObject();
