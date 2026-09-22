@@ -44,7 +44,7 @@ before installation.
 | --- | --- | --- |
 | Minecraft Java Edition | **1.21.1** | The Minecraft version targeted by this branch. |
 | NeoForge base build | **21.1.251** | The platform build used by NeoSync; mods must be compatible with this NeoForge/Minecraft combination. |
-| NeoSync identifier | **0.1.0-alpha.3** (unreleased) | Current development version, separate from the NeoForge build number. Published alpha.2 remains unchanged. |
+| NeoSync identifier | **0.1.0-alpha.3** | Current alpha prerelease, separate from the NeoForge build number. Published alpha.2 remains unchanged. |
 | Synchronization protocol | **1** | The version used for server discovery and manifests. |
 | Java | **21** | Required for running and developing this build; use a JDK for development. |
 | Gradle wrapper | **8.13** | Included in the repository; no separate Gradle installation is needed. |
@@ -64,7 +64,7 @@ these versions. Published releases are pinned to a specific source commit.
 
 Get the alpha installer from [GitHub Releases](https://github.com/enderliker/NeoSync/releases).
 Release names include both versions, for example
-**`NeoSync-0.1.0-alpha.2-neoforge-21.1.251`**.
+**`NeoSync-0.1.0-alpha.3-neoforge-21.1.251`**.
 
 Download the **`-installer.jar`** for either a client or a dedicated server. The
 same installer supports both; a separate universal JAR is not a standalone game
@@ -73,7 +73,7 @@ information. Follow the [client and server installation guide](docs/neosync/rele
 
 These are experimental prereleases. Use separate test directories and read the
 release notes for the actual validation results and remaining limitations.
-Restricted hosting is implemented in the unreleased alpha.3 development build;
+Restricted hosting is available in [alpha.3](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.3-neoforge-21.1.251);
 published alpha.2 supports configured external HTTPS sources.
 
 ## How it works
@@ -98,7 +98,7 @@ You can postpone activation and leave the profile prepared for later.
 | Discovery | Retrieves a bounded HTTPS manifest before gameplay login and reports missing or incompatible requirements. |
 | Consent | Binds acceptance to the exact reviewed files and sources. Unverified-source warnings default to **No, cancel**. |
 | Downloads | Uses configured direct HTTPS URLs or restricted server hosting, with destination restrictions, transfer limits, and SHA-256 verification. |
-| Server hosting | The alpha.3 development build serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
+| Server hosting | Alpha.3 serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
 | Preparation | Inspects JAR metadata without executing it and prepares a new revision while preserving existing profiles. |
 | Manual activation | Shows the exact game directory to select in the launcher; checks the selected profile and offers reconnection after restart. |
 

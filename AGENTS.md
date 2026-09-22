@@ -25,7 +25,7 @@ Discovery and requirements reporting are implemented in
 external downloads, verified isolated profiles, and manual activation instructions.
 The installed-build one-mod flow has passed. [Phase 4](docs/neosync/phase-4.md)
 adds restricted hosting with a newly generated administrator-authored mod passing
-installed download/restart/join acceptance in the unreleased alpha.3 build;
+installed download/restart/join acceptance in the alpha.3 build;
 automatic restart is not implemented.
 Keep this distinction explicit as each phase
 progresses; a design or source trace is not a runtime compatibility result.
@@ -266,7 +266,7 @@ to that server, under the hosting eligibility rules above.
 elsewhere while respecting consent, integrity, and distribution requirements;
 reject ineligible third-party files from the hosting inventory.
 
-**Implementation:** the unreleased alpha.3 build passed the installed flow with a
+**Implementation:** the alpha.3 build passed the installed flow with a
 fresh administrator-authored fixture and rejected ineligible third-party hosting.
 Byte-bound eligibility declarations, verified snapshots, bounded HTTPS transfers,
 default-negative consent and transactional profile preparation are implemented.

@@ -3,7 +3,7 @@
 This records the discovery milestone. [Phase 3](phase-3.md) extends the client
 with consented installation and manual profile activation; use that document for
 its installation behavior and supported-source limits. [Phase 4](phase-4.md)
-adds restricted server hosting in the unreleased alpha.3 development build;
+adds restricted server hosting in alpha.3;
 statements below describe the earlier discovery-only milestone.
 
 NeoSync now has a discovery implementation that advertises a server manifest,

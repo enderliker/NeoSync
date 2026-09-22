@@ -85,7 +85,7 @@ game-directory argument do not certify the official launcher or other launchers.
 
 ## Phase 4: administrator-authored hosting
 
-For the unreleased alpha.3 implementation, use new installation directories and
+For the alpha.3 implementation, use new installation directories and
 pass the same installation-root property on **every** Gradle acceptance command:
 
 ```sh

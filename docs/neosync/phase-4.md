@@ -1,7 +1,7 @@
 # Phase 4 — Restricted server hosting
 
 Status: implemented, with fresh installed-build acceptance on Linux/JDK 21.0.2.
-The unreleased `0.1.0-alpha.3` development build completed consent, hosted download,
+The `0.1.0-alpha.3` build completed consent, hosted download,
 isolated preparation, manual restart and a real dedicated-server join with an
 administrator-authored fixture generated solely for that server. An ineligible
 third-party file was rejected by the installed server. Published alpha.2 does not
@@ -192,6 +192,15 @@ Local evidence was kept under `/tmp/neosync-phase4-acceptance`: `install-report.
 `crash-report.txt`, `recovery-report.txt`, server logs and game screenshots.
 Temporary evidence may disappear after reboot; the procedure and results above
 remain in version control.
+
+## Publication
+
+The tested installer and matching assets were published as
+[NeoSync-0.1.0-alpha.3-neoforge-21.1.251](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.3-neoforge-21.1.251)
+on September 22, 2026. The tag and release manifest identify source commit
+`ab0725278c28d6f0d69776ccc63e7fa7a097fdd2`. The downloaded GitHub draft assets
+matched the local export byte for byte before publication; this verifies the
+uploaded artifacts, not a new execution of the acceptance flow.
 
 ## Limits and remaining validation
 

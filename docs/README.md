@@ -6,7 +6,7 @@ NeoSync's installation MVP supports reviewed direct HTTPS downloads, verified
 isolated profiles, and manual activation. The full one-mod flow has passed with
 the repository's launcher harness. Provider resolution, browser-assisted
 downloads and automatic restart remain future work. Restricted hosting is
-implemented in the unreleased alpha.3 development build; see Phase 4 below.
+available in alpha.3; see Phase 4 below.
 
 ## Setup and development
 

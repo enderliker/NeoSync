@@ -4,7 +4,7 @@ NeoSync releases identify both the fork and its compatible NeoForge platform:
 
 ```text
 NeoSync-<neosync-version>-neoforge-<base-version>
-NeoSync-0.1.0-alpha.2-neoforge-21.1.251
+NeoSync-0.1.0-alpha.3-neoforge-21.1.251
 ```
 
 The first installation MVP is an **alpha prerelease** for Minecraft Java Edition
@@ -47,7 +47,7 @@ when switching to a prepared server-specific profile.
 Create a new server directory and run the installer with Java 21:
 
 ```bash
-java -jar NeoSync-0.1.0-alpha.2-neoforge-21.1.251-installer.jar --install-server /path/to/server
+java -jar NeoSync-0.1.0-alpha.3-neoforge-21.1.251-installer.jar --install-server /path/to/server
 ```
 
 Start the generated `run.sh` on Linux or `run.bat` on Windows. Review the Minecraft
@@ -72,7 +72,7 @@ never to replacement binaries from upstream NeoForge. LegacyInstaller requires
 a nonempty URL even for an embedded library; an empty URL makes it skip the file.
 FML 4 hard-codes the local
 `net/neoforged/neoforge` layout, so installed files use a unique version suffix:
-`21.1.251-neosync-0.1.0-alpha.2`. The mod metadata and `NeoForgeVersion` still
+`21.1.251-neosync-0.1.0-alpha.3`. The mod metadata and `NeoForgeVersion` still
 report the compatible base `21.1.251`. No modified NeoForge Maven publication
 is uploaded by this release process.
 
@@ -173,3 +173,24 @@ NeoSync library. Do not repair a missing embedded library from build outputs in
 this test: that would hide an installer failure.
 
 See the [alpha.2 release notes](release-notes/0.1.0-alpha.2.md) for downloads and limits.
+
+### Alpha.3 hosting release
+
+[NeoSync-0.1.0-alpha.3-neoforge-21.1.251](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.3-neoforge-21.1.251)
+was published as a prerelease on September 22, 2026 for Minecraft 1.21.1 and
+Java 21. Its immutable annotated tag points to source commit
+`ab0725278c28d6f0d69776ccc63e7fa7a097fdd2`, matching `release-manifest.json`.
+
+The five JARs, source-commit manifest and `SHA256SUMS` were uploaded to a draft,
+downloaded from GitHub, and compared byte for byte with the verified export
+before publication. Every checksum passed. Publication retained the exact
+installer tested during [Phase 4 acceptance](phase-4.md#installed-build-acceptance),
+with SHA-256 `2349211eeba79da513d6cdd463fd83be94fd46408da8f26e9413713f45baa019`.
+No runtime or packaging code changed during release preparation. These upload
+checks are not new Minecraft gameplay runs.
+
+Alpha.1 and alpha.2 tags and assets were not changed. See the
+[alpha.3 release notes](release-notes/0.1.0-alpha.3.md) for hosting eligibility,
+installation instructions, the recorded 197-test and installed-build results,
+and limits. Subsequent documentation commits do not move the release tag or
+change its binaries.
