@@ -53,7 +53,10 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
 
     public record Dependency(String id, VersionRange range, String type) {}
 
-    public record Source(String type, @Nullable URI url) {}
+    /** A server-provided lookup hint, not independent evidence of file identity or trust. */
+    public record ProviderHint(String id, String projectId, String fileId) {}
+
+    public record Source(String type, @Nullable URI url, @Nullable ProviderHint provider) {}
 
     public static SyncManifest parse(byte[] bytes) throws IOException {
         var root = SyncJson.object(SyncJson.parse(bytes, MAX_BYTES), Set.of("schemaVersion", "serverId", "revision", "displayName", "minecraftVersion", "loader", "files"), Set.of());
@@ -114,7 +117,7 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
             String type = SyncJson.string(source.get("type"), 16);
             if (type.equals("server")) {
                 SyncJson.object(source, Set.of("type"), Set.of());
-                result.add(new Source(type, null));
+                result.add(new Source(type, null, null));
             } else if (type.equals("external")) {
                 SyncJson.object(source, Set.of("type", "url"), Set.of("provider"));
                 try {
@@ -123,13 +126,15 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
                         throw new IOException("Invalid external HTTPS source.");
                     }
                     if (url.getPort() != -1 && url.getPort() != 443 && url.getPort() != 8443) throw new IOException("Unsupported external HTTPS port.");
+                    ProviderHint hint = null;
                     if (source.has("provider")) {
                         var provider = SyncJson.object(source.get("provider"), Set.of("id", "projectId", "fileId"), Set.of());
-                        if (!Set.of("modrinth", "curseforge").contains(SyncJson.string(provider.get("id"), 32))) throw new IOException("Unknown provider hint.");
-                        SyncJson.matching(provider.get("projectId"), 128, "[A-Za-z0-9_-]+");
-                        SyncJson.matching(provider.get("fileId"), 128, "[A-Za-z0-9_-]+");
+                        String id = SyncJson.string(provider.get("id"), 32);
+                        if (!Set.of("modrinth", "curseforge").contains(id)) throw new IOException("Unknown provider hint.");
+                        hint = new ProviderHint(id, SyncJson.matching(provider.get("projectId"), 128, "[A-Za-z0-9_-]+"),
+                                SyncJson.matching(provider.get("fileId"), 128, "[A-Za-z0-9_-]+"));
                     }
-                    result.add(new Source(type, url));
+                    result.add(new Source(type, url, hint));
                 } catch (URISyntaxException e) {
                     throw new IOException("Invalid source URL.", e);
                 }

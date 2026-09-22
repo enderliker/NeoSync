@@ -7,6 +7,7 @@ package net.neoforged.neoforge.unittest.neosync;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.Set;
 import net.neoforged.neoforge.neosync.protocol.ArtifactFiles;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
+import net.neoforged.neoforge.neosync.protocol.InstallationPlan;
 import net.neoforged.neoforge.neosync.protocol.RequirementReport;
 import net.neoforged.neoforge.neosync.protocol.SyncCapability;
 import net.neoforged.neoforge.neosync.protocol.SyncEndpoint;
@@ -146,16 +148,50 @@ class SyncProtocolTest {
         reject(root);
     }
 
-    @Test
-    void treatsProviderHintsAsUnverified() throws Exception {
+    @ParameterizedTest
+    @ValueSource(strings = { "modrinth", "curseforge" })
+    void retainsProviderHintsWithoutUpgradingTrustOrChangingAcquisition(String provider) throws Exception {
         var root = editableManifest();
         var source = root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").get(0).getAsJsonObject();
         source.addProperty("type", "external");
         source.addProperty("url", "https://example.org/mod.jar");
-        source.add("provider", JsonParser.parseString("{\"id\":\"modrinth\",\"projectId\":\"example\",\"fileId\":\"version\"}"));
-        var manifest = SyncManifest.parse(root.toString().getBytes(StandardCharsets.UTF_8));
+        source.add("provider", JsonParser.parseString("{\"id\":\"" + provider + "\",\"projectId\":\"example\",\"fileId\":\"version\"}"));
+        byte[] bytes = root.toString().getBytes(StandardCharsets.UTF_8);
+        var manifest = SyncManifest.parse(bytes);
+        var retained = manifest.files().getFirst().sources().getFirst();
+        assertEquals(new SyncManifest.ProviderHint(provider, "example", "version"), retained.provider());
+        assertEquals("external", retained.type());
         var report = RequirementReport.compare(manifest, Set.of(), Map.of(), "0.1.0-dev", "21.1.251");
         assertTrue(report.lines().contains("Source: example.org (unverified)"));
+        var plan = InstallationPlan.create(InstallationPlanTest.endpoint(bytes), bytes, Set.of(), null, "0.1.0-dev", "21.1.251");
+        assertEquals(retained.url(), plan.files().getFirst().source());
+        assertTrue(plan.warningLines().stream().anyMatch(line -> line.contains("https://example.org/mod.jar (unverified source)")));
+        assertThrows(IOException.class, () -> plan.accept(true, false));
+        assertThrows(UnsupportedOperationException.class, () -> manifest.files().getFirst().sources().clear());
+    }
+
+    @Test
+    void acceptsAbsentProviderHints() throws Exception {
+        assertNull(SyncManifest.parse(manifest()).files().getFirst().sources().getFirst().provider());
+        assertNull(SyncManifest.parse(InstallationPlanTest.manifest()).files().getFirst().sources().getFirst().provider());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = { "null", "{}", "{\"id\":\"unknown\",\"projectId\":\"a\",\"fileId\":\"b\"}",
+            "{\"id\":\"modrinth\",\"projectId\":\"../a\",\"fileId\":\"b\"}", "{\"id\":\"curseforge\",\"projectId\":\"a\",\"fileId\":1}",
+            "{\"id\":\"modrinth\",\"projectId\":\"a\",\"fileId\":\"b\",\"verified\":true}" })
+    void rejectsMalformedProviderHints(String hint) {
+        var root = JsonParser.parseString(new String(InstallationPlanTest.manifest(), StandardCharsets.UTF_8)).getAsJsonObject();
+        root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").get(0).getAsJsonObject().add("provider", JsonParser.parseString(hint));
+        reject(root);
+    }
+
+    @Test
+    void rejectsProviderHintsOnHostedSources() {
+        var root = editableManifest();
+        root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").get(0).getAsJsonObject()
+                .add("provider", JsonParser.parseString("{\"id\":\"modrinth\",\"projectId\":\"a\",\"fileId\":\"b\"}"));
+        reject(root);
     }
 
     @Test
