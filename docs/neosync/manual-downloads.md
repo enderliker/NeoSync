@@ -1,9 +1,10 @@
 # Manual downloads for restricted mods
 
-Status: implemented in the Phase 5 alpha.4 development tree, with independent
-fixture validation. **Live restricted CurseForge downloads and Windows runtime
-acceptance are pending.** NeoSync's own API key and an applicable agreement are
-not yet available. See [Phase 5](phase-5.md) for new execution evidence, provider
+Status: implemented in the Phase 5 alpha.4 development tree, with installed Linux
+fixtures for watching, explicit paths and native KDialog selection, each followed
+by a verified restart and real-server join. **Live restricted CurseForge downloads
+and Windows runtime acceptance are pending.** NeoSync's own API key and an
+applicable agreement are not yet available. See [Phase 5](phase-5.md) for new execution evidence, provider
 terms and concrete blockers. The contract below remains the acceptance target;
 implementation or fixture coverage alone does not certify a real provider flow.
 The manifest retains v1 external sources with provider hints.

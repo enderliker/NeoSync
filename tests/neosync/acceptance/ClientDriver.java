@@ -30,6 +30,7 @@ public final class ClientDriver {
     private static boolean connecting;
     private static int attempt;
     private static int step;
+    private static boolean selectedManualFile;
     private static Object parent;
     private static String lastScreen = "";
 
@@ -169,11 +170,17 @@ public final class ClientDriver {
                 click(screen, hasButton(screen, "Yes, open and import files") ? "Yes, open and import files" : "Yes, download these files");
                 evidence.add("Explicitly accepted the displayed source and files.");
             }
-        } else if (text.contains("Waiting for approved browser downloads") && settings.containsKey("manualSelection")) {
-            call(field(screen, "pathInput"), "setValue", settings.getProperty("manualSelection"));
-            screenshot("neosync-manual-selection.png");
-            click(screen, "Use path");
-            evidence.add("Selected an explicit local browser download through the product screen.");
+        } else if (text.contains("Waiting for approved browser downloads") && !selectedManualFile && (settings.containsKey("manualSelection") || Boolean.parseBoolean(settings.getProperty("manualChooser", "false")))) {
+            selectedManualFile = true;
+            if (Boolean.parseBoolean(settings.getProperty("manualChooser", "false"))) {
+                click(screen, "Choose downloaded file...");
+                evidence.add("The product's native downloaded-file chooser returned.");
+            } else {
+                call(field(screen, "pathInput"), "setValue", settings.getProperty("manualSelection"));
+                screenshot("neosync-manual-selection.png");
+                click(screen, "Use path");
+                evidence.add("Selected an explicit local browser download through the product screen.");
+            }
         } else if (hasButton(screen, "Restart instructions")) {
             String game = paragraphs.stream().filter(line -> line.startsWith("/")).findFirst().orElseThrow();
             Files.writeString(Path.of(settings.getProperty("prepared")), game);

@@ -189,8 +189,9 @@ fixed CurseForge API origin, never to CDNs, browsers, queries, logs or redirects
 - Windows known-folder relocation, file locking, chooser/browser behavior and
   cancellation need actual Windows execution; this workspace is Linux.
 
-The native file chooser, a real desktop browser, and Windows known-folder behavior
-are not certified by a Linux watcher or controlled-launcher fixture.
+A real desktop browser and Windows known-folder behavior are not certified by
+Linux watcher, KDialog or controlled-launcher fixtures. Native Wayland chooser
+behavior was not exercised; the Linux chooser run explicitly used Qt's X11 backend.
 
 Phase 5 remains incomplete until those required branches have current runtime
 acceptance. The Modrinth run and synthetic/manual tests must remain separately
@@ -236,3 +237,50 @@ permitted automatic file precedes a manual candidate regardless of manifest
 source order. This does not authorize any change after consent. The installed
 runs with installer `7632469f...` precede this small selection correction; its
 new scenarios were validated by regression tests, not another installed run.
+
+## Installed Linux manual-import fixtures
+
+The following new September 22 runs used installer `7632469f...` above, built
+from the tree committed as `7c9ef8b` (provider/manual implementation `e2f420c`
+plus the bounded installer probes). Its exact client and server installations
+were reused across disposable acceptance game directories. These are synthetic
+CurseForge project/file records for the public Clumps 19.0.0.1 bytes and a
+controlled `xdg-open` executable, **not** live CurseForge calls, author-restricted
+downloads or a real browser session. The actual installed resolver, product
+screens, watcher/importer, profile transaction and dedicated server were used.
+
+- `/tmp/neosync-phase5-manual-acceptance`: both default-negative declines opened
+  no browser and created no store. After explicit acceptance, the controlled
+  launcher opened the one approved fixture page and completed a duplicate-named
+  `mod (1).jar.part` by rename in a relocated XDG Downloads directory. The watcher
+  imported the exact bytes and prepared an isolated profile. The original file
+  remained intact. A new client process verified the prepared profile, loaded
+  Clumps and joined the real server; the loading screen closed and the world
+  rendered for ten driver ticks. Both install/resume reports ended in `PASS`.
+- `/tmp/neosync-phase5-selection-acceptance`: the controlled launcher recorded
+  the approved page and deliberately exited with failure. The installed screen
+  reported that failure and retained selection. The driver entered the path of
+  `Outside browser folder/selected (1).jar` and clicked **Use path**. Preparation
+  and the restarted real-server join both passed. The watched Downloads folder
+  stayed empty; the selected original retained SHA-256
+  `b524ccdace2ef8fd19f5b2074f7de1103ac5065c52553f064c00e098346c293e`.
+  There was exactly one approved browser-launch attempt.
+- `/tmp/neosync-phase5-chooser-acceptance`: with the same controlled browser
+  failure, the product's **Choose downloaded file...** button opened native
+  KDialog. Targeted X11 mouse/keyboard input selected a local fixture JAR. Both
+  verified preparation and a restarted real-server join passed; the original
+  remained intact and Downloads stayed empty. This ran on the KDE desktop with
+  `QT_QPA_PLATFORM=xcb`, not native Wayland. The first automation attempt used
+  the location bar, navigated to the directory without selecting the file, and
+  exceeded the driver's 15-second tick deadline. Its `first-attempt-*` reports
+  are failures. After closing that dialog and using a fresh game directory,
+  input in the filename field completed the second run. No product change was
+  required. The native dialog screenshot was inspected.
+
+Review, manual-selection and joined-world screenshots were inspected. These
+results validate Linux fixture behavior with JDK 21.0.2 and the repository's
+production launcher harness. They do not certify Windows, external launchers or
+the real CurseForge website's download steps. A separate invocation of the built
+directory detector found this Linux desktop's configured localized Downloads
+directory; the installed watcher runs above used disposable relocated directories.
+Temporary reports and screenshots are local evidence and may be removed by the OS.

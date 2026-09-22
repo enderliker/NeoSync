@@ -167,4 +167,9 @@ replace only its controlled `xdg-open` with an executable that records the page
 and exits nonzero, and set `manualSelection` in `install.properties` to a local
 copy of the exact JAR outside Downloads. The driver enters this path in the product
 screen and clicks **Use path**. This checks that failure retains manual selection.
-The native file chooser and real browser still need separate platform evidence.
+Alternatively, set `manualChooser=true` and provide native desktop input to select
+that fixture file within 15 seconds after **Choose downloaded file...** opens.
+The driver does not select a native dialog entry for you. Its report must show
+successful preparation; merely opening/closing the dialog is insufficient.
+Record the actual native dialog, display backend and input method. A native
+chooser fixture still does not validate the real browser or provider website.

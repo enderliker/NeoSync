@@ -147,9 +147,9 @@ choice. Explain the manual step during review before opening the browser; retain
 **No, cancel** as the default for unverified sources. Watch the user's actual
 Downloads directory on Linux or Windows, verify the approved size and SHA-256,
 and copy into the new isolated revision through normal transactional preparation.
-The import flow is implemented, with separate fixture validation; real restricted
-CurseForge downloads and Windows runtime acceptance remain pending. See the
-[manual download contract](docs/neosync/manual-downloads.md) for consent, platform
+The import flow is implemented, with installed Linux fixture validation; real
+restricted CurseForge downloads and Windows runtime acceptance remain pending.
+See the [manual download contract](docs/neosync/manual-downloads.md) for consent, platform
 handling, verification, and acceptance requirements.
 
 ### Server hosting
@@ -291,10 +291,12 @@ consent; this subset cannot promise a zero-click installation.
 file versions or hiding changes in source.
 
 **Implementation status:** in progress in alpha.4. Modrinth passed installed
-lookup/review/download/restart/join acceptance. CurseForge and browser import
-have independent fixtures; the maintainer has submitted the key application,
-but no own key or agreement allowing extractable desktop keys and retained
-provider audit data exists yet. Do not mark Phase 5 complete from fixture tests.
+lookup/review/download/restart/join acceptance. CurseForge uses synthetic metadata
+fixtures; installed Linux browser-import fixtures passed preparation/restart/join,
+including watcher, explicit-path and native KDialog selection. The maintainer has
+submitted the key application, but no own key or agreement allowing extractable
+desktop keys and retained provider audit data exists yet. Do not mark Phase 5
+complete from fixture tests.
 See [Phase 5](docs/neosync/phase-5.md).
 
 ### Phase 6 — Restart and updates
