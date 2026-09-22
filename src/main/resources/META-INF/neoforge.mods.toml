@@ -1,7 +1,7 @@
 modLoader="javafml"
 loaderVersion="[3,]"
-issueTrackerURL="https://github.com/neoforged/NeoForge/issues"
-logoFile="neoforged_logo.png"
+issueTrackerURL="https://github.com/enderliker/NeoSync/issues"
+logoFile="neosync_logo.png"
 license="LGPL v2.1"
 
 [[mods]]
@@ -9,11 +9,13 @@ license="LGPL v2.1"
     # We use the global NeoForge version
     version="${global.neoForgeVersion}"
     #updateJSONURL="https://maven.neoforged.net/releases/net/neoforged/forge/promotions_slim.json"
-    displayName="NeoForge"
+    displayName="NeoSync"
     credits="Anyone who has contributed on Github and supports our development"
-    authors="The NeoForged Team"
+    authors="NeoSync contributors; based on work by The NeoForged Team"
     description='''
-    NeoForge, a NEW broad compatibility API.
+    NeoSync helps players prepare the mods required to join a server.
+    Based on NeoForge, the broad compatibility API. The version shown here
+    identifies the NeoForge base used for mod compatibility.
     '''
 
 [[mixins]]

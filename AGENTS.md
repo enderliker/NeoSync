@@ -320,6 +320,17 @@ coverage before release.
 
 ## Working practices
 
+### Visual identity
+
+- Use NeoSync's geometric N and wordmark for the product, installer, and project
+  documentation. The editable SVGs in `docs/assets` are the source of truth;
+  regenerate raster assets with `scripts/render_branding.sh`.
+- Keep the identity simple: flat colors, clear typography, and no decorative
+  mascots or generated illustrations. See [the branding notes](docs/neosync/branding.md).
+- Preserve upstream copyright, license, and contributor notices. Keep NeoForge's
+  name where it identifies the underlying API, dependency, or compatible version;
+  branding changes must not alter technical identifiers required by mods.
+
 ### Releases
 
 - Name release tags and titles `NeoSync-<neosync-version>-neoforge-<base-version>`,

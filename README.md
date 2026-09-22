@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/neosync-icon.svg" width="96" height="96" alt="NeoSync N logo">
+</p>
+
 <h1 align="center">NeoSync</h1>
 
 <p align="center">
