@@ -63,6 +63,7 @@ public final class NeoSyncClient {
         private DiscoveryCancellation cancellation = new DiscoveryCancellation();
         private int generation;
         private boolean finished;
+        private volatile boolean waitingForBrowser;
 
         Attempt(Minecraft minecraft, Screen parent, ServerAddress address, Runnable connect) {
             this.minecraft = minecraft;
@@ -78,6 +79,7 @@ public final class NeoSyncClient {
 
         void cancel() {
             finished = true;
+            waitingForBrowser = false;
             generation++;
             cancellation.close();
         }
@@ -188,7 +190,7 @@ public final class NeoSyncClient {
             } else if (review.plan != null) {
                 var lines = new ArrayList<>(review.plan.reviewLines());
                 lines.add("You cannot join with the currently loaded mod set. Accept installation to prepare this set for a new launch.");
-                screen.show(lines, "No, cancel", "Accept installation", () -> screen.show(review.plan.warningLines(), "No, cancel", "Yes, download these files", () -> install(review)));
+                screen.show(lines, "No, cancel", "Accept installation", () -> screen.show(review.plan.warningLines(), "No, cancel", review.plan.hasManualDownloads() ? "Yes, open and import files" : "Yes, download these files", () -> install(review)));
             } else {
                 var lines = new ArrayList<>(review.report.lines());
                 if (review.problem != null) lines.add(review.problem);
@@ -207,17 +209,71 @@ public final class NeoSyncClient {
             }
             screen.show(List.of("Preparing the reviewed server profile..."), "Cancel", "", null);
             var lastProgress = new java.util.concurrent.atomic.AtomicLong();
-            run(token -> review.store.prepare(review.plan, consent, review.available, FMLLoader.versionInfo().fmlVersion(), token, (action, completed, total) -> {
+            waitingForBrowser = review.plan.hasManualDownloads();
+            var selectedPath = new java.util.concurrent.atomic.AtomicReference<java.nio.file.Path>();
+            run(token -> {
+                var controls = new net.neoforged.neoforge.neosync.manual.ManualDownloads.Controls(
+                        net.neoforged.neoforge.neosync.manual.DownloadDirectory.discover().orElse(null), () -> selectedPath.getAndSet(null),
+                        status -> minecraft.execute(() -> manualStatus(review.plan, consent, token, status, selectedPath)),
+                        page -> net.neoforged.neoforge.neosync.manual.BrowserHandoff.open(review.plan, consent, page, token), java.time.Duration.ofMinutes(15));
+                try (var imported = net.neoforged.neoforge.neosync.manual.ManualDownloads.collect(review.plan, consent,
+                        review.store.root().resolve("manual-imports"), FMLLoader.versionInfo().fmlVersion(), controls, token)) {
+                    waitingForBrowser = false;
+                    var available = new HashMap<>(review.available);
+                    available.putAll(imported.files());
+                    return review.store.prepare(review.plan, consent, available, FMLLoader.versionInfo().fmlVersion(), token, (action, completed, total) -> {
+                        token.check();
+                        long now = System.nanoTime();
+                        if (now - lastProgress.get() < TimeUnit.MILLISECONDS.toNanos(200)) return;
+                        lastProgress.set(now);
+                        minecraft.execute(() -> {
+                            if (!finished && cancellation == token && minecraft.screen == screen) {
+                                screen.show(List.of(action, completed + " / " + total + " bytes", "Your current game directory remains unchanged."), "Cancel", "", null);
+                            }
+                        });
+                    });
+                }
+            }, this::prepared, false, 60);
+        }
+
+        void manualStatus(InstallationPlan plan, InstallationPlan.Consent consent, DiscoveryCancellation token,
+                net.neoforged.neoforge.neosync.manual.ManualDownloads.Status status, java.util.concurrent.atomic.AtomicReference<java.nio.file.Path> selected) {
+            if (finished || !waitingForBrowser || cancellation != token || minecraft.screen != screen) return;
+            try {
                 token.check();
-                long now = System.nanoTime();
-                if (now - lastProgress.get() < TimeUnit.MILLISECONDS.toNanos(200)) return;
-                lastProgress.set(now);
-                minecraft.execute(() -> {
-                    if (!finished && cancellation == token && minecraft.screen == screen) {
-                        screen.show(List.of(action, completed + " / " + total + " bytes", "Your current game directory remains unchanged."), "Cancel", "", null);
-                    }
-                });
-            }), this::prepared, false, 60);
+            } catch (IOException e) {
+                return;
+            }
+            var lines = new ArrayList<String>();
+            lines.add("Waiting for approved browser downloads");
+            lines.add(status.notice());
+            lines.add(status.directory() == null ? "Choose the downloaded file or its folder below." : "Watching: " + status.directory());
+            lines.addAll(status.files());
+            screen.showManual(lines, value -> {
+                try {
+                    if (value.isBlank()) throw new IllegalArgumentException();
+                    var path = java.nio.file.Path.of(value);
+                    if (!path.isAbsolute()) throw new IllegalArgumentException();
+                    path = path.normalize();
+                    selected.set(path);
+                } catch (RuntimeException e) {
+                    manualStatus(plan, consent, token, new net.neoforged.neoforge.neosync.manual.ManualDownloads.Status(status.files(), status.directory(), status.page(), "Enter a valid local file or folder path."), selected);
+                }
+            }, () -> {
+                try {
+                    WORKER.execute(() -> {
+                        try {
+                            net.neoforged.neoforge.neosync.manual.BrowserHandoff.open(plan, consent, status.page(), token);
+                        } catch (IOException e) {
+                            minecraft.execute(() -> manualStatus(plan, consent, token,
+                                    new net.neoforged.neoforge.neosync.manual.ManualDownloads.Status(status.files(), status.directory(), status.page(), "The browser could not be opened. Open this reviewed page manually: " + status.page()), selected));
+                        }
+                    });
+                    manualStatus(plan, consent, token, status, selected);
+                } catch (java.util.concurrent.RejectedExecutionException e) {
+                    manualStatus(plan, consent, token, new net.neoforged.neoforge.neosync.manual.ManualDownloads.Status(status.files(), status.directory(), status.page(), "The browser handoff is busy. Try again shortly."), selected);
+                }
+            });
         }
 
         void prepared(ProfileStore.Prepared prepared) {

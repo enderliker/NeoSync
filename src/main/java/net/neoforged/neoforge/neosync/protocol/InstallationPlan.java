@@ -183,15 +183,22 @@ public final class InstallationPlan {
             lines.add(file.artifact().fileName() + " — " + file.artifact().size() + " bytes — " + (file.available() ? "available for verified copying" : "download required"));
             file.artifact().mods().forEach(mod -> lines.add(mod.displayName() + " (" + mod.id() + ") " + mod.version()));
             lines.add("Source: " + sourceDescription(file));
+            if (!file.available() && file.provider() != null && file.provider().manual())
+                lines.add("This mod requires a manual download because its author disabled automatic downloads — your browser will open.");
             lines.add("SHA-256: " + file.artifact().sha256());
         }
         return List.copyOf(lines);
+    }
+
+    public boolean hasManualDownloads() {
+        return files.stream().anyMatch(file -> !file.available() && file.provider() != null && file.provider().manual());
     }
 
     public List<String> warningLines() {
         var lines = new ArrayList<String>();
         lines.add("These files come from unverified sources. Installed mods can execute code with Minecraft's permissions. A matching hash does not prove that a mod is trustworthy.");
         for (var file : files) lines.add(file.artifact().fileName() + " — " + sourceDescription(file));
+        if (hasManualDownloads()) lines.add("Accepting opens the reviewed CurseForge file pages and imports only matching downloads. You may need to finish the download in your browser.");
         lines.add("Accept only if you want to install this exact set from these sources.");
         return List.copyOf(lines);
     }

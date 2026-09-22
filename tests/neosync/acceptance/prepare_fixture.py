@@ -19,6 +19,7 @@ SHA256 = "b524ccdace2ef8fd19f5b2074f7de1103ac5065c52553f064c00e098346c293e"
 
 parser = argparse.ArgumentParser(description=__doc__)
 choices = parser.add_mutually_exclusive_group()
+choices.add_argument("--manual-fixture", action="store_true", help="Test manual import with synthetic CurseForge metadata and a controlled browser launcher; not live provider acceptance")
 choices.add_argument("--providers", action="store_true", help="Resolve the exact Clumps bytes through live Modrinth metadata")
 choices.add_argument("--hosting", action="store_true", help="Generate a unique mod solely for this local server; never download a third-party fixture")
 parser.add_argument("--root", required=True, type=Path)
@@ -81,6 +82,27 @@ else:
     if args.providers:
         selection = {"fileName": filename, "resolveProviders": True}
         phase = "Phase 5"
+    if args.manual_fixture:
+        page = "https://www.curseforge.com/minecraft/mc-mods/neosync-test-fixture/files/456"
+        selection = {"fileName": filename, "sources": [{"type": "external", "url": page,
+            "provider": {"id": "curseforge", "projectId": "123", "fileId": "456"}}]}
+        expected_source, phase = "www.curseforge.com", "Phase 5 manual fixture"
+        (root / "provider-projects.json").write_text(json.dumps({"data": [{"id": 123, "gameId": 432, "classId": 6,
+            "slug": "neosync-test-fixture", "allowModDistribution": False}]}))
+        (root / "provider-files.json").write_text(json.dumps({"data": [{"id": 456, "modId": 123, "gameId": 432,
+            "isAvailable": True, "gameVersions": ["1.21.1", "NeoForge"], "fileLength": len(artifact),
+            "hashes": [{"algo": 1, "value": hashlib.sha1(artifact).hexdigest()}], "downloadUrl": None}]}))
+        (root / "browser-bin").mkdir()
+        (root / "xdg-config").mkdir()
+        (root / "Relocated Downloads").mkdir()
+        (root / "xdg-config/user-dirs.dirs").write_text('XDG_DOWNLOAD_DIR="' + str(root / "Relocated Downloads") + '"\n')
+        import shlex
+        browser = root / "browser-bin/xdg-open"
+        browser.write_text("#!/bin/sh\nset -eu\n[ \"$1\" = " + shlex.quote(page) + " ]\n" +
+            "printf 'Approved fixture page opened\\n' >> " + shlex.quote(str(root / "browser-report.txt")) + "\n" +
+            "cp " + shlex.quote(str(server / "mods" / filename)) + " " + shlex.quote(str(root / "Relocated Downloads/mod (1).jar.part")) + "\n" +
+            "mv " + shlex.quote(str(root / "Relocated Downloads/mod (1).jar.part")) + " " + shlex.quote(str(root / "Relocated Downloads/mod (1).jar")) + "\n")
+        browser.chmod(0o700)
 (server / "config/neosync-server.json").write_text(json.dumps({
     "enabled": True, "displayName": f"NeoSync {phase} Acceptance", "mode": "https",
     "bindAddress": "127.0.0.1", "port": 8443, "httpsPort": 8443,
@@ -90,5 +112,5 @@ else:
 }, indent=2) + "\n")
 (server / "server.properties").write_text("server-ip=127.0.0.1\nserver-port=25575\nonline-mode=false\nenable-status=true\nview-distance=2\nsimulation-distance=2\nlevel-name=neosync-acceptance-world\n")
 for mode in ("install", "resume", "original", "changed", "crash", "space"):
-    (root / f"{mode}.properties").write_text(f"mode={mode}\nserver=127.0.0.1:25575\nreport={root}/{mode}-report.txt\nprepared={root}/prepared.txt\nreferenceGame={root}/original\nexpectedModId={mod_id}\nexpectedName={display_name}\nexpectedSource={expected_source}\nexpectProvider={str(args.providers).lower()}\n")
+    (root / f"{mode}.properties").write_text(f"mode={mode}\nserver=127.0.0.1:25575\nreport={root}/{mode}-report.txt\nprepared={root}/prepared.txt\nreferenceGame={root}/original\nexpectedModId={mod_id}\nexpectedName={display_name}\nexpectedSource={expected_source}\nexpectProvider={str(args.providers).lower()}\nmanualFixture={root if args.manual_fixture else ''}\n")
 print(f"Fixture ready at {root}. Start the loopback server, then run the graphical client driver.")

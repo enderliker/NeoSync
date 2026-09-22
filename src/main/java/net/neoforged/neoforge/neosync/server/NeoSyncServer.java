@@ -190,22 +190,32 @@ public final class NeoSyncServer {
         long total = 0;
         var selections = SyncJson.array(config.get("files"), 0, 2048);
         var automatic = new HashMap<Path, ArtifactFiles.Fingerprint>();
+        var curseHints = new HashMap<Path, SyncManifest.ProviderHint>();
         for (var entry : selections) {
-            var selection = SyncJson.object(entry, Set.of("fileName"), Set.of("sources", "hosting", "resolveProviders"));
+            var selection = SyncJson.object(entry, Set.of("fileName"), Set.of("sources", "hosting", "resolveProviders", "curseforge"));
             if (selection.has("resolveProviders")) {
                 if (!SyncJson.bool(selection.get("resolveProviders")) || selection.has("sources") || selection.has("hosting"))
                     throw new IOException("Automatic provider resolution cannot be combined with configured or hosted sources.");
                 Path path = modsDirectory.resolve(SyncJson.matching(selection.get("fileName"), 128, SyncManifest.FILE_PATTERN));
                 if (!loadedFiles.containsKey(path)) throw new IOException("A selected provider file is not in the loaded server inventory.");
                 automatic.put(path, ArtifactFiles.fingerprint(path, cancellation));
-            } else SyncManifest.parseSources(selection.get("sources"));
+                if (selection.has("curseforge")) {
+                    var hint = SyncJson.object(selection.get("curseforge"), Set.of("projectId", "fileId"), Set.of());
+                    curseHints.put(path, new SyncManifest.ProviderHint("curseforge", SyncJson.matching(hint.get("projectId"), 10, "[1-9][0-9]*"),
+                            SyncJson.matching(hint.get("fileId"), 10, "[1-9][0-9]*")));
+                }
+            } else {
+                if (selection.has("curseforge")) throw new IOException("CurseForge lookup IDs require automatic provider resolution.");
+                SyncManifest.parseSources(selection.get("sources"));
+            }
         }
-        var resolved = net.neoforged.neoforge.neosync.provider.AutomaticSources.resolve(automatic,
+        var resolved = net.neoforged.neoforge.neosync.provider.AutomaticSources.resolve(automatic, curseHints,
                 new net.neoforged.neoforge.neosync.provider.ProviderHttpClient(), cancellation);
         for (var entry : selections) {
             var selection = entry.getAsJsonObject().deepCopy();
             if (selection.has("resolveProviders")) {
                 selection.remove("resolveProviders");
+                selection.remove("curseforge");
                 selection.add("sources", net.neoforged.neoforge.neosync.provider.AutomaticSources.sources(resolved.get(modsDirectory.resolve(selection.get("fileName").getAsString()))));
             }
             String fileName = SyncJson.matching(selection.get("fileName"), 128, SyncManifest.FILE_PATTERN);

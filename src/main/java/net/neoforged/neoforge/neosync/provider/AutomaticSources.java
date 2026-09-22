@@ -22,13 +22,20 @@ public final class AutomaticSources {
     private AutomaticSources() {}
 
     public static Map<Path, ProviderArtifact> resolve(Map<Path, ArtifactFiles.Fingerprint> files, ProviderTransport transport, DiscoveryCancellation token) throws IOException {
+        return resolve(files, Map.of(), transport, token);
+    }
+
+    public static Map<Path, ProviderArtifact> resolve(Map<Path, ArtifactFiles.Fingerprint> files, Map<Path, SyncManifest.ProviderHint> curseHints,
+            ProviderTransport transport, DiscoveryCancellation token) throws IOException {
         var hashes = new HashMap<Path, String>();
+        var sha1s = new HashMap<Path, String>();
         long total = 0;
         for (var entry : files.entrySet()) {
             total += entry.getValue().size();
             if (files.size() > 2048 || total > SyncManifest.MAX_TOTAL_BYTES) throw new IOException("Provider lookup inventory exceeds the limit.");
             var digest = ProviderArtifact.digest("SHA-512");
             var sha256 = SyncManifest.sha256Digest();
+            var sha1 = ProviderArtifact.digest("SHA-1");
             long size = 0;
             try (var input = Files.newInputStream(entry.getKey(), LinkOption.NOFOLLOW_LINKS)) {
                 byte[] buffer = new byte[65536];
@@ -39,17 +46,26 @@ public final class AutomaticSources {
                     if (size > entry.getValue().size()) throw new IOException("The selected provider artifact grew during inspection.");
                     digest.update(buffer, 0, count);
                     sha256.update(buffer, 0, count);
+                    sha1.update(buffer, 0, count);
                 }
             }
             if (size != entry.getValue().size() || !HexFormat.of().formatHex(sha256.digest()).equals(entry.getValue().sha256()))
                 throw new IOException("The selected provider artifact changed during inspection.");
             hashes.put(entry.getKey(), HexFormat.of().formatHex(digest.digest()));
+            sha1s.put(entry.getKey(), HexFormat.of().formatHex(sha1.digest()));
         }
         var matches = new ModrinthProvider(transport).findHashes(hashes.values().stream().toList(), token);
+        var needed = hashes.entrySet().stream().filter(entry -> !matches.containsKey(entry.getValue())).map(Map.Entry::getKey).toList();
+        for (var path : needed) if (!curseHints.containsKey(path))
+            throw new IOException("Modrinth has no exact match for " + path.getFileName() + ". Supply exact CurseForge project/file IDs for lookup. Hosting is not a third-party fallback.");
+        var curseFiles = new CurseForgeProvider(transport).files(needed.stream().map(curseHints::get).toList(), token);
         var result = new HashMap<Path, ProviderArtifact>();
         for (var entry : hashes.entrySet()) {
             var match = matches.get(entry.getValue());
-            if (match == null) throw new IOException("No exact Modrinth file was found for " + entry.getKey().getFileName() + ". Configure its exact provider source; hosting is not a third-party fallback.");
+            if (match == null) {
+                match = curseFiles.get(curseHints.get(entry.getKey()));
+                if (match == null || !match.hash().equals(sha1s.get(entry.getKey()))) throw new IOException("CurseForge did not match the exact selected server bytes.");
+            }
             if (match.size() != files.get(entry.getKey()).size()) throw new IOException("The provider file size does not match the selected artifact.");
             result.put(entry.getKey(), match);
         }

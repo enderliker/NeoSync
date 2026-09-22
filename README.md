@@ -138,14 +138,16 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 - **Testing the full flow:** use the [installed-build acceptance harness](tests/neosync/acceptance/README.md)
   to reproduce installation, activation, and joining in a controlled environment.
 
-## Planned source handling
+## Provider source handling
 
-Provider resolution and browser-assisted downloads are **not implemented**.
-The current implementation uses configured direct HTTPS URLs and restricted
-server hosting. The planned provider preference for
-each exact required file is:
+The alpha.4 development tree adds exact Modrinth resolution, with a new installed
+review/download/restart/join result. CurseForge and manual import have fixture
+coverage; **live CurseForge acceptance remains blocked** on NeoSync's own key and
+an applicable provider agreement. Alpha.3 remains the published release.
+See [Phase 5](docs/neosync/phase-5.md) for implementation status and evidence.
+The provider preference for each exact required file is:
 
-| Priority | Source | Planned experience |
+| Priority | Source | Acquisition policy |
 | --- | --- | --- |
 | 1 | Modrinth | Automatic download when the exact file is available and permitted. |
 | 2 | CurseForge with third-party downloads enabled | Automatic download through the provider. |

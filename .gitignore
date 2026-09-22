@@ -48,3 +48,6 @@ build
 **/runs/
 
 **/out/
+
+# Generated provider credentials belong only in explicitly approved runtime binaries.
+**/provider-access.bin

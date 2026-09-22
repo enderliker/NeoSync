@@ -1,10 +1,12 @@
 # Manual downloads for restricted mods
 
-Status: accepted design for future source handling, associated with Phase 5.
-**Not implemented or runtime-validated.** Phase 3 currently supports configured
-direct HTTPS artifact downloads. It does not open CurseForge pages, watch Downloads,
-or import browser downloads. This document does not add a source type or change
-the current manifest schema.
+Status: implemented in the Phase 5 alpha.4 development tree, with independent
+fixture validation. **Live restricted CurseForge downloads and Windows runtime
+acceptance are pending.** NeoSync's own API key and an applicable agreement are
+not yet available. See [Phase 5](phase-5.md) for new execution evidence, provider
+terms and concrete blockers. The contract below remains the acceptance target;
+implementation or fixture coverage alone does not certify a real provider flow.
+The manifest retains v1 external sources with provider hints.
 
 The agreed source preference is **Modrinth automatic download → CurseForge
 automatic download when permitted → CurseForge browser download when restricted
@@ -21,9 +23,9 @@ a third-party mod fails.
 When a mod author disables third-party automatic downloads, direct the user to
 the official CurseForge download page for the exact project and file required by
 the server. Do not substitute server hosting, mirrors, scraping, or an alternate
-CDN request to bypass that restriction. Server hosting remains a separate future
-feature limited to mods written by the administrator for that server and not
-published or distributed elsewhere.
+CDN request to bypass that restriction. Phase 4 server hosting is implemented as
+a separate eligibility case limited to mods written by the administrator for
+that server and not published or distributed elsewhere.
 
 This is the intended browser-assisted pattern familiar from launchers such as
 Prism Launcher; it is not a claim that NeoSync implements or has verified another
@@ -124,4 +126,4 @@ review; an earlier browser handoff is not reusable installation consent.
   snapshots, and preservation of active profiles and original browser downloads.
 - Complete review, browser download, verified preparation, manual restart, and
   joining a real server with the selected mod. Record platform and browser limits;
-  existing Phase 3 direct-download results do not validate this future flow.
+  existing Phase 3 direct-download results do not validate this flow.

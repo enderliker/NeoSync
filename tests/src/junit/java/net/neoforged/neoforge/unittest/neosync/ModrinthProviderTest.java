@@ -133,6 +133,9 @@ class ModrinthProviderTest {
         assertThrows(IOException.class, () -> store.prepare(changed, changed.accept(true, true), Map.of(fingerprint.sha256(), jar), "4.0.44", new DiscoveryCancellation(), (a, b, c) -> {}));
         assertEquals(prepared, store.prepared(plan.identity()).orElseThrow());
         assertEquals(fingerprint, ArtifactFiles.fingerprint(jar, new DiscoveryCancellation()));
+        Path audit = prepared.gameDirectory().getParent().resolve("consent.json");
+        Files.writeString(audit, Files.readString(audit).replace(sha512, "c".repeat(128)));
+        assertThrows(IOException.class, () -> store.verify(prepared, "4.0.44", new DiscoveryCancellation()));
     }
 
     @Test

@@ -4,9 +4,10 @@
 
 NeoSync's installation MVP supports reviewed direct HTTPS downloads, verified
 isolated profiles, and manual activation. The full one-mod flow has passed with
-the repository's launcher harness. Provider resolution, browser-assisted
-downloads and automatic restart remain future work. Restricted hosting is
-available in alpha.3; see Phase 4 below.
+the repository's launcher harness. Restricted hosting is available in alpha.3.
+Phase 5 development adds Modrinth resolution and a manual-import implementation;
+live CurseForge acceptance is blocked on the own-key/application agreement.
+Automatic restart remains future work. See the phase documents for exact evidence.
 
 ## Setup and development
 
@@ -28,8 +29,9 @@ available in alpha.3; see Phase 4 below.
 | [Phase 2](neosync/phase-2.md) | Discovery implementation, setup, and validation evidence. |
 | [Phase 3](neosync/phase-3.md) | Installation implementation, complete one-mod results, and compatibility limits. |
 | [Phase 4](neosync/phase-4.md) | Restricted hosting setup, consent, transfer quotas, installed acceptance, and limits. |
+| [Phase 5](neosync/phase-5.md) | Provider identity, Modrinth runtime evidence, manual import and blocked CurseForge prerequisites. |
 | [Protocol version 1](neosync/protocol-v1.md) | Manifest, identity, consent, transport, and profile contracts. |
-| [Manual downloads](neosync/manual-downloads.md) | Planned browser handoff for author-restricted downloads; not implemented. |
+| [Manual downloads](neosync/manual-downloads.md) | Browser handoff and import contract; live restricted-file and Windows acceptance pending. |
 
 All project documentation and user-facing text are written in English.
 NeoSync retains applicable NeoForge attribution and licenses; see the

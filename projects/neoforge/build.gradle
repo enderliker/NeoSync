@@ -318,7 +318,16 @@ configurations {
     }
 }
 
+def generateProviderAccess = tasks.register('generateProviderAccess', net.neoforged.neodev.GenerateProviderAccess) {
+    outputDirectory.set(layout.buildDirectory.dir('generated/provider-access'))
+}
+
+tasks.named('sourcesJar') {
+    exclude 'META-INF/neosync/provider-access.bin'
+}
+
 processResources {
+    from(generateProviderAccess.flatMap { it.outputDirectory })
     inputs.property("version", project.version)
     final version = project.version
     filesMatching("META-INF/neoforge.mods.toml") {

@@ -155,10 +155,12 @@ public final class ProviderHttpClient implements ProviderTransport {
         if (addresses.length == 0) throw new IOException();
         for (var address : addresses) if (!SyncEndpoint.isPublic(address)) throw new IOException();
         return fetchPinned(request.service, URI.create("https://" + request.service.host + request.path), request.body,
-                credential, addresses[0], SSLContext.getDefault(), token);
+                credential, new InetSocketAddress(addresses[0], 443), SSLContext.getDefault(), token);
     }
 
-    static byte[] fetchPinned(Service service, URI uri, String body, String credential, InetAddress address,
+    /** Internal transport primitive. The caller must validate the pinned address; API origin and TLS identity are still enforced here. */
+    @org.jetbrains.annotations.ApiStatus.Internal
+    public static byte[] fetchPinned(Service service, URI uri, String body, String credential, InetSocketAddress address,
             SSLContext tls, DiscoveryCancellation token) throws Exception {
         var result = new CompletableFuture<byte[]>();
         var bootstrap = new Bootstrap().group(NETWORK).channel(NioSocketChannel.class).option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
@@ -238,7 +240,7 @@ public final class ProviderHttpClient implements ProviderTransport {
                         });
                     }
                 });
-        var connection = bootstrap.connect(new InetSocketAddress(address, 443));
+        var connection = bootstrap.connect(address);
         try {
             token.attach(() -> {
                 connection.channel().close();

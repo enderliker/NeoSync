@@ -16,10 +16,11 @@ import java.nio.file.StandardOpenOption;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
 
-final class ManagedPaths {
+@org.jetbrains.annotations.ApiStatus.Internal
+public final class ManagedPaths {
     private ManagedPaths() {}
 
-    static Path directory(Path path, boolean create) throws IOException {
+    public static Path directory(Path path, boolean create) throws IOException {
         path = path.toAbsolutePath().normalize();
         Path current = path.getRoot();
         for (Path segment : path) {
@@ -65,7 +66,7 @@ final class ManagedPaths {
         Files.move(source, target, StandardCopyOption.ATOMIC_MOVE);
     }
 
-    static void deleteTree(Path path) throws IOException {
+    public static void deleteTree(Path path) throws IOException {
         directory(path, false);
         try (var entries = Files.newDirectoryStream(path)) {
             for (var entry : entries) {

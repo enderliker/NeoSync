@@ -252,6 +252,46 @@ class ArtifactHttpClientTest {
     }
 
     @Test
+    void publishesMixedManualAndIndependentHostedArtifactsAtomically(@TempDir Path directory) throws Exception {
+        Path manualJar = JarMetadataTest.jar(Files.createDirectory(directory.resolve("manual")), JarMetadataTest.TOML, Map.of());
+        Path privateJar = JarMetadataTest.jar(Files.createDirectory(directory.resolve("private")), JarMetadataTest.TOML.replace("test_mod", "private_mod"), Map.of());
+        var privateHash = ArtifactFiles.fingerprint(privateJar, new DiscoveryCancellation());
+        var root = JsonParser.parseString(new String(CurseForgeProviderTest.manifest(manualJar), StandardCharsets.UTF_8)).getAsJsonObject();
+        var extra = JsonParser.parseString(new String(SyncProtocolTest.manifest(), StandardCharsets.UTF_8).replace("test_mod", "private_mod")).getAsJsonObject().getAsJsonArray("files").get(0).getAsJsonObject();
+        extra.addProperty("sha256", privateHash.sha256());
+        extra.addProperty("size", privateHash.size());
+        extra.addProperty("fileName", "private.jar");
+        root.getAsJsonArray("files").add(extra);
+        byte[] bytes = root.toString().getBytes(StandardCharsets.UTF_8);
+        var manifest = SyncManifest.parse(bytes);
+        String sha1 = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-1").digest(Files.readAllBytes(manualJar)));
+        var sources = new net.neoforged.neoforge.neosync.provider.SourceResolver(CurseForgeProviderTest.transport("false", null, Files.size(manualJar), sha1))
+                .resolve(manifest, new DiscoveryCancellation());
+        var endpoint = SyncEndpoint.create("localhost", 25575, new SyncCapability(8443, SyncManifest.sha256(bytes)));
+        var plan = InstallationPlan.create(endpoint, bytes, Set.of(), null, "0.1.0-dev", "21.1.251", InetAddress.getLoopbackAddress(), sources);
+        var store = ProfileStore.open(Files.createDirectory(directory.resolve("game")));
+        var originalTls = SSLContext.getDefault();
+        SSLContext.setDefault(clientTls);
+        try (var inventory = new HostedInventory(directory.resolve("hosting"), 1024 * 1024)) {
+            inventory.add(privateJar, privateHash, new DiscoveryCancellation());
+            try (var service = new ManifestService(new InetSocketAddress(InetAddress.getLoopbackAddress(), 8443), serverTls, endpoint.manifestUri().getPath(), bytes,
+                    "/.well-known/neosync/v1/servers/25575/files/", inventory.seal(), new HostingPolicy(true, 1024 * 1024, 8, 65536, 120));
+                    var imported = net.neoforged.neoforge.neosync.manual.ManualDownloads.collect(plan, plan.accept(true, true), directory.resolve("imports"), "4.0.44",
+                            new net.neoforged.neoforge.neosync.manual.ManualDownloads.Controls(manualJar.getParent(), () -> null, status -> {}, page -> {}, java.time.Duration.ofSeconds(2)), new DiscoveryCancellation())) {
+                var prepared = store.prepare(plan, plan.accept(true, true), imported.files(), "4.0.44", new DiscoveryCancellation(), (a, b, c) -> {});
+                store.verify(prepared, "4.0.44", new DiscoveryCancellation());
+                assertEquals(2, prepared.manifest().files().size());
+                var next = InstallationPlan.create(endpoint, bytes, Set.of(), manifest, "0.1.0-dev", "21.1.251", InetAddress.getLoopbackAddress(), sources);
+                assertThrows(IOException.class, () -> store.prepare(next, next.accept(true, true), Map.of(), "4.0.44", new DiscoveryCancellation(), (a, b, c) -> {}));
+                assertEquals(prepared, store.prepared(plan.identity()).orElseThrow());
+                assertEquals(manifest.files().getFirst().sha256(), ArtifactFiles.fingerprint(manualJar, new DiscoveryCancellation()).sha256());
+            }
+        } finally {
+            SSLContext.setDefault(originalTls);
+        }
+    }
+
+    @Test
     void hostedApprovalNeverAuthorizesRedirectsOrExternalLanSources(@TempDir Path directory) throws Exception {
         byte[] bytes = SyncProtocolTest.manifest();
         var endpoint = SyncEndpoint.create("localhost", 25575, new SyncCapability(8443, SyncManifest.sha256(bytes)));

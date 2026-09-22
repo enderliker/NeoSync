@@ -131,3 +131,40 @@ only source while declaring `authoredByAdministrator: false` and
 require explicit rejection, no discovery advertisement, and no hosted snapshot.
 Never declare a third-party file to be administrator-authored to make the test
 pass. Restore the eligible configuration before continuing client acceptance.
+
+## Phase 5: exact Modrinth resolution
+
+Use a fresh installation root as in Phase 4, then run `prepare_fixture.py` with
+`--providers` instead of `--hosting`. It selects the pinned Clumps JAR with
+`resolveProviders: true`, supplies no URL/IDs to the server, and requires the
+client review to identify Modrinth and pending byte checks. Run installed
+`install` and `resume` modes. These are live Modrinth calls, followed by a real
+server join. Record the exact source commit and installer hash for each run.
+
+## Phase 5: controlled manual-import fixture
+
+`prepare_fixture.py --manual-fixture` creates **synthetic CurseForge metadata**
+for the same public Clumps artifact and a controlled `xdg-open` executable. This
+fixture is not a real CurseForge author restriction, API request or browser/site
+interaction. It must never be reported as live CurseForge acceptance. No provider
+key is used. The test agent performs real local status/manifest discovery, resolves
+the synthetic metadata through the actual adapter, then exercises the product's
+review, source warning, import workflow and transaction using real mouse/keyboard
+events. The server uses explicit fixture hints. A restarted, verified profile
+can join the real local server without a missing-mod provider request.
+
+Set `XDG_CONFIG_HOME` to the fixture's `xdg-config` directory and prepend its
+`browser-bin` to the **client process** PATH. The fake browser records the exact
+approved page, copies the approved artifact to a partial filename in a relocated
+Downloads directory, and completes it by rename. Require both consent declines
+to leave `browser-report.txt` absent, then a single approved handoff and a verified
+prepared profile. Keep the fixture executable and all generated artifacts out of
+release binaries. The launcher and metadata substitutions live only in the
+external test harness, not in product test switches.
+
+To exercise browser-launch failure and explicit selection, use a fresh fixture,
+replace only its controlled `xdg-open` with an executable that records the page
+and exits nonzero, and set `manualSelection` in `install.properties` to a local
+copy of the exact JAR outside Downloads. The driver enters this path in the product
+screen and clicks **Use path**. This checks that failure retains manual selection.
+The native file chooser and real browser still need separate platform evidence.

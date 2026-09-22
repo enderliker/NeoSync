@@ -182,7 +182,9 @@ Each source is one of:
 - `external`: an HTTPS URL, optionally with a `provider` hint containing a supported
   provider ID, project ID, and file ID. A hint is a server claim. Only an independent
   provider lookup matching the exact bytes may classify it as identified through
-  that provider. Until Phase 5 implements this, external URLs are unverified.
+  that provider. Phase 5 retains the hint and resolves metadata before review.
+  SHA-256 and the provider hash must both match downloaded bytes; before that,
+  the client retains the unverified-source warning.
 - `server`: no supplied URL. Derive the artifact URL from the already approved
   manifest origin and the artifact hash. Always require the additional warning.
 
@@ -196,15 +198,18 @@ automatic acquisition when permitted, then a CurseForge browser handoff for
 restricted downloads. Hosting is reserved for eligible administrator-authored
 mods unavailable elsewhere. Every route must match the exact required bytes and
 be covered by consent; this order never authorizes a silent source change or a
-different build. Provider automation remains future work.
+different build. See [Phase 5](phase-5.md) for implementation and runtime status.
 
-For author-disabled third-party downloads, the accepted future fallback is an
-explicit browser handoff to the exact CurseForge file page and verified local
-import, not server hosting. See the [manual download design](manual-downloads.md).
-This is not implemented and introduces no valid source fields in the current
-schema. Do not configure an HTML file page as an `external` artifact URL. Define
-and validate any required protocol/schema extension before implementing the flow;
-existing clients must continue to reject unsupported sources explicitly.
+For author-disabled third-party downloads, alpha.4 resolves the exact CurseForge
+file page from independently retrieved project/file metadata, then requires
+explicit browser handoff and verified local import. Hosting is never a fallback.
+See the [manual download contract](manual-downloads.md). V1 continues to carry an
+external URL and provider hint: alpha.4 clients must resolve hinted sources before
+acquisition, and a manual page is never passed to the artifact HTTP downloader.
+Alpha.4 manifests require that exact NeoSync version, so alpha.3 cannot accept an
+installation that uses the new semantics. A bare HTML page without the resolved
+provider identity is not a supported direct artifact source. Live CurseForge
+acceptance still requires the own key and applicable agreement.
 
 ## Validation beyond JSON Schema
 

@@ -31,6 +31,10 @@ Existing v1 profile records remain readable. Audit records never authorize new
 requests. Redirects from provider artifact URLs are rejected. Active files and
 previous revisions retain the existing transactional guarantees.
 
+New provider audits use local consent schema 2; schema 1 records, including the
+first Modrinth increment, remain readable. Startup rechecks retained provider
+hashes against installed bytes as well as the manifest SHA-256.
+
 New manifests require NeoSync alpha.4. The existing exact loader-version check
 prevents alpha.3 installation of an alpha.4 manifest, including future manual
 page sources. No unknown v1 fields or source types are introduced. The new client
@@ -96,5 +100,118 @@ work, and the application form is not provider approval.
 - Modrinth integration increment: 217 JUnit tests passed with no failures, errors or
   skips; formatting passed on JDK 21.0.2/Linux. A separate live HTTPS metadata
   request returned the expected Clumps project/version, 18,382 bytes and SHA-512.
-- Installed acceptance: pending. Service fixtures,
-  live API calls and installed gameplay results will be recorded separately.
+- Installed Modrinth acceptance at `d434fb0` on Linux x86-64, JDK 21.0.2:
+  installer SHA-256 `c29a6d31506988d6dccf5eed99fc1660eee0c23a2151d1cff5a205420b3ff6fd`
+  populated fresh client/server installations. Server-selected Clumps 19.0.0.1
+  (`Wnxd13zP` / `jo7lDoK4`, 18,382 bytes) resolved automatically from its existing
+  SHA-512. Client review named Modrinth and explained pending byte checks. Real
+  mouse dispatch followed by Enter declined both default-negative screens without
+  creating a profile store. Explicit acceptance downloaded, verified and prepared
+  the isolated revision. A new client process verified that revision and joined
+  the real dedicated server with Clumps loaded; the loading screen closed and
+  the world rendered for ten driver ticks. Screenshots were inspected.
+  Reports: `/tmp/neosync-phase5-modrinth-acceptance/{install,resume}-report.txt`.
+  This is the repository's production launcher harness, not external launcher or
+  Windows certification. Later code changes do not inherit this exact-binary run.
+
+## CurseForge and manual import implementation
+
+CurseForge exact IDs are requested through documented `POST /v1/mods` and
+`POST /v1/mods/files` batches of at most 32. The adapter checks project/file IDs,
+Minecraft game/category, available status, Minecraft 1.21.1/NeoForge tags, size
+and SHA-1. Explicit `allowModDistribution=true` plus a supported CDN URL selects
+automatic acquisition. Explicit `false` selects a locally constructed official
+project/file page and ignores any CDN URL. A missing/null permission or missing
+permitted URL fails explicitly; neither is interpreted as an author restriction.
+
+Automatic server configuration can add an exact CurseForge hint:
+
+```json
+{"fileName":"example.jar","resolveProviders":true,
+ "curseforge":{"projectId":"123","fileId":"456"}}
+```
+
+These are illustrative identifiers. Modrinth SHA-512 matching is attempted first.
+If no Modrinth match exists, the explicit CurseForge IDs are resolved and SHA-1
+and size must match the already-selected server bytes. NeoSync does not implement
+CurseForge fuzzy matching, project-name search, or an undocumented fingerprint
+algorithm. Thus the CurseForge branch still needs two exact IDs when Modrinth
+cannot identify the artifact. Provider outages fail; no silent fallback follows
+review. Manifests may also carry already configured provider hints.
+
+After both consent screens, the importer registers a watcher before launching the
+reviewed page. Linux uses XDG user directories parsed as data; Windows calls the
+Downloads known-folder API. The screen also supports a native file chooser and
+an explicit absolute file/folder path. Original downloads stay untouched. Scans
+are nonrecursive, limited to 1,024 directory entries and 2,048 tracked candidates;
+rescans are paced to one per second, with a 15-minute deadline and bounded I/O.
+Partial names, symlinks, wrong size/hash, changing files and invalid JAR metadata
+cannot enter a revision. Owned staged copies are reverified against both hashes
+and the approved mod set. Browser waiting occurs outside the profile-store lock;
+publication uses the existing all-files transaction. Canceled/expired attempts
+close watchers and delete their temporary copies. Interrupted processes may leave
+unpublished temporary copies; they are not activated or reusable consent.
+
+Pages are opened one at a time for the next needed file. A user can explicitly
+reopen the displayed page. Browser failure retains file-selection fallback.
+The external browser manages its own redirects, account and cookies; NeoSync
+never scrapes a restricted page or requests a CDN alternative for it.
+
+## Build-time credential injection
+
+`generateProviderAccess` reads `NEOSYNC_PROVIDER_KEY_FILE` (an exact ASCII file
+without a trailing newline) or `NEOSYNC_PROVIDER_KEY` during task execution.
+Use only NeoSync's own application key. No key is requested from end users and
+there is no mandatory backend. The generated
+`META-INF/neosync/provider-access.bin` belongs to runtime resources only and is
+explicitly excluded from source archives and Git. A build without an input writes
+an empty resource so a previous generated credential cannot survive accidentally.
+The task is never up to date or stored in the Gradle build cache; credential values
+are not task inputs or configuration-cache state and are never logged by it.
+
+Before supplying a **real** key, obtain the applicable agreement covering desktop
+key disclosure, downloads and retained manifests/audit information. The build
+requires `NEOSYNC_PROVIDER_AGREEMENT=desktop-key-and-audit-approved` as the
+maintainer's explicit assertion that this prerequisite was met. This flag is not
+provider approval and must not be set merely because the application was sent.
+Binary extraction remains possible by design. Rotate a compromised/revoked key
+through a new immutable release. The adapter sends it only as `x-api-key` to the
+fixed CurseForge API origin, never to CDNs, browsers, queries, logs or redirects.
+
+## Remaining acceptance blockers
+
+- The maintainer's CurseForge application is pending: no NeoSync API key exists.
+- Current published third-party terms require specific clarification/agreement
+  for key distribution and saved provider data. No real credential was injected
+  or distributed and no live CurseForge request was performed in this work.
+- A real permitted CurseForge download and a real author-restricted file/browser
+  flow, including the website's actual steps, cannot be certified from fixtures.
+- Windows known-folder relocation, file locking, chooser/browser behavior and
+  cancellation need actual Windows execution; this workspace is Linux.
+
+The native file chooser, a real desktop browser, and Windows known-folder behavior
+are not certified by a Linux watcher or controlled-launcher fixture.
+
+Phase 5 remains incomplete until those required branches have current runtime
+acceptance. The Modrinth run and synthetic/manual tests must remain separately
+identified in release notes.
+
+## Additional local validation
+
+The credential build gate rejected a fictitious key without the agreement
+assertion. With an explicitly fictitious packaging credential, the universal
+archive contained exactly the generated resource; the source archive contained
+neither that resource nor the credential bytes. Neither task log contained the
+credential. A subsequent build without inputs replaced the old generated value
+with an empty runtime resource. This validates packaging mechanics, **not**
+provider permission or a working CurseForge key. The temporary inspection report
+is `/tmp/neosync-phase5-key-packaging-report.json`.
+
+The final provider/manual increment passed 240 JUnit tests on Linux/JDK 21.0.2,
+with zero failures, errors or skips, plus formatting checks. This includes
+provider TLS/header confinement, redirect/encoding/size rejection, explicit
+permission handling, source/byte mismatches, changed audit evidence, staged
+browser imports, cancellation, timeout, explicit selection, XDG parsing and a
+mixed manual/HTTPS-hosted fixture transaction with failed-replacement recovery.
+The HTTPS-hosted file in that test is a separate generated private artifact;
+it is not a fallback for the manual file.

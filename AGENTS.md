@@ -133,9 +133,12 @@ The planned source preference for each exact required artifact is:
 This is a source-selection policy, not permission to silently switch sources
 after consent. Automatic acquisition still follows installation review and
 acceptance; it means no additional browser step. Match the exact approved bytes,
-not just a project name or version label. Provider resolution and the browser
-flow are future work; configured direct HTTPS downloads remain the
-implemented Phase 3 behavior, extended by restricted server sources in Phase 4.
+not just a project name or version label. Phase 5 implementation now includes
+exact Modrinth resolution and a CurseForge/manual-import adapter. Modrinth has
+passed a new installed flow; live CurseForge acceptance remains blocked on
+NeoSync's own key and an applicable provider agreement. Configured direct HTTPS
+downloads and restricted server sources remain available. See
+[Phase 5](docs/neosync/phase-5.md) for current evidence and limits.
 
 When a mod author disables third-party automatic downloads, the planned fallback
 is a browser download from the exact CurseForge project/file page, followed by
@@ -144,8 +147,10 @@ choice. Explain the manual step during review before opening the browser; retain
 **No, cancel** as the default for unverified sources. Watch the user's actual
 Downloads directory on Linux or Windows, verify the approved size and SHA-256,
 and copy into the new isolated revision through normal transactional preparation.
-This flow is **not implemented**. See the [manual download design](docs/neosync/manual-downloads.md)
-for consent, platform handling, verification, and acceptance requirements.
+The import flow is implemented, with separate fixture validation; real restricted
+CurseForge downloads and Windows runtime acceptance remain pending. See the
+[manual download contract](docs/neosync/manual-downloads.md) for consent, platform
+handling, verification, and acceptance requirements.
 
 ### Server hosting
 
@@ -278,12 +283,19 @@ public hosting does not inherit Minecraft login restrictions or prove authorship
 Integrate providers, identify exact files, and handle download restrictions. Do
 not confuse a project page with a direct file link.
 
-Include the planned [browser-assisted manual download flow](docs/neosync/manual-downloads.md)
+Include the [browser-assisted manual download flow](docs/neosync/manual-downloads.md)
 for author restrictions. Keep those restrictions visible and preserve explicit
 consent; this subset cannot promise a zero-click installation.
 
 **Exit criterion:** reduce manual configuration without substituting different
 file versions or hiding changes in source.
+
+**Implementation status:** in progress in alpha.4. Modrinth passed installed
+lookup/review/download/restart/join acceptance. CurseForge and browser import
+have independent fixtures; the maintainer has submitted the key application,
+but no own key or agreement allowing extractable desktop keys and retained
+provider audit data exists yet. Do not mark Phase 5 complete from fixture tests.
+See [Phase 5](docs/neosync/phase-5.md).
 
 ### Phase 6 — Restart and updates
 

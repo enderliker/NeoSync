@@ -153,7 +153,7 @@ public final class ProfileStore {
                     token.check();
                     var artifact = file.artifact();
                     Path output = mods.resolve(artifact.sha256() + ".jar");
-                    if (file.available()) {
+                    if (file.available() || file.provider() != null && file.provider().manual()) {
                         Path source = available.get(artifact.sha256());
                         if (source == null || !matches(source, artifact, token)) throw new IOException("An available file changed. Review the installation again.");
                         progress.update("Copying " + artifact.fileName(), complete, plan.totalBytes());
@@ -228,6 +228,22 @@ public final class ProfileStore {
             }
         }
         if (!expected.isEmpty()) throw new IOException("The prepared profile is missing mod files.");
+        Path directory = prepared.gameDirectory().getParent();
+        var audit = SyncJson.object(SyncJson.parse(ManagedPaths.read(directory.resolve("consent.json"), SyncManifest.MAX_BYTES), SyncManifest.MAX_BYTES),
+                Set.of("schemaVersion", "manifestSha256", "host", "gamePort", "origin", "serverId", "acceptedAt", "unverifiedSourcesAccepted", "files"), Set.of());
+        var auditFiles = SyncJson.array(audit.get("files"), prepared.manifest().files().size(), prepared.manifest().files().size());
+        for (int i = 0; i < auditFiles.size(); i++) {
+            var entry = SyncJson.object(auditFiles.get(i), Set.of("sha256", "source"), Set.of("provider"));
+            if (!entry.has("provider")) continue;
+            var file = prepared.manifest().files().get(i);
+            try {
+                net.neoforged.neoforge.neosync.provider.ProviderArtifact.readAudit(
+                        SyncJson.object(entry.get("provider"), Set.of("id", "projectId", "fileId", "algorithm", "hash", "manual"), Set.of()),
+                        URI.create(SyncJson.string(entry.get("source"), 2048)), file).verify(mods.resolve(file.sha256() + ".jar"), file, token);
+            } catch (IllegalArgumentException e) {
+                throw new IOException("Invalid local provider audit URL.");
+            }
+        }
     }
 
     public void recordLaunch() throws IOException {
@@ -301,7 +317,7 @@ public final class ProfileStore {
             throw new IOException("The local revision association is invalid.");
         var consent = SyncJson.object(SyncJson.parse(ManagedPaths.read(directory.resolve("consent.json"), SyncManifest.MAX_BYTES), SyncManifest.MAX_BYTES),
                 Set.of("schemaVersion", "manifestSha256", "host", "gamePort", "origin", "serverId", "acceptedAt", "unverifiedSourcesAccepted", "files"), Set.of());
-        SyncJson.number(consent.get("schemaVersion"), 1, 1);
+        long consentVersion = SyncJson.number(consent.get("schemaVersion"), 1, 2);
         if (!SyncJson.string(consent.get("manifestSha256"), 64).equals(digest) || !SyncJson.bool(consent.get("unverifiedSourcesAccepted"))
                 || !SyncJson.string(consent.get("host"), 253).equals(profile.identity().host())
                 || SyncJson.number(consent.get("gamePort"), 1, 65535) != profile.identity().gamePort()
@@ -324,6 +340,8 @@ public final class ProfileStore {
             } catch (IllegalArgumentException e) {
                 throw new IOException("Invalid local consent source.", e);
             }
+            if (consentVersion == 2 && artifact.sources().stream().anyMatch(candidate -> candidate.provider() != null) && !file.has("provider"))
+                throw new IOException("The local provider evidence is missing.");
             if (file.has("provider")) {
                 var provider = net.neoforged.neoforge.neosync.provider.ProviderArtifact.readAudit(
                         SyncJson.object(file.get("provider"), Set.of("id", "projectId", "fileId", "algorithm", "hash", "manual"), Set.of()), source, artifact);
@@ -370,7 +388,7 @@ public final class ProfileStore {
 
     private static JsonObject consentRecord(InstallationPlan plan, InstallationPlan.Consent consent) {
         var object = new JsonObject();
-        object.addProperty("schemaVersion", 1);
+        object.addProperty("schemaVersion", plan.files().stream().anyMatch(file -> file.provider() != null) ? 2 : 1);
         object.addProperty("manifestSha256", plan.digest());
         object.addProperty("host", plan.identity().host());
         object.addProperty("gamePort", plan.identity().gamePort());
