@@ -73,6 +73,8 @@ information. Follow the [client and server installation guide](docs/neosync/rele
 
 These are experimental prereleases. Use separate test directories and read the
 release notes for the actual validation results and remaining limitations.
+Restricted hosting is implemented in the unreleased alpha.3 development build;
+published alpha.2 supports configured external HTTPS sources.
 
 ## How it works
 
@@ -95,7 +97,8 @@ You can postpone activation and leave the profile prepared for later.
 | --- | --- |
 | Discovery | Retrieves a bounded HTTPS manifest before gameplay login and reports missing or incompatible requirements. |
 | Consent | Binds acceptance to the exact reviewed files and sources. Unverified-source warnings default to **No, cancel**. |
-| Downloads | Uses administrator-configured direct HTTPS URLs, with destination restrictions, transfer limits, and SHA-256 verification. |
+| Downloads | Uses configured direct HTTPS URLs or restricted server hosting, with destination restrictions, transfer limits, and SHA-256 verification. |
+| Server hosting | The alpha.3 development build serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
 | Preparation | Inspects JAR metadata without executing it and prepares a new revision while preserving existing profiles. |
 | Manual activation | Shows the exact game directory to select in the launcher; checks the selected profile and offers reconnection after restart. |
 
@@ -105,6 +108,11 @@ consent checks, cancellation and recovery checks, and a complete installation of
 [validation record](docs/neosync/phase-3.md#installed-build-acceptance-evidence)
 for the test environment and limits. This is evidence for the tested flow, not
 a claim of compatibility with every modpack or launcher.
+
+The new [Phase 4 validation](docs/neosync/phase-4.md#installed-build-acceptance)
+passed **197 tests** and an installed hosted-mod flow including both consent
+cancellations, download, manual restart, a real server join and process-interruption
+recovery. The installed server also rejected a third-party hosting selection.
 
 ## Try the development build
 
@@ -124,15 +132,17 @@ the first run can take some time. On Windows, use `gradlew.bat`.
   setup, checks, and the Minecraft patch workflow.
 - **Server administrators:** follow the [HTTPS and manifest setup](docs/neosync/phase-2.md#server-setup),
   then configure the [artifact sources](docs/neosync/phase-3.md#server-configuration-and-manual-activation).
-  The current MVP requires explicit client-file selection and suitable direct
-  HTTPS URLs in `config/neosync-server.json`.
+  Configure direct HTTPS URLs or, for your own unpublished server-specific mods,
+  the [restricted hosting declarations](docs/neosync/phase-4.md#server-configuration).
+  Both routes require explicit client-file selection in `config/neosync-server.json`.
 - **Testing the full flow:** use the [installed-build acceptance harness](tests/neosync/acceptance/README.md)
   to reproduce installation, activation, and joining in a controlled environment.
 
 ## Planned source handling
 
 Provider resolution and browser-assisted downloads are **not implemented**.
-The current MVP uses configured direct HTTPS URLs. The planned preference for
+The current implementation uses configured direct HTTPS URLs and restricted
+server hosting. The planned provider preference for
 each exact required file is:
 
 | Priority | Source | Planned experience |
@@ -148,8 +158,8 @@ depends on approved API access and applicable provider terms; a browser may
 require additional user interaction.
 
 See the [manual download design](docs/neosync/manual-downloads.md) and
-[source policy](AGENTS.md#source-resolution). Restricted hosting, reliable launcher
-integration, update recovery, and broader compatibility testing remain on the
+[source policy](AGENTS.md#source-resolution). Reliable launcher integration,
+update recovery, and broader compatibility testing remain on the
 [roadmap](AGENTS.md#roadmap-and-exit-criteria).
 
 ## Trust and isolation

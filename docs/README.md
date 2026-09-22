@@ -5,7 +5,8 @@
 NeoSync's installation MVP supports reviewed direct HTTPS downloads, verified
 isolated profiles, and manual activation. The full one-mod flow has passed with
 the repository's launcher harness. Provider resolution, browser-assisted
-downloads, server hosting, and automatic restart remain future work.
+downloads and automatic restart remain future work. Restricted hosting is
+implemented in the unreleased alpha.3 development build; see Phase 4 below.
 
 ## Setup and development
 
@@ -26,6 +27,7 @@ downloads, server hosting, and automatic restart remain future work.
 | [Phase 1](neosync/phase-1.md) | Historical design and source investigation. |
 | [Phase 2](neosync/phase-2.md) | Discovery implementation, setup, and validation evidence. |
 | [Phase 3](neosync/phase-3.md) | Installation implementation, complete one-mod results, and compatibility limits. |
+| [Phase 4](neosync/phase-4.md) | Restricted hosting setup, consent, transfer quotas, installed acceptance, and limits. |
 | [Protocol version 1](neosync/protocol-v1.md) | Manifest, identity, consent, transport, and profile contracts. |
 | [Manual downloads](neosync/manual-downloads.md) | Planned browser handoff for author-restricted downloads; not implemented. |
 

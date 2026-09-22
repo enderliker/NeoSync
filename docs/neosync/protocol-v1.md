@@ -4,7 +4,8 @@ Status: implementation contract from [Phase 1](phase-1.md).
 [Phase 2](phase-2.md) implements discovery, bounded manifest validation and serving,
 and requirements reporting. [Phase 3](phase-3.md) implements reviewed external
 downloads, persistent profile associations, transactional preparation, and manual
-activation. Server artifact hosting and automatic restart remain later work. Version 1
+activation. [Phase 4](phase-4.md) implements restricted server artifact hosting;
+automatic restart remains later work. Version 1
 initially targets direct connections to Minecraft 1.21.1 servers with public HTTPS
 or an explicitly approved, trusted LAN endpoint.
 
@@ -85,7 +86,7 @@ required. Publish the status object and its digest together, updating the cached
 status JSON. Keep in-progress requests bound to their original snapshot. If it
 expires, refresh status once and show any changed requirements before proceeding.
 
-Phase 4 plans this route only for a mod written by the administrator for that
+Phase 4 implements this route only for a mod written by the administrator for that
 server and not published or distributed elsewhere:
 
 ```text

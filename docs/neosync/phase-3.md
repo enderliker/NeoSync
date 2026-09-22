@@ -6,7 +6,8 @@ Clumps 19.0.0.1 from its public HTTPS CDN, prepared an isolated revision, relaun
 with that game directory, verified the selected profile, refreshed discovery,
 and joined a real dedicated server. External launcher certification, automatic
 restart, server-hosted artifacts, and broader modpack compatibility remain outside
-this result.
+this result. [Phase 4](phase-4.md) separately records restricted hosting and
+its new installed-build acceptance; the results below remain the Phase 3 record.
 
 ## Implemented increments
 

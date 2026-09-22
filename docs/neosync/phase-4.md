@@ -1,7 +1,12 @@
 # Phase 4 — Restricted server hosting
 
-Work in progress. Provider integration, browser downloads, and automatic restart
-remain outside this phase. Published alpha.2 does not implement hosting.
+Status: implemented, with fresh installed-build acceptance on Linux/JDK 21.0.2.
+The unreleased `0.1.0-alpha.3` development build completed consent, hosted download,
+isolated preparation, manual restart and a real dedicated-server join with an
+administrator-authored fixture generated solely for that server. An ineligible
+third-party file was rejected by the installed server. Published alpha.2 does not
+implement hosting. Provider integration, browser downloads and automatic restart
+remain outside this phase.
 
 ## Eligibility and inventory
 
@@ -21,23 +26,15 @@ failed copies are removed. An interrupted lifetime's private snapshot is reclaim
 under the lock on the next start. Unexpected content causes refusal instead of
 recursive deletion. Normal shutdown removes the snapshot.
 
-## Implementation sequence and evidence
+## Incremental validation
 
-1. Eligibility policy and bounded immutable inventory.
-2. Full-GET service on the approved HTTPS origin, bounded requests, concurrent
-   streams, bandwidth, deadlines, and publication from the loaded server inventory.
-3. Exact-source review, default-negative server warning, destination validation,
-   transactional preparation, and restart verification.
-4. Fresh acceptance with a locally authored, unpublished fixture mod, including
-   cancellations, download, restart/join, and adversarial failure cases.
-
-No Phase 4 graphical or installed-build acceptance has run yet. Test results are
-recorded here as each increment is executed; historical Phase 3 results are not
-Phase 4 evidence.
-
-Executed September 22, 2026 on Linux/JDK 21.0.2: the first inventory increment
-passed all 191 unit tests (zero failures, errors, or skips), including four new
-hosting tests. This exercises policy and snapshot operations, not gameplay.
+On September 22, 2026, the eligibility/inventory increment passed 191 tests,
+the restricted service increment passed 194, and client integration passed 197,
+all with zero failures, errors or skips in their final runs. Formatting checks
+passed for each increment. The final alpha.3 build also ran all 197 tests.
+These are new executions; historical Phase 3 runs are not Phase 4 evidence.
+Service and client test coverage appears below, separately from installed-game
+acceptance.
 
 ## Server configuration
 
@@ -141,3 +138,75 @@ URLs even with endpoint approval, and modified consent routes were rejected.
 The first test run exposed an IPv4/IPv6 fixture mismatch; the listener now uses
 the same loopback family as the pinned test address. Product TLS validation was
 not weakened. These are integration tests without Minecraft gameplay.
+
+## Installed-build acceptance
+
+Executed September 22, 2026 on Linux x86-64 (CachyOS), JDK 21.0.2, Minecraft
+1.21.1, NeoForge base 21.1.251, NeoSync 0.1.0-alpha.3 and FML 4.0.44. Runtime
+sources and the reproducing harness are recorded in commit `6d6d328`. The exact
+installer SHA-256 was:
+
+```text
+2349211eeba79da513d6cdd463fd83be94fd46408da8f26e9413713f45baa019
+```
+
+The installer populated new `/tmp/neosync-phase4-installations/client` and
+`server` directories. Both installed startup self-tests and artifact-content
+validation passed. The startup-only server test had no fixture password and
+correctly refused its HTTPS configuration; it was not counted as hosting
+acceptance. The subsequent full-flow server ran with the fixture password,
+announced its HTTPS inventory and completed the checks below.
+
+The fixture was a newly compiled, minimal Java mod with ID
+`private_fixture_b2931f3b3827`, version `1.0`, 1126 bytes, and SHA-256
+`bf001f369214b36ea4fe49d3522883cd61d9146e4c506a46c71355d1d97b04f9`.
+It had no external source and was generated solely for this disposable server.
+No generated mod, world, installation, certificate or account data is committed
+or distributed as a release asset. The test used loopback game port 25575 and
+HTTPS 8443, a fresh certificate with matching SANs, and a copy of normal JDK trust
+roots plus that fixture certificate. No product TLS bypass was introduced.
+
+| Check | New execution result |
+| --- | --- |
+| Consent cancellation | Real mouse dispatch and Enter verified default-negative focus on both screens. Each cancellation returned without creating the original directory's `neosync` store or staging files. |
+| Source review | Screenshots and driver assertions identified the server name, game address and HTTPS origin as the source; the additional warning explained executable code and unverified trust. |
+| Installation | Explicit acceptance downloaded the hosted JAR, checked size/hash/metadata, prepared an isolated revision and displayed exact manual activation instructions. |
+| Restart and join | A new installed client process selected that revision, verified it, refreshed discovery and joined the dedicated server with the expected mod ID loaded. The final driver waited for the loading screen to close and ten driver ticks with the game rendered; the screenshot shows the world. |
+| Third-party eligibility | The installed server rejected locally available Clumps 19.0.0.1 configured with false authorship/exclusivity and true distribution rights. Status contained no NeoSync advertisement, HTTPS was not listening, and no snapshot remained. The eligible configuration was restored afterward. |
+| TLS identity | Requests to the installed file route rejected the untrusted fixture certificate under normal system trust and rejected a different TLS hostname even with fixture trust. |
+| Restricted routes | Unknown hashes, traversal and query variants returned 404 from the installed service. |
+| Snapshot isolation | Changing the live fixture JAR left the published bytes unchanged. The live file was restored. |
+| Process interruption | A fresh client deliberately halted with exit 73 after revision rename and before pointer rename. The previous pointer stayed byte-identical; one complete orphan revision remained. Relaunching the previous revision verified it and joined the server with the world rendered. This tests process interruption, not power loss. |
+| Shutdown | Test servers stopped cleanly; the private hosting snapshot was removed. |
+
+The service-level tests separately exercised disk quota refusal, snapshot and
+ancestor symlinks, request/concurrency limits, aggregate pacing, disconnect/retry,
+ambiguous framing, and unknown paths. Client integration tests exercised corrupted
+hosted bytes, transfer cancellation, staging cleanup, previous-profile preservation,
+source-record tampering, blocked destinations and forbidden hosted redirects.
+These checks are not represented as additional graphical runs.
+
+Reproduce with the [acceptance harness](../../tests/neosync/acceptance/README.md#phase-4-administrator-authored-hosting).
+Local evidence was kept under `/tmp/neosync-phase4-acceptance`: `install-report.txt`,
+`resume-report.txt`, `service-report.txt`, `ineligible-report.txt`,
+`crash-report.txt`, `recovery-report.txt`, server logs and game screenshots.
+Temporary evidence may disappear after reboot; the procedure and results above
+remain in version control.
+
+## Limits and remaining validation
+
+No blocker remains for Phase 4's scoped acceptance criterion. This result covers
+one minimal top-level javafml mod and the repository's production launcher
+harness. It does not certify external launchers, Windows, macOS, public reverse
+proxy deployments, real multi-mod packs, or long-duration load/DoS resistance.
+The system lacked `libflite`, so narrator audio was unavailable; graphical
+consent and rendering passed. No new power-loss or real full-disk test is claimed.
+The existing unsupported JAR arrangements and post-FML startup-verification limit
+from [Phase 3](phase-3.md) still apply.
+
+Eligibility is enforced through mandatory, byte-bound administrator declarations
+and rejection of conflicting external sources; NeoSync cannot prove an operator's
+authorship or detect a dishonest declaration. Private authenticated distribution,
+provider identity checks, browser import, range/resume and automatic relaunch
+remain unimplemented. An eligible unpublished mod may be delivered publicly by
+this server. No third-party hosting exception or CurseForge integration was added.

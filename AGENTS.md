@@ -23,7 +23,10 @@ integration points, protocol and profile decisions, and remaining runtime checks
 Discovery and requirements reporting are implemented in
 [Phase 2](docs/neosync/phase-2.md). [Phase 3](docs/neosync/phase-3.md) adds consented
 external downloads, verified isolated profiles, and manual activation instructions.
-The installed-build one-mod flow has passed; automatic restart is not implemented.
+The installed-build one-mod flow has passed. [Phase 4](docs/neosync/phase-4.md)
+adds restricted hosting with a newly generated administrator-authored mod passing
+installed download/restart/join acceptance in the unreleased alpha.3 build;
+automatic restart is not implemented.
 Keep this distinction explicit as each phase
 progresses; a design or source trace is not a runtime compatibility result.
 
@@ -131,8 +134,8 @@ This is a source-selection policy, not permission to silently switch sources
 after consent. Automatic acquisition still follows installation review and
 acceptance; it means no additional browser step. Match the exact approved bytes,
 not just a project name or version label. Provider resolution and the browser
-flow are future work; current configured direct HTTPS downloads remain the
-implemented Phase 3 behavior.
+flow are future work; configured direct HTTPS downloads remain the
+implemented Phase 3 behavior, extended by restricted server sources in Phase 4.
 
 When a mod author disables third-party automatic downloads, the planned fallback
 is a browser download from the exact CurseForge project/file page, followed by
@@ -146,7 +149,7 @@ for consent, platform handling, verification, and acceptance requirements.
 
 ### Server hosting
 
-Restrict this future feature to mods written by the administrator specifically
+Restrict hosting to mods written by the administrator specifically
 for that server and not published or distributed anywhere else. Require explicit
 administrator enablement and confirmation of authorship, distribution status,
 and distribution rights. A provider lookup failure does not establish eligibility.
@@ -262,6 +265,13 @@ to that server, under the hosting eligibility rules above.
 **Exit criterion:** install an eligible administrator-authored mod unavailable
 elsewhere while respecting consent, integrity, and distribution requirements;
 reject ineligible third-party files from the hosting inventory.
+
+**Implementation:** the unreleased alpha.3 build passed the installed flow with a
+fresh administrator-authored fixture and rejected ineligible third-party hosting.
+Byte-bound eligibility declarations, verified snapshots, bounded HTTPS transfers,
+default-negative consent and transactional profile preparation are implemented.
+See [Phase 4](docs/neosync/phase-4.md) for actual execution evidence and limits;
+public hosting does not inherit Minecraft login restrictions or prove authorship.
 
 ### Phase 5 — Automatic source resolution
 
