@@ -4,7 +4,7 @@ NeoSync releases identify both the fork and its compatible NeoForge platform:
 
 ```text
 NeoSync-<neosync-version>-neoforge-<base-version>
-NeoSync-0.1.0-alpha.1-neoforge-21.1.251
+NeoSync-0.1.0-alpha.2-neoforge-21.1.251
 ```
 
 The first installation MVP is an **alpha prerelease** for Minecraft Java Edition
@@ -47,7 +47,7 @@ when switching to a prepared server-specific profile.
 Create a new server directory and run the installer with Java 21:
 
 ```bash
-java -jar NeoSync-0.1.0-alpha.1-neoforge-21.1.251-installer.jar --install-server /path/to/server
+java -jar NeoSync-0.1.0-alpha.2-neoforge-21.1.251-installer.jar --install-server /path/to/server
 ```
 
 Start the generated `run.sh` on Linux or `run.bat` on Windows. Review the Minecraft
@@ -72,7 +72,7 @@ never to replacement binaries from upstream NeoForge. LegacyInstaller requires
 a nonempty URL even for an embedded library; an empty URL makes it skip the file.
 FML 4 hard-codes the local
 `net/neoforged/neoforge` layout, so installed files use a unique version suffix:
-`21.1.251-neosync-0.1.0-alpha.1`. The mod metadata and `NeoForgeVersion` still
+`21.1.251-neosync-0.1.0-alpha.2`. The mod metadata and `NeoForgeVersion` still
 report the compatible base `21.1.251`. No modified NeoForge Maven publication
 is uploaded by this release process.
 
@@ -149,4 +149,27 @@ and sentinel files in the ordinary `neoforge-21.1.251` version and library paths
 This checks installation isolation, not a full external-launcher coexistence
 certification. The installer tested in these checks has SHA-256
 `ce9f266d6d7333a85228b1e2fee0008bdcfd569e236fd5ee56b1d83768f9291e`.
-See the [alpha release notes](release-notes/0.1.0-alpha.1.md) for user instructions.
+See the [first alpha release notes](release-notes/0.1.0-alpha.1.md) for that build.
+
+### Alpha.2 branding validation
+
+The alpha.2 installer passed client and dedicated-server installation and startup
+on Linux with JDK 21.0.2. Both sides extracted the separate startup library from
+the installer with a valid checksum. All 187 unit tests and formatting checks
+passed. Package validation confirmed unchanged FML classes and sources, expected
+graphics, isolated library paths, matching source archives, and upstream notices.
+Negative archive probes rejected changed code, old graphics, an incorrect startup
+download URL, and a missing source license.
+
+A graphical client run verified the loaded startup icon and library path, and
+screenshots confirmed the startup N, mod-list banner, and both title-screen
+versions. A fresh Clumps 19.0.0.1 run then passed both consent cancellations,
+download, verification, isolated preparation, restart, and a real dedicated-server
+join. These are production-harness results, not external launcher certification.
+
+The inherited client test launcher initially rejected the new library because it
+only indexed Gradle-resolved dependencies. It now verifies and uses the installed
+NeoSync library. Do not repair a missing embedded library from build outputs in
+this test: that would hide an installer failure.
+
+See the [alpha.2 release notes](release-notes/0.1.0-alpha.2.md) for downloads and limits.
