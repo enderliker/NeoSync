@@ -118,6 +118,22 @@ never as automatic authorization to download. Allow sources explicitly configure
 by the administrator and respect provider and mod download and redistribution
 restrictions.
 
+The planned source preference for each exact required artifact is:
+
+| Priority | Source | Planned acquisition |
+| --- | --- | --- |
+| 1 | Modrinth | Automatic download through the provider when the exact file is available and downloads are permitted. |
+| 2 | CurseForge with third-party downloads enabled | Automatic download through the provider for the exact file. |
+| 3 | CurseForge with third-party downloads disabled | Open the exact file page in the browser after a clear notice and consent, then detect and verify the local download. |
+| 4 | Server hosting | Only a mod written by the administrator for that server and not published or distributed anywhere else. |
+
+This is a source-selection policy, not permission to silently switch sources
+after consent. Automatic acquisition still follows installation review and
+acceptance; it means no additional browser step. Match the exact approved bytes,
+not just a project name or version label. Provider resolution and the browser
+flow are future work; current configured direct HTTPS downloads remain the
+implemented Phase 3 behavior.
+
 When a mod author disables third-party automatic downloads, the planned fallback
 is a browser download from the exact CurseForge project/file page, followed by
 local verification and import. Do not use server hosting to work around that
@@ -130,13 +146,15 @@ for consent, platform handling, verification, and acceptance requirements.
 
 ### Server hosting
 
-When no suitable source exists, the server may host the file if the administrator
-enables this feature and has permission to redistribute it. Serve only files
-included in the manifest through controlled identifiers; never allow access to
-arbitrary filesystem paths.
-
-This future hosting feature is for permitted redistribution, not a fallback for
-mods whose authors have disabled third-party automatic downloads.
+Restrict this future feature to mods written by the administrator specifically
+for that server and not published or distributed anywhere else. Require explicit
+administrator enablement and confirmation of authorship, distribution status,
+and distribution rights. A provider lookup failure does not establish eligibility.
+General redistribution permission alone does not expand this product scope.
+Never use hosting for third-party mods, author download restrictions, or provider
+outages. Serve only eligible files included in the manifest through controlled
+identifiers; never allow access to arbitrary filesystem paths. Clients must see
+the server as the source and explicitly accept the default-negative warning.
 
 ### Isolated profiles
 
@@ -238,10 +256,12 @@ security coverage, manual activation, and remaining validation limits.
 ### Phase 4 — Server hosting
 
 Implement restricted file transfer, administrator enablement, additional
-confirmation, quotas, and failure recovery.
+confirmation, quotas, and failure recovery for administrator-authored mods unique
+to that server, under the hosting eligibility rules above.
 
-**Exit criterion:** install mods without an available external source while
-respecting consent, integrity, and redistribution requirements.
+**Exit criterion:** install an eligible administrator-authored mod unavailable
+elsewhere while respecting consent, integrity, and distribution requirements;
+reject ineligible third-party files from the hosting inventory.
 
 ### Phase 5 — Automatic source resolution
 

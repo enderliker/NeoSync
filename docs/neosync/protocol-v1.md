@@ -85,14 +85,15 @@ required. Publish the status object and its digest together, updating the cached
 status JSON. Keep in-progress requests bound to their original snapshot. If it
 expires, refresh status once and show any changed requirements before proceeding.
 
-Phase 4 adds this route for a server-hosted artifact:
+Phase 4 plans this route only for a mod written by the administrator for that
+server and not published or distributed elsewhere:
 
 ```text
 https://<approved-origin>/.well-known/neosync/v1/servers/<logical-game-port>/files/<sha256>
 ```
 
 Resolve hashes through the published inventory, never as filesystem paths. Serve
-only immutable snapshots of administrator-approved JARs, with known size and
+only immutable snapshots of eligible administrator-authored JARs, with known size and
 `application/java-archive` or `application/octet-stream`. Copy and verify an
 artifact into the hosting inventory before publication; changes to the server's
 live `mods` folder must not alter a published response. Version 1 starts with full
@@ -100,7 +101,11 @@ GET downloads; interrupted files restart from zero. Range/resume support needs
 its own validation later.
 
 Initial discovery and manifests are public, like status. The administrator must
-explicitly enable direct artifact hosting and have redistribution rights. Do not
+explicitly enable direct artifact hosting and confirm authorship, absence of other
+distribution, and distribution rights. These are administrator declarations, not
+facts proven by a manifest or by unsuccessful provider searches. Third-party mods,
+provider outages, and author download restrictions are outside hosting scope;
+general redistribution permission alone does not make a file eligible. Do not
 claim that public endpoints inherit a Minecraft whitelist, ban list, online-mode
 authentication, or server privacy policy. Private authenticated distribution is
 outside the initial version; future short-lived tokens must be scoped to the
@@ -184,6 +189,13 @@ Do not execute metadata, fetch arbitrary project/update pages, or treat a mod's
 `displayURL` or update JSON as a direct artifact location. Fetching provider
 metadata never authorizes a JAR download. Provider resolution, where available,
 occurs before the download review.
+
+The planned preference is Modrinth automatic acquisition, then CurseForge
+automatic acquisition when permitted, then a CurseForge browser handoff for
+restricted downloads. Hosting is reserved for eligible administrator-authored
+mods unavailable elsewhere. Every route must match the exact required bytes and
+be covered by consent; this order never authorizes a silent source change or a
+different build. Provider automation remains future work.
 
 For author-disabled third-party downloads, the accepted future fallback is an
 explicit browser handoff to the exact CurseForge file page and verified local

@@ -6,13 +6,24 @@ direct HTTPS artifact downloads. It does not open CurseForge pages, watch Downlo
 or import browser downloads. This document does not add a source type or change
 the current manifest schema.
 
+The agreed source preference is **Modrinth automatic download → CurseForge
+automatic download when permitted → CurseForge browser download when restricted
+→ hosting only for unpublished mods written by the administrator for that server**.
+See the [source and hosting rules](../../AGENTS.md#source-resolution). Each route
+must supply the exact required artifact; an equal version label alone is not
+enough. Select and review the source before acquisition. Automatic download still
+requires installation consent, and a later source change requires another review.
+The final route is a separate eligibility case, not a fallback when downloading
+a third-party mod fails.
+
 ## Respecting the author's choice
 
 When a mod author disables third-party automatic downloads, direct the user to
 the official CurseForge download page for the exact project and file required by
 the server. Do not substitute server hosting, mirrors, scraping, or an alternate
 CDN request to bypass that restriction. Server hosting remains a separate future
-feature for permitted redistribution.
+feature limited to mods written by the administrator for that server and not
+published or distributed elsewhere.
 
 This is the intended browser-assisted pattern familiar from launchers such as
 Prism Launcher; it is not a claim that NeoSync implements or has verified another

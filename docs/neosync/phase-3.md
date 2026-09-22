@@ -219,7 +219,10 @@ the user accepts an exact CurseForge browser link, and a future Downloads watche
 imports only verified files through transactional preparation. This replaces
 server hosting as the planned fallback for that case. Browser handoff, platform
 Downloads discovery, and watched-file import are not implemented or covered by
-the Phase 3 acceptance results above.
+the Phase 3 acceptance results above. The planned source preference is Modrinth,
+then permitted CurseForge automatic downloads, then restricted CurseForge browser
+downloads. Future hosting is limited to mods written by the administrator for
+that server and not published or distributed elsewhere.
 
 Published increments use scoped Conventional Commits, starting at `4a45dff`
 (planning/consent), `0dcc6b6` (HTTPS transfer), `0b306cb` (metadata), `8f321be`
