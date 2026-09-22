@@ -1,7 +1,13 @@
 // Configure only the main build; Gradle also evaluates init scripts for buildSrc.
 gradle.projectsEvaluated {
     def target = gradle.rootProject.findProject(':neoforge')
-    if (target == null || !target.hasProperty('neosyncAcceptanceRoot')) return
+    if (target == null) return
+    if (target.hasProperty('neosyncAcceptanceInstallationRoot')) {
+        def installations = new File(target.property('neosyncAcceptanceInstallationRoot').toString())
+        target.tasks.named('installProductionClient').configure { installationDir.set(new File(installations, 'client')) }
+        target.tasks.named('installProductionServer').configure { installationDir.set(new File(installations, 'server')) }
+    }
+    if (!target.hasProperty('neosyncAcceptanceRoot')) return
     def fixture = new File(target.property('neosyncAcceptanceRoot').toString())
     target.tasks.named('runProductionClient').configure {
         gameDirectory.set(new File(target.property('neosyncAcceptanceGame').toString()))

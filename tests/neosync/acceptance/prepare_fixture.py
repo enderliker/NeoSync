@@ -2,11 +2,13 @@
 # Copyright (c) NeoSync contributors
 # SPDX-License-Identifier: LGPL-2.1-only
 
-"""Create an isolated Phase 3 fixture after installing the production server."""
+"""Create an isolated external-download or private-hosting acceptance fixture."""
 
 import argparse
 import hashlib
 import json
+import os
+import uuid
 from pathlib import Path
 import shutil
 import subprocess
@@ -16,6 +18,7 @@ URL = "https://cdn.modrinth.com/data/Wnxd13zP/versions/jo7lDoK4/Clumps-neoforge-
 SHA256 = "b524ccdace2ef8fd19f5b2074f7de1103ac5065c52553f064c00e098346c293e"
 
 parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument("--hosting", action="store_true", help="Generate a unique mod solely for this local server; never download a third-party fixture")
 parser.add_argument("--root", required=True, type=Path)
 parser.add_argument("--jdk", required=True, type=Path)
 parser.add_argument("--server", required=True, type=Path, help="Disposable installed production server")
@@ -39,21 +42,48 @@ with (root / "setup.log").open("w") as log:
     shutil.copyfile(jdk / "lib/security/cacerts", root / "truststore")
     run("keytool", "-importcert", "-alias", "neosync-fixture", "-keystore", root / "truststore", "-storepass", "changeit", "-file", root / "server.cer", "-noprompt")
 
-with urllib.request.urlopen(URL, timeout=30) as response:
-    artifact = response.read(18383)
-if len(artifact) != 18382 or hashlib.sha256(artifact).hexdigest() != SHA256:
-    raise RuntimeError("The acceptance artifact does not match the pinned Clumps release")
 (server / "mods").mkdir(exist_ok=True)
 (server / "config").mkdir(exist_ok=True)
-filename = URL.rsplit("/", 1)[1]
-(server / "mods" / filename).write_bytes(artifact)
+if args.hosting:
+    if any((server / "mods").iterdir()):
+        raise RuntimeError("Hosting acceptance requires an empty disposable server mods directory")
+    mod_id = "private_fixture_" + uuid.uuid4().hex[:12]
+    filename = mod_id + ".jar"
+    display_name = "Private server fixture"
+    classes = root / "private-mod"
+    (classes / "META-INF").mkdir(parents=True)
+    java_source = root / "PrivateServerMod.java"
+    java_source.write_text('package fixture;\n@net.neoforged.fml.common.Mod("' + mod_id + '")\npublic final class PrivateServerMod {}\n')
+    classpath = os.pathsep.join(map(str, (server / "libraries").rglob("*.jar")))
+    subprocess.run([str(jdk / "bin/javac"), "-proc:none", "-classpath", classpath, "-d", str(classes), str(java_source)], check=True)
+    (classes / "META-INF/neoforge.mods.toml").write_text(
+        'modLoader="javafml"\nloaderVersion="[4,)"\nlicense="Private acceptance fixture; no external distribution"\n'
+        '[[mods]]\nmodId="' + mod_id + '"\nversion="1.0"\ndisplayName="' + display_name + '"\n')
+    subprocess.run([str(jdk / "bin/jar"), "cf", str(server / "mods" / filename), "-C", str(classes), "."], check=True)
+    artifact = (server / "mods" / filename).read_bytes()
+    selection = {"fileName": filename, "sources": [{"type": "server"}], "hosting": {
+        "authoredByAdministrator": True, "exclusiveToServer": True,
+        "distributionRights": True, "sha256": hashlib.sha256(artifact).hexdigest(),
+    }}
+    phase = "Phase 4"
+    expected_source = "Provided by the server NeoSync Phase 4 Acceptance (127.0.0.1:25575) via https://127.0.0.1:8443"
+else:
+    with urllib.request.urlopen(URL, timeout=30) as response:
+        artifact = response.read(18383)
+    if len(artifact) != 18382 or hashlib.sha256(artifact).hexdigest() != SHA256:
+        raise RuntimeError("The acceptance artifact does not match the pinned Clumps release")
+    filename = URL.rsplit("/", 1)[1]
+    (server / "mods" / filename).write_bytes(artifact)
+    selection = {"fileName": filename, "sources": [{"type": "external", "url": URL}]}
+    mod_id, display_name, expected_source, phase = "clumps", "Clumps", "cdn.modrinth.com", "Phase 3"
 (server / "config/neosync-server.json").write_text(json.dumps({
-    "enabled": True, "displayName": "NeoSync Phase 3 Acceptance", "mode": "https",
+    "enabled": True, "displayName": f"NeoSync {phase} Acceptance", "mode": "https",
     "bindAddress": "127.0.0.1", "port": 8443, "httpsPort": 8443,
     "keyStore": str(root / "server.p12"), "passwordEnvironment": "NEOSYNC_FIXTURE_PASSWORD",
-    "files": [{"fileName": filename, "sources": [{"type": "external", "url": URL}]}],
+    "files": [selection],
+    "hosting": {"enabled": args.hosting},
 }, indent=2) + "\n")
-(server / "server.properties").write_text("server-ip=127.0.0.1\nserver-port=25575\nonline-mode=false\nenable-status=true\nview-distance=2\nsimulation-distance=2\nlevel-name=neosync-phase3-world\n")
+(server / "server.properties").write_text("server-ip=127.0.0.1\nserver-port=25575\nonline-mode=false\nenable-status=true\nview-distance=2\nsimulation-distance=2\nlevel-name=neosync-acceptance-world\n")
 for mode in ("install", "resume", "original", "changed", "crash", "space"):
-    (root / f"{mode}.properties").write_text(f"mode={mode}\nserver=127.0.0.1:25575\nreport={root}/{mode}-report.txt\nprepared={root}/prepared.txt\nreferenceGame={root}/original\n")
+    (root / f"{mode}.properties").write_text(f"mode={mode}\nserver=127.0.0.1:25575\nreport={root}/{mode}-report.txt\nprepared={root}/prepared.txt\nreferenceGame={root}/original\nexpectedModId={mod_id}\nexpectedName={display_name}\nexpectedSource={expected_source}\n")
 print(f"Fixture ready at {root}. Start the loopback server, then run the graphical client driver.")

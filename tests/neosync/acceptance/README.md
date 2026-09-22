@@ -82,3 +82,52 @@ Inspect the generated screenshots under each game directory's `screenshots`.
 Stop the test server with `stop` afterward. Keep reports, JARs, certificates,
 worlds, and generated installations out of commits. Tests of an installed build's
 game-directory argument do not certify the official launcher or other launchers.
+
+## Phase 4: administrator-authored hosting
+
+For the unreleased alpha.3 implementation, use new installation directories and
+pass the same installation-root property on **every** Gradle acceptance command:
+
+```sh
+./gradlew -I tests/neosync/acceptance/client.init.gradle \
+  -PneosyncAcceptanceInstallationRoot=/tmp/neosync-phase4-installations \
+  :neoforge:installProductionServer :neoforge:installProductionClient --max-workers=2
+python3 tests/neosync/acceptance/prepare_fixture.py --hosting \
+  --root /tmp/neosync-phase4-acceptance --jdk "$JAVA_HOME" \
+  --server /tmp/neosync-phase4-installations/server
+```
+
+`--hosting` creates a minimal Java mod for this disposable server, with a random
+mod ID and a freshly compiled JAR. It does not download Clumps or another external
+artifact. It requires an empty server `mods` directory, declares authorship,
+exclusive distribution and rights for the generated file's SHA-256, and configures
+only a `server` source. Keep that generated mod, its sources, certificates, worlds,
+and reports outside Git and release assets. This fixture is not a third-party
+redistribution test artifact.
+
+Start the generated server script with the fixture password as described above.
+Require both `NeoSync publicly hosts 1` and `NeoSync discovery enabled for 1`
+in the current startup log. Then run the same install/resume modes:
+
+```sh
+./gradlew -I tests/neosync/acceptance/client.init.gradle \
+  -PneosyncAcceptanceInstallationRoot=/tmp/neosync-phase4-installations \
+  -PneosyncAcceptanceRoot=/tmp/neosync-phase4-acceptance \
+  -PneosyncAcceptanceGame=/tmp/neosync-phase4-acceptance/original \
+  -PneosyncAcceptanceMode=install :neoforge:runProductionClient --max-workers=2
+```
+
+Require a fresh `PASS` report and inspect the screenshots. The expected source
+text names the server, game address and HTTPS origin on both consent screens.
+Both Enter cancellations must leave no profile store; only explicit acceptance
+may download. Run `resume` with the path from `prepared.txt`, require startup
+verification and a real join with the generated mod ID loaded. `original`,
+`changed`, and `crash` retain their meanings above.
+
+For a server eligibility rejection probe, stop the disposable server, select a
+known third-party mod already available locally, and configure `server` as its
+only source while declaring `authoredByAdministrator: false` and
+`exclusiveToServer: false` (even if distribution rights are true). Restart and
+require explicit rejection, no discovery advertisement, and no hosted snapshot.
+Never declare a third-party file to be administrator-authored to make the test
+pass. Restore the eligible configuration before continuing client acceptance.

@@ -74,9 +74,23 @@ public final class ClientDriver {
         }
     }
 
+    private static int worldFrames;
+
     private static void drive() throws Exception {
         Object screen = field(minecraft, "screen");
-        if (screen == null || call(minecraft, "getOverlay") != null) return;
+        if (call(minecraft, "getOverlay") != null) return;
+        if (screen == null) {
+            if (field(minecraft, "player") != null && field(minecraft, "level") != null && ++worldFrames >= 10) {
+                Object modList = call(type("net.neoforged.fml.ModList"), "get");
+                Object container = call(modList, "getModContainerById", settings.getProperty("expectedModId", "clumps"));
+                require((boolean) call(container, "isPresent"), "The expected mod is loaded after selecting the prepared directory");
+                evidence.add("Joined a real dedicated server with " + settings.getProperty("expectedModId", "clumps") + " loaded and normal NeoForge negotiation.");
+                evidence.add("The loading screen closed and the game rendered for ten driver ticks.");
+                screenshot("neosync-joined.png");
+                finish();
+            }
+            return;
+        }
         if (!screen.getClass().getSimpleName().equals(lastScreen)) {
             lastScreen = screen.getClass().getSimpleName();
             System.out.println("NeoSync acceptance screen: " + lastScreen);
@@ -95,15 +109,6 @@ public final class ClientDriver {
                 }
             }, "NeoSync publication crash probe");
             worker.start();
-            return;
-        }
-        if (field(minecraft, "player") != null && field(minecraft, "level") != null) {
-            Object modList = call(type("net.neoforged.fml.ModList"), "get");
-            Object container = call(modList, "getModContainerById", "clumps");
-            require((boolean) call(container, "isPresent"), "Clumps is loaded after selecting the prepared directory");
-            evidence.add("Joined a real dedicated server with Clumps loaded and normal NeoForge negotiation.");
-            screenshot("neosync-joined.png");
-            finish();
             return;
         }
         if (screen.getClass().getSimpleName().equals("TitleScreen")) {
@@ -133,7 +138,7 @@ public final class ClientDriver {
             click(screen, "Allow this endpoint");
         } else if (hasButton(screen, "Accept installation")) {
             require(label(call(screen, "getFocused")).equals("No, cancel"), "Installation review defaults to No");
-            require(text.contains("Clumps") && text.contains("cdn.modrinth.com") && text.contains("unverified"), "Review names the exact file and unverified source");
+            require(text.contains(settings.getProperty("expectedName", "Clumps")) && text.contains(settings.getProperty("expectedSource", "cdn.modrinth.com")) && text.contains("unverified"), "Review names the exact file and unverified source");
             if (mode.equals("changed")) {
                 evidence.add("Changed server snapshot requires fresh installation review.");
                 call(screen, "keyPressed", 257, 0, 0);
@@ -149,7 +154,7 @@ public final class ClientDriver {
             }
         } else if (hasButton(screen, "Yes, download these files")) {
             require(label(call(screen, "getFocused")).equals("No, cancel"), "Source warning defaults to No");
-            require(text.contains("execute code") && text.contains("cdn.modrinth.com"), "Warning explains executable code and its source");
+            require(text.contains("execute code") && text.contains(settings.getProperty("expectedSource", "cdn.modrinth.com")), "Warning explains executable code and its source");
             if (attempt == 1) {
                 call(screen, "keyPressed", 257, 0, 0);
                 evidence.add("Enter declined unverified-source confirmation.");
