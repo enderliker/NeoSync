@@ -213,6 +213,14 @@ this machine. No automatic restart, provider resolution, or server file hosting
 is claimed. Public SRV/proxy deployments, broader mod combinations, power-loss
 durability, and spoken narration still need targeted validation.
 
+The accepted [manual download design](manual-downloads.md) covers mods whose
+authors disable third-party automatic downloads: review explains the restriction,
+the user accepts an exact CurseForge browser link, and a future Downloads watcher
+imports only verified files through transactional preparation. This replaces
+server hosting as the planned fallback for that case. Browser handoff, platform
+Downloads discovery, and watched-file import are not implemented or covered by
+the Phase 3 acceptance results above.
+
 Published increments use scoped Conventional Commits, starting at `4a45dff`
 (planning/consent), `0dcc6b6` (HTTPS transfer), `0b306cb` (metadata), `8f321be`
 (profiles), `9c65ff6` (application services), `954c0ec` (exact version ranges), and

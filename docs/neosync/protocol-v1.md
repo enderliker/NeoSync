@@ -185,6 +185,14 @@ Do not execute metadata, fetch arbitrary project/update pages, or treat a mod's
 metadata never authorizes a JAR download. Provider resolution, where available,
 occurs before the download review.
 
+For author-disabled third-party downloads, the accepted future fallback is an
+explicit browser handoff to the exact CurseForge file page and verified local
+import, not server hosting. See the [manual download design](manual-downloads.md).
+This is not implemented and introduces no valid source fields in the current
+schema. Do not configure an HTML file page as an `external` artifact URL. Define
+and validate any required protocol/schema extension before implementing the flow;
+existing clients must continue to reject unsupported sources explicitly.
+
 ## Validation beyond JSON Schema
 
 Enforce these in code even when structural validation passes:

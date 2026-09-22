@@ -118,12 +118,25 @@ never as automatic authorization to download. Allow sources explicitly configure
 by the administrator and respect provider and mod download and redistribution
 restrictions.
 
+When a mod author disables third-party automatic downloads, the planned fallback
+is a browser download from the exact CurseForge project/file page, followed by
+local verification and import. Do not use server hosting to work around that
+choice. Explain the manual step during review before opening the browser; retain
+**No, cancel** as the default for unverified sources. Watch the user's actual
+Downloads directory on Linux or Windows, verify the approved size and SHA-256,
+and copy into the new isolated revision through normal transactional preparation.
+This flow is **not implemented**. See the [manual download design](docs/neosync/manual-downloads.md)
+for consent, platform handling, verification, and acceptance requirements.
+
 ### Server hosting
 
 When no suitable source exists, the server may host the file if the administrator
 enables this feature and has permission to redistribute it. Serve only files
 included in the manifest through controlled identifiers; never allow access to
 arbitrary filesystem paths.
+
+This future hosting feature is for permitted redistribution, not a fallback for
+mods whose authors have disabled third-party automatic downloads.
 
 ### Isolated profiles
 
@@ -234,6 +247,10 @@ respecting consent, integrity, and redistribution requirements.
 
 Integrate providers, identify exact files, and handle download restrictions. Do
 not confuse a project page with a direct file link.
+
+Include the planned [browser-assisted manual download flow](docs/neosync/manual-downloads.md)
+for author restrictions. Keep those restrictions visible and preserve explicit
+consent; this subset cannot promise a zero-click installation.
 
 **Exit criterion:** reduce manual configuration without substituting different
 file versions or hiding changes in source.
