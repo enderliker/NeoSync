@@ -126,8 +126,8 @@ zero failures/errors/skips. Six additional scenarios cover isolated copying and
 activation records, cancellation before/during preparation and between publication
 renames, injected disk-write failure, stale reviews, competing filesystem locks,
 symlinked roots, marker redirection/traversal, missing markers, cache corruption,
-and extra active files. Disk exhaustion is injected as an I/O failure; a real
-full-volume test and a killed-process recovery probe remain acceptance work.
+and extra active files. Disk-write failure is injected as an I/O failure. The
+subsequent real-volume and process-interruption checks are recorded below.
 
 Inspection of the MIT-licensed Clumps 19.0.0.1 artifact showed ordinary internal
 application service descriptors. These do not introduce a language loader or
@@ -164,6 +164,37 @@ advertised one artifact. The graphical client driver entered through the real
   Clumps; the separate Phase 2 probe covers that earlier integration point.
 - A third process launched with the original game directory reports pending
   activation, preserving the distinction between prepared and active profiles.
+- Changing the server's display name produced a new manifest digest with the same
+  mod bytes. The active client required fresh review and canceled by default;
+  matching hashes did not reuse consent for a changed snapshot.
+
+Follow-up acceptance checks found and corrected two issues:
+
+- Real mouse dispatch restored focus to the old installation button after a
+  screen rebuild. The screen now restores **No, cancel** after that transition.
+  The graphical flow was repeated using mouse events and Enter: both declines
+  and the accepted download/preparation path passed. Earlier direct button calls
+  did not exercise this focus behavior.
+- The test agent could trigger Minecraft static initialization too early and
+  deadlock with the main thread. A thread dump identified this race; the agent
+  now waits for class initialization without initiating it. This affected the
+  test harness, not the product's startup hook.
+
+The final expanded unit run passed **187 tests, zero failures/errors/skips**,
+including an actual stalled TLS response reaching the 30-second idle timeout,
+expired total-deadline cleanup, and preservation of symlink targets.
+`checkFormatting` passed for the corrected client.
+
+An installed-client transaction was terminated with `Runtime.halt(73)` after its
+revision rename and before its pointer update. The previous `profile.json` bytes
+were unchanged and one completed orphan revision remained; no finally-block
+cleanup ran. The prior revision subsequently passed startup verification in a new
+installed client process and still required review of the changed server snapshot.
+An additional installed client ran in an isolated 64 MiB tmpfs
+namespace and rejected preparation through the actual free-space check without
+publishing a profile. This is real low-space preflight evidence; disk-write
+failure during preparation is covered by fault injection, not physical disk
+exhaustion during a transfer. Power-loss behavior remains untested.
 
 The checked-in [driver and setup](../../tests/neosync/acceptance/README.md) explain
 reproduction. Certificates, downloaded JARs, worlds, screenshots, and local reports
@@ -171,3 +202,21 @@ are fixture output, not distributable project files. Narrator native-library
 loading failed in this environment; keyboard behavior was tested, spoken
 narration was not. These tests used synthetic launcher credentials and a
 loopback-only offline test server, not a personal Minecraft account.
+
+## Acceptance limits and next work
+
+The one-mod Phase 3 exit flow has passed. Current concrete compatibility limits
+are unsupported server-only sources, query-bearing artifact URLs, redirects to
+another origin, nested/library/alternate-loader arrangements, and external
+launcher certification. The official launcher and its GUI are not installed on
+this machine. No automatic restart, provider resolution, or server file hosting
+is claimed. Public SRV/proxy deployments, broader mod combinations, power-loss
+durability, and spoken narration still need targeted validation.
+
+Published increments use scoped Conventional Commits, starting at `4a45dff`
+(planning/consent), `0dcc6b6` (HTTPS transfer), `0b306cb` (metadata), `8f321be`
+(profiles), `9c65ff6` (application services), `954c0ec` (exact version ranges), and
+`ff119a5` (client/manual activation and installed-build harness), and `353b851`
+(mouse focus and expanded runtime acceptance driver). Corrections are
+published as follow-ups, preserving history. GitHub's inherited Release workflow
+was skipped for these pushes; no remote test result is claimed.

@@ -144,6 +144,40 @@ class ArtifactHttpClientTest {
         assertEquals("personal file", Files.readString(target));
     }
 
+    @Test
+    void expiredTotalDeadlineRemovesThePartialFile(@TempDir Path directory) throws Exception {
+        try (var fixture = new Fixture("HTTP/1.1 200 OK\r\n\r\ntest artifact bytes")) {
+            Path target = directory.resolve("partial.jar");
+            assertThrows(IOException.class, () -> ArtifactHttpClient.fetchPinned(fixture.uri(), InetAddress.getLoopbackAddress(), clientTls,
+                    artifact(), target, new DiscoveryCancellation(), count -> {}, System.nanoTime() - 1));
+            assertFalse(Files.exists(target));
+        }
+    }
+
+    @Test
+    @Timeout(40)
+    void idleTimeoutClosesAStalledTlsResponse(@TempDir Path directory) throws Exception {
+        try (var fixture = new Fixture("HTTP/1.1 200 OK\r\nContent-Length: 19\r\n\r\n", true)) {
+            Path target = directory.resolve("partial.jar");
+            long start = System.nanoTime();
+            assertThrows(IOException.class, () -> ArtifactHttpClient.fetchPinned(fixture.uri(), InetAddress.getLoopbackAddress(), clientTls,
+                    artifact(), target, new DiscoveryCancellation(), count -> {}, start + TimeUnit.SECONDS.toNanos(38)));
+            assertTrue(System.nanoTime() - start >= TimeUnit.SECONDS.toNanos(29));
+            assertFalse(Files.exists(target));
+            fixture.served.get(5, TimeUnit.SECONDS);
+        }
+    }
+
+    @Test
+    void refusesSymlinkTargetsWithoutChangingTheirContents(@TempDir Path directory) throws Exception {
+        Path personal = Files.writeString(directory.resolve("personal.txt"), "unchanged");
+        Path target = Files.createSymbolicLink(directory.resolve("partial.jar"), personal);
+        assertThrows(IOException.class, () -> ArtifactHttpClient.fetchPinned(URI.create("https://localhost:8443/file"), InetAddress.getLoopbackAddress(), clientTls,
+                artifact(), target, new DiscoveryCancellation(), count -> {}, deadline()));
+        assertTrue(Files.isSymbolicLink(target));
+        assertEquals("unchanged", Files.readString(personal));
+    }
+
     @ParameterizedTest
     @ValueSource(strings = { "127.0.0.1", "192.168.1.1", "169.254.169.254", "[::1]", "[::ffff:127.0.0.1]" })
     void externalSourcesCannotInheritLanPermission(String host, @TempDir Path directory) throws Exception {
@@ -159,16 +193,21 @@ class ArtifactHttpClientTest {
         final CompletableFuture<Void> served;
 
         Fixture(String response) throws IOException {
+            this(response, false);
+        }
+
+        Fixture(String response, boolean stall) throws IOException {
             listener = (SSLServerSocket) serverTls.getServerSocketFactory().createServerSocket(0, 1, InetAddress.getLoopbackAddress());
             served = CompletableFuture.runAsync(() -> {
                 try (var socket = listener.accept()) {
-                    socket.setSoTimeout(5000);
+                    socket.setSoTimeout(stall ? 35000 : 5000);
                     var input = socket.getInputStream();
                     int state = 0;
                     int read;
                     while (state < 4 && (read = input.read()) != -1) state = read == "\r\n\r\n".charAt(state) ? state + 1 : 0;
                     socket.getOutputStream().write(response.getBytes(StandardCharsets.US_ASCII));
                     socket.getOutputStream().flush();
+                    if (stall) assertEquals(-1, input.read());
                 } catch (IOException ignored) {
                     // Invalid TLS and early cancellation intentionally close the fixture connection.
                 }
