@@ -126,3 +126,18 @@ NeoForge URL; both cases were checked against modified copies of the real
 installer. Archive checks and `actionlint` validation of the release-build
 workflow also passed. These local results do not claim a completed remote CI run
 or external-launcher certification.
+
+The same installer then passed a fresh graphical one-mod acceptance run: both
+default-negative consent decisions canceled without creating a profile store,
+explicit acceptance downloaded and verified Clumps 19.0.0.1, and a new client
+process selected the prepared directory and joined the dedicated server. The
+server was started through its generated `run.sh`; the client and server used
+the alpha's isolated runtime paths. Activation instructions were visually checked
+and showed NeoSync `0.1.0-alpha.1` and NeoForge `21.1.251`.
+
+A separate client reinstallation preserved an existing launcher-profile entry
+and sentinel files in the ordinary `neoforge-21.1.251` version and library paths.
+This checks installation isolation, not a full external-launcher coexistence
+certification. The installer tested in these checks has SHA-256
+`ce9f266d6d7333a85228b1e2fee0008bdcfd569e236fd5ee56b1d83768f9291e`.
+See the [alpha release notes](release-notes/0.1.0-alpha.1.md) for user instructions.
