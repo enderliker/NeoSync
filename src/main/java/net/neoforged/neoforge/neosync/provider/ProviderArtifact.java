@@ -37,7 +37,8 @@ public record ProviderArtifact(SyncManifest.ProviderHint identity, URI source, l
                 throw new IOException("Invalid CurseForge file identity.");
             if (manual) {
                 requireHost(source, Set.of("www.curseforge.com"));
-                if (!source.getRawPath().matches("/minecraft/mc-mods/[a-z0-9][a-z0-9-]{0,127}/files/" + identity.fileId()))
+                // Earlier prepared profiles retain the exact file-details page in their local audit.
+                if (!source.getRawPath().matches("/minecraft/mc-mods/[a-z0-9][a-z0-9-]{0,127}/(?:download|files)/" + identity.fileId()))
                     throw new IOException("Invalid exact CurseForge file page.");
             } else {
                 requireHost(source, Set.of("edge.forgecdn.net", "mediafilez.forgecdn.net"));

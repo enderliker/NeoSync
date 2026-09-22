@@ -83,7 +83,7 @@ else:
         selection = {"fileName": filename, "resolveProviders": True}
         phase = "Phase 5"
     if args.manual_fixture:
-        page = "https://www.curseforge.com/minecraft/mc-mods/neosync-test-fixture/files/456"
+        page = "https://www.curseforge.com/minecraft/mc-mods/neosync-test-fixture/download/456"
         selection = {"fileName": filename, "sources": [{"type": "external", "url": page,
             "provider": {"id": "curseforge", "projectId": "123", "fileId": "456"}}]}
         expected_source, phase = "www.curseforge.com", "Phase 5 manual fixture"

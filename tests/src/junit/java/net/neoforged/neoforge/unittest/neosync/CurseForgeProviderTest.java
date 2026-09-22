@@ -12,6 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonParser;
 import java.io.IOException;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.List;
@@ -21,6 +22,7 @@ import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
 import net.neoforged.neoforge.neosync.protocol.InstallationPlan;
 import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 import net.neoforged.neoforge.neosync.provider.CurseForgeProvider;
+import net.neoforged.neoforge.neosync.provider.ProviderArtifact;
 import net.neoforged.neoforge.neosync.provider.ProviderHttpClient;
 import net.neoforged.neoforge.neosync.provider.ProviderTransport;
 import net.neoforged.neoforge.neosync.provider.SourceResolver;
@@ -29,7 +31,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 class CurseForgeProviderTest {
     static final SyncManifest.ProviderHint HINT = new SyncManifest.ProviderHint("curseforge", "123", "456");
-    static final String PAGE = "https://www.curseforge.com/minecraft/mc-mods/test-mod/files/456";
+    static final String PAGE = "https://www.curseforge.com/minecraft/mc-mods/test-mod/download/456";
     static final String CDN = "https://edge.forgecdn.net/files/0/456/test.jar";
 
     static ProviderTransport transport(String distribution, String url, long size, String sha1) {
@@ -69,6 +71,23 @@ class CurseForgeProviderTest {
         assertTrue(restricted.manual());
         assertEquals(PAGE, restricted.source().toString());
         assertEquals("SHA-1", restricted.algorithm());
+    }
+
+    @Test
+    void readsNewAndLegacyManualPageAuditsWithoutAcceptingOtherFiles(@TempDir Path directory) throws Exception {
+        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
+        var artifact = SyncManifest.parse(manifest(jar)).files().getFirst();
+        var resolved = new CurseForgeProvider(transport("false", null, artifact.size(), "a".repeat(40)))
+                .files(List.of(HINT), new DiscoveryCancellation()).get(HINT);
+        for (String page : List.of(PAGE, PAGE.replace("/download/", "/files/"))) {
+            var restored = ProviderArtifact.readAudit(resolved.audit(), URI.create(page), artifact);
+            assertEquals(page, restored.source().toString());
+            assertEquals(HINT, restored.identity());
+            assertTrue(restored.manual());
+        }
+        for (String page : List.of(PAGE.replace("456", "457"), PAGE.replace("/download/", "/downloads/"), PAGE + "/extra")) {
+            assertThrows(IOException.class, () -> ProviderArtifact.readAudit(resolved.audit(), URI.create(page), artifact));
+        }
     }
 
     @Test

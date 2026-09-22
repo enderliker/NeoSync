@@ -28,6 +28,11 @@ CDN request to bypass that restriction. Phase 4 server hosting is implemented as
 a separate eligibility case limited to mods written by the administrator for
 that server and not published or distributed elsewhere.
 
+New resolutions open `https://www.curseforge.com/minecraft/mc-mods/<slug>/download/<fileId>`
+after consent. This is the official browser download page, not a direct CDN
+request. Earlier prepared profiles with `/files/<fileId>` audit URLs remain
+readable. The website or browser can still require interaction.
+
 This is the intended browser-assisted pattern familiar from launchers such as
 Prism Launcher; it is not a claim that NeoSync implements or has verified another
 launcher's behavior. The browser may start the download after opening the page,

@@ -67,7 +67,7 @@ public final class CurseForgeProvider {
             URI source;
             if (manual) {
                 String slug = SyncJson.matching(project.get("slug"), 128, "[a-z0-9][a-z0-9-]*");
-                source = URI.create("https://www.curseforge.com/minecraft/mc-mods/" + slug + "/files/" + hint.fileId());
+                source = URI.create("https://www.curseforge.com/minecraft/mc-mods/" + slug + "/download/" + hint.fileId());
             } else {
                 if (!file.has("downloadUrl") || file.get("downloadUrl").isJsonNull())
                     throw new IOException("CurseForge did not provide a permitted download URL. This does not establish an author restriction.");

@@ -157,6 +157,14 @@ reopen the displayed page. Browser failure retains file-selection fallback.
 The external browser manages its own redirects, account and cookies; NeoSync
 never scrapes a restricted page or requests a CDN alternative for it.
 
+New manual resolutions now construct the official `/download/<fileId>` browser
+page instead of `/files/<fileId>`. Local audits using the earlier details-page
+route remain readable. The installed fixture runs recorded below predate this
+route change; they do not validate the website's behavior at the new URL.
+The route change passed 243 JUnit tests with zero failures, errors or skips and
+formatting checks on September 22, 2026 (Linux, JDK 21.0.2), including legacy audit
+compatibility, exact-file URL rejection, consent and manual-import regressions.
+
 ## Build-time credential injection
 
 `generateProviderAccess` reads `NEOSYNC_PROVIDER_KEY_FILE` (an exact ASCII file
