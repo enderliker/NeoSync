@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 public record SyncManifest(UUID serverId, String revision, String displayName, String minecraftVersion,
         String loaderVersion, String neoForgeVersion, List<Artifact> files) {
 
-    public static final String NEOSYNC_VERSION = "0.1.0-alpha.1";
+    public static final String NEOSYNC_VERSION = "0.1.0-alpha.2";
     public static final int MAX_BYTES = 1024 * 1024;
     public static final long MAX_FILE_BYTES = 512L * 1024 * 1024;
     public static final long MAX_TOTAL_BYTES = 4L * 1024 * 1024 * 1024;

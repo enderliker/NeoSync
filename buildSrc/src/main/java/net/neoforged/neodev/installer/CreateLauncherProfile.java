@@ -43,6 +43,9 @@ public abstract class CreateLauncherProfile extends DefaultTask {
     @Input
     public abstract Property<String> getVersionId();
 
+    @Nested
+    public abstract Property<BundledLibrary> getEarlyDisplay();
+
     @Input
     public abstract Property<String> getRawNeoFormVersion();
 
@@ -74,7 +77,7 @@ public abstract class CreateLauncherProfile extends DefaultTask {
         var time = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
 
         getLogger().info("Collecting libraries for Launcher Profile");
-        var libraries = LibraryCollector.resolveLibraries(getRepositoryURLs().get(), getLibraryFiles().get());
+        var libraries = getEarlyDisplay().get().resolve(getRepositoryURLs().get(), getLibraryFiles().get());
 
         var gameArguments = new ArrayList<>(List.of(
                 "--fml.neoForgeVersion", getNeoForgeVersion().get(),

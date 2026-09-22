@@ -18,6 +18,8 @@ one-mod flow; it does not certify every modpack or external launcher.
 | `NeoSync-…-installer.jar` | Recommended download. The same installer supports clients and dedicated servers. |
 | `NeoSync-…-universal.jar` | NeoSync/NeoForge runtime classes for inspection and tooling. It is not a standalone server or a JAR to drop into `mods`. |
 | `NeoSync-…-sources.jar` | Runtime sources, excluding Minecraft sources. |
+| `NeoSync-…-earlydisplay.jar` | FML startup library with NeoSync graphics, already included in the installer. Not a mod. |
+| `NeoSync-…-earlydisplay-sources.jar` | Matching FML startup sources, graphics, license, and change notice. |
 | `SHA256SUMS` | SHA-256 checksums for the attached artifacts and release manifest. |
 | `release-manifest.json` | Source commit, version identifiers, artifact names, sizes, and hashes. |
 
@@ -64,14 +66,21 @@ Update `neosync_version` and `SyncManifest.NEOSYNC_VERSION` together. Retain
 `neoforge_base_version` unless the actual base changes. A release correction
 gets a new NeoSync version even if the base and protocol are unchanged.
 
-The installer embeds the universal JAR and identifies its remote location as the
-same NeoSync release on GitHub, never upstream NeoForge. LegacyInstaller requires
+The installer embeds the universal JAR and, from alpha.2, the startup graphics
+library. Their remote locations point to the same NeoSync release on GitHub,
+never to replacement binaries from upstream NeoForge. LegacyInstaller requires
 a nonempty URL even for an embedded library; an empty URL makes it skip the file.
 FML 4 hard-codes the local
 `net/neoforged/neoforge` layout, so installed files use a unique version suffix:
 `21.1.251-neosync-0.1.0-alpha.1`. The mod metadata and `NeoForgeVersion` still
 report the compatible base `21.1.251`. No modified NeoForge Maven publication
 is uploaded by this release process.
+
+The startup library has its own `io.github.enderliker.neosync:earlydisplay`
+coordinates, preserving FML's module identity and byte-for-byte Java classes.
+Both client and server profiles use its unique versioned path. The build also
+produces corresponding sources; see [branding](branding.md) for regeneration,
+attribution, and the difference between development and installed startup assets.
 
 With JDK 21 selected, build and validate:
 
@@ -93,7 +102,7 @@ python3 scripts/prepare_release.py
 ```
 
 The exporter requires a clean tracked tree, verifies the installer identity,
-embedded runtime, source version, and absence of bundled Minecraft classes, and
+embedded libraries, branding, unchanged FML code, source version, and absence of bundled Minecraft classes, and
 writes artifacts to `build/neosync-release/<release-name>/`. Untracked personal
 handoff files are not included. Checksums identify the published bytes; they are
 not a code signature or a claim that downloaded code is harmless.

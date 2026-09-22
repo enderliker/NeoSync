@@ -27,9 +27,12 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -215,6 +218,15 @@ public abstract class RunProductionClient extends JavaExec {
                     continue; // The library was overridden by a child profile
                 }
 
+                Path destination = librariesDir.resolve(id.repositoryPath());
+                if (id.group().equals("io.github.enderliker.neosync")) {
+                    // A missing or corrupt embedded library must fail the installed-build
+                    // test, rather than being repaired from a build output or Gradle cache.
+                    verifyInstalledLibrary(destination, libraryObj.getAsJsonObject("downloads").getAsJsonObject("artifact"));
+                    classpathItems.add(destination.toAbsolutePath().toString());
+                    continue;
+                }
+
                 // Try finding the library in the classpath we got from Gradle
                 var availableLibrary = availableLibraries.get(id);
                 if (availableLibrary == null) {
@@ -224,7 +236,6 @@ public abstract class RunProductionClient extends JavaExec {
                 // Copy over the library to the libraries directory, since our loader only deduplicates class-path
                 // items with module-path items when they are at the same location (and the module-path is defined
                 // relative to the libraries directory).
-                Path destination = librariesDir.resolve(id.repositoryPath());
                 copyIfNeeded(availableLibrary, destination);
                 classpathItems.add(destination.toAbsolutePath().toString());
             }
@@ -246,6 +257,18 @@ public abstract class RunProductionClient extends JavaExec {
     }
 
     // Returns the inherited manifests first
+    private static void verifyInstalledLibrary(Path path, JsonObject artifact) {
+        try {
+            var bytes = Files.readAllBytes(path);
+            var sha1 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-1").digest(bytes));
+            if (bytes.length != artifact.get("size").getAsLong() || !sha1.equals(artifact.get("sha1").getAsString())) {
+                throw new GradleException("Installed NeoSync library does not match its launcher manifest: " + path);
+            }
+        } catch (IOException | NoSuchAlgorithmException e) {
+            throw new GradleException("Cannot verify installed NeoSync library: " + path, e);
+        }
+    }
+
     private static List<JsonObject> loadVersionManifests(Path installDir, String versionId) {
         // Read back the version manifest and get the startup arguments
         var manifestPath = installDir.resolve("versions").resolve(versionId).resolve(versionId + ".json");

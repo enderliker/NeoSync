@@ -9,6 +9,7 @@ import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
 import org.gradle.api.tasks.Input;
 import org.gradle.api.tasks.InputFile;
+import org.gradle.api.tasks.Nested;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
 
@@ -33,6 +34,9 @@ public abstract class CreateArgsFile extends DefaultTask {
 
     @Input
     public abstract Property<String> getFmlVersion();
+
+    @Nested
+    public abstract Property<BundledLibrary> getEarlyDisplay();
 
     @Input
     public abstract Property<String> getMinecraftVersion();
@@ -71,7 +75,7 @@ public abstract class CreateArgsFile extends DefaultTask {
     protected abstract ArchiveOperations getArchiveOperations();
 
     private String resolveClasspath() throws IOException {
-        var ourClasspath = getClasspath().get();
+        var ourClasspath = getEarlyDisplay().get().replaceClasspath(getClasspath().get());
 
         // The raw server jar also contains its own classpath.
         // We want to make sure that our versions of the libraries are used when there is a conflict.

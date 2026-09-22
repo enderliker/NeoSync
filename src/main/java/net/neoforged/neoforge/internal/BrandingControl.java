@@ -18,6 +18,7 @@ import net.neoforged.fml.i18n.FMLTranslations;
 import net.neoforged.neoforge.client.ClientHooks;
 import net.neoforged.neoforge.forge.snapshots.ForgeSnapshotsMod;
 import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion;
+import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 
 public class BrandingControl {
     private static List<String> brandings;
@@ -28,6 +29,7 @@ public class BrandingControl {
         if (brandings == null) {
             ImmutableList.Builder<String> brd = ImmutableList.builder();
             brd.add("Minecraft " + DetectedVersion.BUILT_IN.getName());
+            brd.add("NeoSync " + SyncManifest.NEOSYNC_VERSION);
             int modCount = ModList.get().size();
             brd.add(FMLTranslations.parseMessage("fml.menu.branding", ForgeSnapshotsMod.BRANDING_NAME + ' ' + NeoForgeVersion.getVersion(), modCount));
             brandings = brd.build();

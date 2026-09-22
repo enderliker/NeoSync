@@ -45,6 +45,9 @@ public abstract class CreateInstallerProfile extends DefaultTask {
     @Input
     public abstract Property<String> getVersionId();
 
+    @Nested
+    public abstract Property<BundledLibrary> getEarlyDisplay();
+
     @Input
     public abstract Property<String> getMcAndNeoFormVersion();
 
@@ -164,7 +167,7 @@ public abstract class CreateInstallerProfile extends DefaultTask {
             }
         }
         var libraries = new ArrayList<>(
-                LibraryCollector.resolveLibraries(getRepositoryURLs().get(), libraryFilesToResolve.values()));
+                getEarlyDisplay().get().resolve(getRepositoryURLs().get(), libraryFilesToResolve.values()));
 
         var universalJar = getUniversalJar().getAsFile().get().toPath();
         libraries.add(new Library(

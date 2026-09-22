@@ -336,7 +336,9 @@ coverage before release.
 - Name release tags and titles `NeoSync-<neosync-version>-neoforge-<base-version>`,
   for example `NeoSync-0.1.0-alpha.1-neoforge-21.1.251`. Use the same prefix for
   downloadable assets, followed by `-installer.jar`, `-universal.jar`, or
-  `-sources.jar`. Keep the Minecraft version explicit in release notes.
+  `-sources.jar`. The startup graphics library uses `-earlydisplay.jar` and
+  `-earlydisplay-sources.jar`; ship its matching sources and upstream notices.
+  Keep the Minecraft version explicit in release notes.
 - Version NeoSync independently of its NeoForge base and synchronization protocol.
   Keep `neosync_version` in `gradle.properties` and the runtime NeoSync identifier
   aligned. Alpha, beta, and release-candidate versions must be GitHub prereleases.

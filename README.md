@@ -44,7 +44,7 @@ before installation.
 | --- | --- | --- |
 | Minecraft Java Edition | **1.21.1** | The Minecraft version targeted by this branch. |
 | NeoForge base build | **21.1.251** | The platform build used by NeoSync; mods must be compatible with this NeoForge/Minecraft combination. |
-| NeoSync identifier | **0.1.0-alpha.1** | NeoSync's own alpha version, separate from the NeoForge build number. |
+| NeoSync identifier | **0.1.0-alpha.2** | NeoSync's own alpha version, separate from the NeoForge build number. |
 | Synchronization protocol | **1** | The version used for server discovery and manifests. |
 | Java | **21** | Required for running and developing this build; use a JDK for development. |
 | Gradle wrapper | **8.13** | Included in the repository; no separate Gradle installation is needed. |
@@ -64,7 +64,7 @@ these versions. Published releases are pinned to a specific source commit.
 
 Get the alpha installer from [GitHub Releases](https://github.com/enderliker/NeoSync/releases).
 Release names include both versions, for example
-**`NeoSync-0.1.0-alpha.1-neoforge-21.1.251`**.
+**`NeoSync-0.1.0-alpha.2-neoforge-21.1.251`**.
 
 Download the **`-installer.jar`** for either a client or a dedicated server. The
 same installer supports both; a separate universal JAR is not a standalone game

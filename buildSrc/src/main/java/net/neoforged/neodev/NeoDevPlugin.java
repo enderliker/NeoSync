@@ -9,12 +9,14 @@ import net.neoforged.neodev.e2e.RunProductionClient;
 import net.neoforged.neodev.e2e.RunProductionServer;
 import net.neoforged.neodev.e2e.TestProductionClient;
 import net.neoforged.neodev.e2e.TestProductionServer;
+import net.neoforged.neodev.installer.BundledLibrary;
 import net.neoforged.neodev.installer.CreateArgsFile;
 import net.neoforged.neodev.installer.CreateInstallerProfile;
 import net.neoforged.neodev.installer.CreateLauncherProfile;
 import net.neoforged.neodev.installer.IdentifiedFile;
 import net.neoforged.neodev.installer.InstallerProcessor;
 import net.neoforged.neodev.utils.DependencyUtils;
+import net.neoforged.neodev.utils.MavenIdentifier;
 import net.neoforged.nfrtgradle.CreateMinecraftArtifacts;
 import net.neoforged.nfrtgradle.DownloadAssets;
 import net.neoforged.nfrtgradle.NeoFormRuntimePlugin;
@@ -280,6 +282,42 @@ public class NeoDevPlugin implements Plugin<Project> {
         );
 
         var installerRepositoryUrls = getInstallerRepositoryUrls(project);
+        var earlyDisplayId = fmlVersion.zip(neoSyncVersion, (fml, ns) ->
+                new MavenIdentifier("io.github.enderliker.neosync", "earlydisplay", fml + "-neosync-" + ns, "", "jar"));
+        var earlyDisplay = project.getObjects().newInstance(BundledLibrary.class);
+        earlyDisplay.getIdentifier().set(earlyDisplayId);
+        earlyDisplay.getOriginalIdentifier().set(fmlVersion.map(v ->
+                new MavenIdentifier("net.neoforged.fancymodloader", "earlydisplay", v, "", "jar")));
+        earlyDisplay.getUrl().set(versionId.map(v ->
+                "https://github.com/enderliker/NeoSync/releases/download/" + v + "/" + v + "-earlydisplay.jar"));
+
+        // FML loads startup graphics before game resources exist. Keep its code and
+        // module identity intact, replacing only images in a separately named library.
+        for (var classifier : List.of("earlydisplay", "earlydisplay-sources")) {
+            var upstream = project.getConfigurations().detachedConfiguration(dependencyFactory.create(
+                    "net.neoforged.fancymodloader:earlydisplay:" + fmlVersion.get()
+                            + (classifier.endsWith("sources") ? ":sources" : "")));
+            upstream.setTransitive(false);
+            var branded = tasks.register(classifier.equals("earlydisplay") ? "brandEarlyDisplay" : "brandEarlyDisplaySources", Zip.class, task -> {
+                task.getArchiveBaseName().set("NeoSync");
+                task.getArchiveVersion().set(releaseVersion);
+                task.getArchiveClassifier().set(classifier);
+                task.getArchiveExtension().set("jar");
+                task.setPreserveFileTimestamps(false);
+                task.setReproducibleFileOrder(true);
+                task.getDestinationDirectory().set(project.getLayout().getBuildDirectory().dir("libs"));
+                task.from(project.zipTree(project.provider(upstream::getSingleFile)), spec ->
+                        spec.exclude("neoforged_icon.png", "fox_running.png", "squirrel.png"));
+                task.from(project.getRootProject().file("docs/assets/neosync-icon.png"), spec -> spec.rename(s -> "neoforged_icon.png"));
+                task.from(project.getRootProject().file("docs/assets/neosync-icon.png"), spec -> spec.rename(s -> "squirrel.png"));
+                task.from(project.getRootProject().file("docs/assets/neosync-startup.png"), spec -> spec.rename(s -> "fox_running.png"));
+                task.from(project.getRootProject().file("LICENSE.txt"), spec -> spec.into("META-INF"));
+                task.from(project.getRootProject().file("docs/assets/earlydisplay-NOTICE.txt"), spec -> spec.into("META-INF"));
+            });
+            if (classifier.equals("earlydisplay")) {
+                earlyDisplay.getFile().set(branded.flatMap(AbstractArchiveTask::getArchiveFile));
+            }
+        }
         // Launcher profile = the version.json file used by the Minecraft launcher.
         var createLauncherProfile = tasks.register("createLauncherProfile", CreateLauncherProfile.class, task -> {
             task.setGroup(INTERNAL_GROUP);
@@ -287,6 +325,7 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getMinecraftVersion().set(minecraftVersion);
             task.getNeoForgeVersion().set(installationVersion);
             task.getVersionId().set(versionId);
+            task.getEarlyDisplay().set(earlyDisplay);
             task.getRawNeoFormVersion().set(rawNeoFormVersion);
             task.setLibraries(configurations.launcherProfileClasspath);
             task.getRepositoryURLs().set(installerRepositoryUrls);
@@ -302,6 +341,7 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getMinecraftVersion().set(minecraftVersion);
             task.getNeoForgeVersion().set(installationVersion);
             task.getVersionId().set(versionId);
+            task.getEarlyDisplay().set(earlyDisplay);
             task.getMcAndNeoFormVersion().set(mcAndNeoFormVersion);
             task.getIcon().set(project.getRootProject().file("docs/assets/neosync-icon.png"));
             // Anything that is on the launcher classpath should be downloaded by the installer.
@@ -338,6 +378,7 @@ public class NeoDevPlugin implements Plugin<Project> {
                 task.setGroup(INTERNAL_GROUP);
                 task.getTemplate().set(project.getRootProject().file("server_files/args.txt"));
                 task.getFmlVersion().set(fmlVersion);
+                task.getEarlyDisplay().set(earlyDisplay);
                 task.getMinecraftVersion().set(minecraftVersion);
                 task.getNeoForgeVersion().set(installationVersion);
                 task.getRawNeoFormVersion().set(rawNeoFormVersion);
@@ -366,8 +407,17 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getDestinationDirectory().convention(project.getExtensions().getByType(BasePluginExtension.class).getLibsDirectory());
 
             task.from(project.zipTree(project.provider(installerConfig::getSingleFile)), spec -> {
-                spec.exclude("big_logo.png");
+                spec.exclude("big_logo.png", "icons/neoforged_16x16.png", "icons/neoforged_background_16x16.png",
+                        "icons/neoforged_background_32x32.png", "icons/neoforged_background_128x128.png");
             });
+            Map.of("neoforged_16x16.png", "neosync-icon-16.png",
+                    "neoforged_background_16x16.png", "neosync-icon-16.png",
+                    "neoforged_background_32x32.png", "neosync-icon-32.png",
+                    "neoforged_background_128x128.png", "neosync-icon.png").forEach((target, source) ->
+                    task.from(project.getRootProject().file("docs/assets/" + source), spec -> {
+                        spec.into("icons");
+                        spec.rename(s -> target);
+                    }));
             task.from(createLauncherProfile.flatMap(CreateLauncherProfile::getLauncherProfile), spec -> {
                 spec.rename(s -> "version.json");
             });
@@ -375,6 +425,10 @@ public class NeoDevPlugin implements Plugin<Project> {
                 spec.rename(s -> "install_profile.json");
             });
             task.from(project.getRootProject().file("src/main/resources/url.png"));
+            task.from(earlyDisplay.getFile(), spec -> {
+                spec.into(earlyDisplayId.map(id -> "maven/" + id.repositoryPath().substring(0, id.repositoryPath().lastIndexOf('/'))));
+                spec.rename(s -> "earlydisplay-" + earlyDisplayId.get().version() + ".jar");
+            });
             task.from(project.getRootProject().file("docs/assets/neosync-installer.png"), spec -> {
                 spec.rename(s -> "big_logo.png");
             });
@@ -433,6 +487,7 @@ public class NeoDevPlugin implements Plugin<Project> {
         project.getExtensions().getByType(JavaPluginExtension.class).withSourcesJar();
         var sourcesJarProvider = project.getTasks().named("sourcesJar", Jar.class);
         sourcesJarProvider.configure(task -> {
+            task.dependsOn("brandEarlyDisplaySources");
             task.getArchiveBaseName().set("NeoSync");
             task.getArchiveVersion().set(releaseVersion);
             task.exclude("net/minecraft/**");
