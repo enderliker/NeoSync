@@ -93,6 +93,52 @@ class CurseForgeProviderTest {
     }
 
     @Test
+    void resolvesCurseForgeBeforeReviewWhenModrinthReportsAbsenceButNotOnErrors(@TempDir Path directory) throws Exception {
+        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
+        var root = JsonParser.parseString(new String(manifest(jar), StandardCharsets.UTF_8)).getAsJsonObject();
+        root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").add(JsonParser.parseString(
+                "{\"type\":\"external\",\"url\":\"https://cdn.modrinth.com/data/abcdefgh/versions/ijklmnop/mod.jar\",\"provider\":{\"id\":\"modrinth\",\"projectId\":\"abcdefgh\",\"fileId\":\"ijklmnop\"}}"));
+        var manifest = SyncManifest.parse(root.toString().getBytes(StandardCharsets.UTF_8));
+        var cf = transport("true", CDN, manifest.files().getFirst().size(), "a".repeat(40));
+        var resolver = new SourceResolver((service, path, body, token) -> service == ProviderHttpClient.Service.MODRINTH ? "[]".getBytes(StandardCharsets.UTF_8) : cf.request(service, path, body, token));
+        assertEquals("curseforge", resolver.resolve(manifest, new DiscoveryCancellation()).values().iterator().next().identity().id());
+        var failure = new SourceResolver((service, path, body, token) -> {
+            assertEquals(ProviderHttpClient.Service.MODRINTH, service);
+            throw new IOException("Temporary provider failure");
+        });
+        assertThrows(IOException.class, () -> failure.resolve(manifest, new DiscoveryCancellation()));
+    }
+
+    @Test
+    void prefersPermittedCurseForgeFilesOverEarlierManualCandidates(@TempDir Path directory) throws Exception {
+        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
+        var root = JsonParser.parseString(new String(manifest(jar), StandardCharsets.UTF_8)).getAsJsonObject();
+        var sources = root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources");
+        var second = sources.get(0).deepCopy().getAsJsonObject();
+        second.getAsJsonObject("provider").addProperty("projectId", "124");
+        second.getAsJsonObject("provider").addProperty("fileId", "457");
+        sources.add(second);
+        var manifest = SyncManifest.parse(root.toString().getBytes(StandardCharsets.UTF_8));
+        var base = transport("false", null, manifest.files().getFirst().size(), "a".repeat(40));
+        var resolver = new SourceResolver((service, path, body, token) -> {
+            boolean project = path.equals("/v1/mods");
+            var json = JsonParser.parseString(new String(base.request(service, path, project ? "{\"modIds\":[123]}" : "{\"fileIds\":[456]}", token), StandardCharsets.UTF_8)).getAsJsonObject();
+            var extra = json.getAsJsonArray("data").get(0).deepCopy().getAsJsonObject();
+            extra.addProperty("id", project ? 124 : 457);
+            if (project) extra.addProperty("allowModDistribution", true);
+            else {
+                extra.addProperty("modId", 124);
+                extra.addProperty("downloadUrl", CDN.replace("456", "457"));
+            }
+            json.getAsJsonArray("data").add(extra);
+            return json.toString().getBytes(StandardCharsets.UTF_8);
+        });
+        var selected = resolver.resolve(manifest, new DiscoveryCancellation()).values().iterator().next();
+        assertFalse(selected.manual());
+        assertEquals("124", selected.identity().projectId());
+    }
+
+    @Test
     void bindsManualPagesAndChangedProviderEvidenceToFreshConsent(@TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
         byte[] bytes = manifest(jar);

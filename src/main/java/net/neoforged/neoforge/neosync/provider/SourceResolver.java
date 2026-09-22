@@ -24,30 +24,35 @@ public final class SourceResolver {
         var hints = manifest.files().stream().flatMap(file -> file.sources().stream()).map(SyncManifest.Source::provider)
                 .filter(hint -> hint != null && hint.id().equals("modrinth")).distinct().toList();
         var versions = modrinth.versions(hints, token);
-        var curseHints = manifest.files().stream().filter(file -> file.sources().stream().noneMatch(source -> source.provider() != null && source.provider().id().equals("modrinth")))
-                .flatMap(file -> file.sources().stream()).map(SyncManifest.Source::provider)
-                .filter(hint -> hint != null && hint.id().equals("curseforge")).distinct().toList();
-        var curseFiles = curseforge.files(curseHints, token);
         var result = new HashMap<String, ProviderArtifact>();
         for (var artifact : manifest.files()) {
             token.check();
-            boolean hasModrinth = artifact.sources().stream().anyMatch(source -> source.provider() != null && source.provider().id().equals("modrinth"));
             for (var source : artifact.sources()) {
                 var hint = source.provider();
-                if (hint == null) continue;
-                if (hint.id().equals("curseforge")) {
-                    if (hasModrinth) continue;
-                    var file = curseFiles.get(hint);
-                    if (file == null || file.size() != artifact.size()) throw new IOException("The CurseForge file does not match the requested identity and size.");
-                    result.putIfAbsent(artifact.sha256(), file);
-                    continue;
-                }
+                if (hint == null || !hint.id().equals("modrinth")) continue;
                 var candidates = versions.get(hint.fileId());
-                if (candidates == null) throw new IOException("The exact Modrinth version was not found. No alternate download was selected.");
+                if (candidates == null) continue;
                 var matching = candidates.stream().filter(file -> file.identity().equals(hint) && file.source().equals(source.url()) && file.size() == artifact.size()).toList();
                 if (matching.size() != 1) throw new IOException("The server's Modrinth hint, source, or size does not match the provider's exact file.");
                 result.putIfAbsent(artifact.sha256(), matching.getFirst());
             }
+        }
+        var curseHints = manifest.files().stream().filter(file -> !result.containsKey(file.sha256()))
+                .flatMap(file -> file.sources().stream()).map(SyncManifest.Source::provider)
+                .filter(hint -> hint != null && hint.id().equals("curseforge")).distinct().toList();
+        var curseFiles = curseforge.files(curseHints, token);
+        for (var artifact : manifest.files()) {
+            token.check();
+            if (result.containsKey(artifact.sha256())) continue;
+            for (var source : artifact.sources()) {
+                var hint = source.provider();
+                if (hint == null || !hint.id().equals("curseforge")) continue;
+                var file = curseFiles.get(hint);
+                if (file == null || file.size() != artifact.size()) throw new IOException("The CurseForge file does not match the requested identity and size.");
+                result.merge(artifact.sha256(), file, (first, next) -> first.manual() && !next.manual() ? next : first);
+            }
+            if (!result.containsKey(artifact.sha256()) && artifact.sources().stream().anyMatch(source -> source.provider() != null))
+                throw new IOException("No exact provider file was found. No unverified alternative was selected.");
         }
         return Map.copyOf(result);
     }

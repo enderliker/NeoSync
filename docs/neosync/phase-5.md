@@ -227,3 +227,12 @@ and server directories and passed `checkFormatting` and
 were substituted to work around the failure. Its SHA-256 is
 `7632469f643ba9ef37581406fdfd0e9a75de58e3dfb60e16601ba74f36983970`;
 its embedded universal contains an empty provider credential resource.
+
+A subsequent source-priority correction passed 242 JUnit tests with zero failures,
+errors or skips and formatting checks. Before consent, a confirmed absent
+Modrinth version can proceed to a configured exact CurseForge hint; transport or
+metadata errors still fail. When multiple CurseForge candidates exist, a
+permitted automatic file precedes a manual candidate regardless of manifest
+source order. This does not authorize any change after consent. The installed
+runs with installer `7632469f...` precede this small selection correction; its
+new scenarios were validated by regression tests, not another installed run.
