@@ -74,6 +74,7 @@ public final class ProviderHttpClient implements ProviderTransport {
     }, new ThreadPoolExecutor.AbortPolicy());
     private static final Map<Request, Lookup> IN_FLIGHT = new HashMap<>();
     private static final Map<Service, Instant> COOLDOWNS = new HashMap<>();
+    private static final ModrinthMetadataCache MODRINTH_CACHE = new ModrinthMetadataCache();
 
     public enum Service {
         MODRINTH("api.modrinth.com"),
@@ -106,6 +107,11 @@ public final class ProviderHttpClient implements ProviderTransport {
         if (!path.startsWith(service == Service.MODRINTH ? "/v2/" : "/v1/") || path.length() > 8192
                 || !path.matches("/[A-Za-z0-9_/?=&%.,-]+") || body.length() > 65536)
             throw new IOException("Invalid provider request.");
+        byte[] cached = MODRINTH_CACHE.get(service, path, body);
+        if (cached != null) {
+            token.check();
+            return cached;
+        }
         var request = new Request(service, path, body);
         Lookup lookup;
         synchronized (IN_FLIGHT) {
@@ -118,7 +124,10 @@ public final class ProviderHttpClient implements ProviderTransport {
                 try {
                     WORK.execute(() -> {
                         try {
-                            submitted.result.complete(fetch(request, submitted.cancellation));
+                            byte[] response = fetch(request, submitted.cancellation);
+                            submitted.cancellation.check();
+                            MODRINTH_CACHE.put(request.service, request.path, request.body, response);
+                            submitted.result.complete(response);
                         } catch (Exception e) {
                             // TLS stacks and third-party error bodies must not expose request headers or credentials.
                             submitted.result.completeExceptionally(new IOException(e instanceof ProviderFailure ? e.getMessage() : "The provider metadata request failed. Try again later."));

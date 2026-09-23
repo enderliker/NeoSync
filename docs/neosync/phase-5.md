@@ -82,6 +82,15 @@ HTTP 429 and Modrinth exhausted-budget headers establish a provider cooldown,
 including `Retry-After` dates or seconds. Failures never trigger silent source
 switching. Only supported provider CDN hosts may supply automatic downloads.
 
+After alpha.4, development builds serve HTTP 200 Modrinth metadata responses
+from a process-local cache for up to ten minutes. It is keyed by the complete
+API path and request body, limited to 256 responses and 16 MiB, and stores neither
+HTTP 404 results nor failed requests. Entries are copied on read and write.
+The cache is lost when the process exits and does not store CurseForge responses.
+Provider metadata is still checked against the exact reviewed source, size and
+downloaded hashes; a cache hit does not grant consent or authorize a source change.
+This change has not had a new installed-game acceptance run.
+
 ## CurseForge key ownership
 
 Server administrators use their **own** CurseForge application keys in the
