@@ -51,21 +51,18 @@ JARs. For example:
   "httpsPort": 8443,
   "keyStore": "neosync.p12",
   "passwordEnvironment": "NEOSYNC_KEYSTORE_PASSWORD",
-  "files": [
-    {
-      "fileName": "example-mod-1.0.jar",
-      "sources": [{"type": "server"}]
-    }
-  ]
+  "files": []
 }
 ```
 
-Replace the example filename with a JAR in the server's `mods` directory that is
-also in its loaded FML inventory. `files` is an allowlist, not a directory scan
-that sends every server mod. Include its required client dependencies as separate
-entries where needed. An empty list explicitly advertises no required artifacts.
-Use the `external` source form from the [protocol](protocol-v1.md) when configuring
-an HTTPS source. Metadata URLs are not guessed automatically.
+Add selected JARs from the server's loaded `mods` inventory to `files` when
+ready. `files` is an allowlist, not a directory scan that sends every server mod.
+Include required client dependencies as separate entries where needed. An empty
+list advertises no required artifacts. Current builds require a configured
+permitted direct HTTPS source, exact Modrinth resolution, or a Phase 4 eligibility
+declaration for a `server` source; see [Phase 3](phase-3.md), [Phase 4](phase-4.md),
+and [Phase 5](phase-5.md). A bare `server` source from the original Phase 2
+discovery milestone is no longer a valid hosting configuration.
 
 For `https` mode, supply a PKCS12 keystore containing the private key and
 certificate chain for the logical hostname players enter in Minecraft. Relative
