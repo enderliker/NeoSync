@@ -3,12 +3,17 @@
 Status: implemented in the Phase 5 alpha.4 development tree, with installed Linux
 fixtures for watching, explicit paths and native KDialog selection, each followed
 by a verified restart and real-server join. **Live restricted CurseForge downloads
-and Windows runtime acceptance are pending.** The server administrator supplies
-their own CurseForge key; no live key or applicable agreement has been validated
-here. See [Phase 5](phase-5.md) for new execution evidence, provider
+and Windows runtime acceptance are pending.** An administrator-owned key passed
+metadata-only probes after alpha.4 publication; no applicable agreement or live
+download flow has been validated. See [Phase 5](phase-5.md) for execution evidence,
+provider
 terms and concrete blockers. The contract below remains the acceptance target;
 implementation or fixture coverage alone does not certify a real provider flow.
 The manifest retains v1 external sources with provider hints.
+Current development builds reject new CurseForge provider hints before review
+and make no CurseForge API requests. The importer remains available for synthetic
+tests and verification of existing local records; these tests do not enable a
+new production CurseForge installation.
 
 The agreed source preference is **Modrinth automatic download → CurseForge
 automatic download when permitted → CurseForge browser download when restricted

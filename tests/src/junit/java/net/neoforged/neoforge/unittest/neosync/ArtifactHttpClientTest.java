@@ -264,9 +264,7 @@ class ArtifactHttpClientTest {
         root.getAsJsonArray("files").add(extra);
         byte[] bytes = root.toString().getBytes(StandardCharsets.UTF_8);
         var manifest = SyncManifest.parse(bytes);
-        String sha1 = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-1").digest(Files.readAllBytes(manualJar)));
-        var sources = new net.neoforged.neoforge.neosync.provider.SourceResolver(CurseForgeProviderTest.transport("false", null, Files.size(manualJar), sha1))
-                .resolve(manifest, new DiscoveryCancellation());
+        var sources = CurseForgeProviderTest.fixtureSources(CurseForgeProviderTest.manifest(manualJar, true));
         var endpoint = SyncEndpoint.create("localhost", 25575, new SyncCapability(8443, SyncManifest.sha256(bytes)));
         var plan = InstallationPlan.create(endpoint, bytes, Set.of(), null, "0.1.0-dev", "21.1.251", InetAddress.getLoopbackAddress(), sources);
         var store = ProfileStore.open(Files.createDirectory(directory.resolve("game")));

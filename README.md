@@ -100,8 +100,8 @@ You can postpone activation and leave the profile prepared for later.
 | Discovery | Retrieves a bounded HTTPS manifest before gameplay login and reports missing or incompatible requirements. |
 | Consent | Binds acceptance to the exact reviewed files and sources. Unverified-source warnings default to **No, cancel**. |
 | Downloads | Uses configured direct HTTPS URLs or restricted server hosting, with destination restrictions, transfer limits, and SHA-256 verification. |
-| Provider resolution | Resolves exact Modrinth files before review and checks both provider and manifest hashes. In-memory CurseForge metadata probes passed with an administrator-owned server key; installed CurseForge flows remain unvalidated. |
-| Manual import | Opens the approved CurseForge browser download page after consent, then verifies a watched or selected local file. Installed Linux fixtures passed; real CurseForge and Windows acceptance remain pending. |
+| Provider resolution | Resolves exact Modrinth files before review and checks both provider and manifest hashes. Current development builds reject CurseForge provider hints because the API data flow would retain metadata. |
+| Manual import | The importer verifies a watched or selected local file in synthetic tests. New CurseForge provider plans are disabled pending terms resolution; real CurseForge and Windows acceptance remain pending. |
 | Server hosting | Alpha.3 serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
 | Preparation | Inspects JAR metadata without executing it and prepares a new revision while preserving existing profiles. |
 | Manual activation | Shows the exact game directory to select in the launcher; checks the selected profile and offers reconnection after restart. |
@@ -163,6 +163,9 @@ coverage with synthetic CurseForge metadata; **Phase 5 remains incomplete**.
 An administrator-owned key has passed live metadata-only probes. Full CurseForge
 acceptance still needs an applicable agreement for retained API data and an
 installed download/browser run. Windows runtime acceptance is pending.
+Current development builds disable CurseForge API lookup and reject new
+CurseForge provider hints. The published alpha.4 binary retains its original
+behavior and is not changed by this source guard.
 See [Phase 5](docs/neosync/phase-5.md) for implementation status and evidence.
 The provider preference for each exact required file is:
 
@@ -174,14 +177,13 @@ The provider preference for each exact required file is:
 | 4 | Server hosting | Only unpublished mods written by the administrator for that server and unavailable elsewhere. |
 
 Automatic downloads still require review and consent. A provider outage or author
-restriction never authorizes rehosting a third-party mod. CurseForge integration
-uses the server administrator's own `NEOSYNC_CURSEFORGE_API_KEY` environment
-variable. The key stays on that server; clients see its reported file metadata as
-unverified and still check downloaded bytes against the reviewed hashes. Without
-a key, exact Modrinth resolution remains available; a selected file requiring
-CurseForge produces an administrator-facing configuration error. Administrators
-must follow their applicable provider terms, including requirements for retained
-metadata. A browser may require additional user interaction.
+restriction never authorizes rehosting a third-party mod. The published alpha.4
+CurseForge integration uses the administrator's own
+`NEOSYNC_CURSEFORGE_API_KEY` on the server; the key does not authorize retaining
+API metadata. Current development builds do not read this key or request
+CurseForge metadata. A selected file without an exact Modrinth match needs a
+permitted direct HTTPS source. A browser may require additional user interaction
+when that flow is supported again.
 
 After consent, the manual flow opens
 `https://www.curseforge.com/minecraft/mc-mods/<slug>/download/<fileId>`.

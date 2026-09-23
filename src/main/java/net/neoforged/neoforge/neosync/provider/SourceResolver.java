@@ -19,6 +19,9 @@ public final class SourceResolver {
     }
 
     public Map<String, ProviderArtifact> resolve(SyncManifest manifest, DiscoveryCancellation token) throws IOException {
+        if (manifest.files().stream().flatMap(file -> file.sources().stream())
+                .anyMatch(source -> source.provider() != null && source.provider().id().equals("curseforge")))
+            throw new IOException(AutomaticSources.CURSEFORGE_DISABLED);
         var hints = manifest.files().stream().flatMap(file -> file.sources().stream()).map(SyncManifest.Source::provider)
                 .filter(hint -> hint != null && hint.id().equals("modrinth")).distinct().toList();
         var versions = modrinth.versions(hints, token);
@@ -37,17 +40,6 @@ public final class SourceResolver {
         }
         for (var artifact : manifest.files()) {
             token.check();
-            if (result.containsKey(artifact.sha256())) continue;
-            for (var source : artifact.sources()) {
-                var hint = source.provider();
-                if (hint == null || !hint.id().equals("curseforge")) continue;
-                var evidence = source.evidence();
-                if (evidence == null)
-                    throw new IOException("The server did not provide exact CurseForge file evidence. Ask its administrator to set their own CurseForge API key or configure an exact Modrinth or permitted direct HTTPS source.");
-                var file = new ProviderArtifact(hint, source.url(), artifact.size(), "SHA-1", evidence.sha1(), evidence.manual());
-                file.require(artifact);
-                result.merge(artifact.sha256(), file, (first, next) -> first.manual() && !next.manual() ? next : first);
-            }
             if (!result.containsKey(artifact.sha256()) && artifact.sources().stream().anyMatch(source -> source.provider() != null))
                 throw new IOException("No exact provider file was found. No unverified alternative was selected.");
         }

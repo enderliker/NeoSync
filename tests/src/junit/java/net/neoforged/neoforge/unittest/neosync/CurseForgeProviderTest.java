@@ -71,6 +71,15 @@ class CurseForgeProviderTest {
         return root.toString().getBytes(StandardCharsets.UTF_8);
     }
 
+    static Map<String, ProviderArtifact> fixtureSources(byte[] bytes) throws Exception {
+        var artifact = SyncManifest.parse(bytes).files().getFirst();
+        var source = artifact.sources().getFirst();
+        var evidence = source.evidence();
+        var resolved = new ProviderArtifact(source.provider(), source.url(), artifact.size(), "SHA-1", evidence.sha1(), evidence.manual());
+        resolved.require(artifact);
+        return Map.of(artifact.sha256(), resolved);
+    }
+
     @Test
     void selectsPermittedDownloadsAndRestrictedExactPagesWithoutCdnBypass() throws Exception {
         var allowed = new CurseForgeProvider(transport("true", CDN, 12, "a".repeat(40))).files(List.of(HINT, HINT), new DiscoveryCancellation()).get(HINT);
@@ -122,26 +131,20 @@ class CurseForgeProviderTest {
     }
 
     @Test
-    void resolvesCurseForgeBeforeReviewWhenModrinthReportsAbsenceButNotOnErrors(@TempDir Path directory) throws Exception {
+    void rejectsCurseForgeHintsBeforeAnyProviderLookup(@TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
         var root = JsonParser.parseString(new String(manifest(jar, false), StandardCharsets.UTF_8)).getAsJsonObject();
         root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").add(JsonParser.parseString(
                 "{\"type\":\"external\",\"url\":\"https://cdn.modrinth.com/data/abcdefgh/versions/ijklmnop/mod.jar\",\"provider\":{\"id\":\"modrinth\",\"projectId\":\"abcdefgh\",\"fileId\":\"ijklmnop\"}}"));
         var manifest = SyncManifest.parse(root.toString().getBytes(StandardCharsets.UTF_8));
         var resolver = new SourceResolver((service, path, body, token) -> {
-            assertEquals(ProviderHttpClient.Service.MODRINTH, service);
-            return "[]".getBytes(StandardCharsets.UTF_8);
+            throw new AssertionError("Unsupported CurseForge hints must stop before provider lookup.");
         });
-        assertEquals("curseforge", resolver.resolve(manifest, new DiscoveryCancellation()).values().iterator().next().identity().id());
-        var failure = new SourceResolver((service, path, body, token) -> {
-            assertEquals(ProviderHttpClient.Service.MODRINTH, service);
-            throw new IOException("Temporary provider failure");
-        });
-        assertThrows(IOException.class, () -> failure.resolve(manifest, new DiscoveryCancellation()));
+        assertTrue(assertThrows(IOException.class, () -> resolver.resolve(manifest, new DiscoveryCancellation())).getMessage().contains("disabled"));
     }
 
     @Test
-    void prefersPermittedCurseForgeFilesOverEarlierManualCandidates(@TempDir Path directory) throws Exception {
+    void rejectsMultipleCurseForgeCandidatesBeforeReview(@TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
         var root = JsonParser.parseString(new String(manifest(jar, true), StandardCharsets.UTF_8)).getAsJsonObject();
         var sources = root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources");
@@ -155,18 +158,14 @@ class CurseForgeProviderTest {
         var resolver = new SourceResolver((service, path, body, token) -> {
             throw new AssertionError("Client CurseForge resolution must not use any provider API key.");
         });
-        var selected = resolver.resolve(manifest, new DiscoveryCancellation()).values().iterator().next();
-        assertFalse(selected.manual());
-        assertEquals("124", selected.identity().projectId());
+        assertTrue(assertThrows(IOException.class, () -> resolver.resolve(manifest, new DiscoveryCancellation())).getMessage().contains("disabled"));
     }
 
     @Test
     void bindsManualPagesAndChangedProviderEvidenceToFreshConsent(@TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
         byte[] bytes = manifest(jar, true);
-        var manifest = SyncManifest.parse(bytes);
-        var resolver = new SourceResolver(transport("false", null, manifest.files().getFirst().size(), "a".repeat(40)));
-        var sources = resolver.resolve(manifest, new DiscoveryCancellation());
+        var sources = fixtureSources(bytes);
         var plan = InstallationPlan.create(InstallationPlanTest.endpoint(bytes), bytes, Set.of(), null, "0.1.0-dev", "21.1.251", null, sources);
         assertTrue(plan.hasManualDownloads());
         assertTrue(plan.reviewLines().contains("The server reports that the author disabled automatic downloads — your browser will open the exact file page."));

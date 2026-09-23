@@ -4,6 +4,10 @@ Status: implementation in progress in the published alpha.4 prerelease;
 alpha.3 remains the published Phase 4 milestone. Phase 5 acceptance is
 **not complete**. Automatic restart is
 still deferred to Phase 6. Recorded Phase 3/4 runs do not validate these changes.
+Current development builds disable CurseForge API lookup and reject new
+CurseForge provider hints before review because their manifest and audit data
+flow conflicts with the published prohibition on saving API data. The published
+alpha.4 binary has not changed.
 
 ## Provider identity and protocol compatibility
 
@@ -93,19 +97,20 @@ This change has not had a new installed-game acceptance run.
 
 ## CurseForge key ownership
 
-Server administrators use their **own** CurseForge application keys in the
-`NEOSYNC_CURSEFORGE_API_KEY` environment variable of the NeoSync server process.
-The key is never written to a manifest, sent to a client, included in a release
-binary or read from a client environment. Only the server can query CurseForge.
-Missing keys leave Modrinth resolution active. If a selected file has no exact
-Modrinth match and needs CurseForge, server startup reports the missing variable
-to the administrator instead of advertising an incomplete inventory. A client's
-legacy CurseForge hint without server evidence also asks for administrator action.
-Administrators must use an applicable key and meet the provider's terms for this
-use and any retained metadata; obtaining a key alone does not resolve the
-documented storage restriction. A local administrator-owned key was later used
-only for in-memory metadata probes; no provider grant for retaining API data is
-recorded, so the installed CurseForge flows are not certified.
+The published alpha.4 server reads the administrator's own
+`NEOSYNC_CURSEFORGE_API_KEY` only when CurseForge lookup is needed; clients never
+receive or read it. Current development builds do not read that variable or
+request CurseForge API metadata. Server configuration with CurseForge hints and
+client manifests containing CurseForge provider hints fail before an installation
+plan is created. The standalone adapter and browser importer remain covered by
+synthetic tests, but are not reachable through a new production flow. Exact
+Modrinth resolution and configured permitted direct HTTPS sources remain
+available. Existing local profile records remain readable for verification;
+the guard does not rewrite earlier records or the published alpha.4 binary.
+
+The guard can be reconsidered only after a design that avoids prohibited
+retention or an applicable agreement or written clarification, followed by a new
+installed flow. An administrator-owned key alone is insufficient.
 
 ## New execution evidence
 
@@ -130,8 +135,9 @@ recorded, so the installed CurseForge flows are not certified.
 
 ## CurseForge and manual import implementation
 
-The server requests CurseForge exact IDs through documented `POST /v1/mods` and
-`POST /v1/mods/files` batches of at most 32. The adapter checks project/file IDs,
+The published alpha.4 server requests CurseForge exact IDs through documented
+`POST /v1/mods` and `POST /v1/mods/files` batches of at most 32. The adapter
+checks project/file IDs,
 Minecraft game/category, available status, Minecraft 1.21.1/NeoForge tags, size
 and SHA-1. Explicit `allowModDistribution=true` plus a supported CDN URL selects
 automatic acquisition. Explicit `false` selects a locally constructed official
@@ -145,7 +151,7 @@ review explicitly names this limit of provenance and retains default-negative
 unverified-source consent. Neither the server's claim nor its hash is a safety
 guarantee.
 
-Automatic server configuration can add an exact CurseForge hint:
+The published alpha.4 server configuration can add an exact CurseForge hint:
 
 ```json
 {"fileName":"example.jar","resolveProviders":true,
@@ -190,14 +196,16 @@ compatibility, exact-file URL rejection, consent and manual-import regressions.
 
 ## Server credential handling
 
-The build-time credential generator and embedded resource have been removed.
-`ProviderHttpClient` on a client has no CurseForge key. A server instance reads
+The build-time credential generator and embedded resource were removed before
+alpha.4 publication. In that build, `ProviderHttpClient` on a client has no
+CurseForge key. A server instance reads
 `NEOSYNC_CURSEFORGE_API_KEY` from its own environment and sends it only as an
 `x-api-key` header to the fixed CurseForge API origin; it is never placed in
 queries, logs, manifests, browser URLs, CDNs or a release asset. The value must
 be 1–512 printable ASCII characters without whitespace. A server that does not
 need CurseForge can run without the variable. Rotate a revoked or compromised
 administrator key in that server's environment; no client update is required.
+Current development builds no longer read the variable or send API requests.
 
 ## Alpha.4 release-candidate validation on September 23, 2026
 
@@ -280,6 +288,10 @@ caching API data; the free console key does not grant an exception. The product'
 server manifest and local audit retain provider values, so full installed
 CurseForge flows still need an applicable agreement or written clarification
 before they are exercised or represented as supported.
+
+The subsequent development guard rejects new CurseForge hints and does not read
+administrator keys. The historical metadata-only probes remain evidence of the
+adapter, not permission to restore the production flow.
 
 ## Remaining acceptance blockers
 

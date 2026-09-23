@@ -143,6 +143,11 @@ server join. Record the exact source commit and installer hash for each run.
 
 ## Phase 5: controlled manual-import fixture
 
+This fixture records the published alpha.4 behavior. Current development builds
+reject new CurseForge provider hints before review, so this installed fixture is
+not runnable against them. Keep importer unit tests synthetic while API data
+retention is unresolved; do not treat a local key as permission for a live flow.
+
 `prepare_fixture.py --manual-fixture` creates **synthetic CurseForge metadata**
 for the same public Clumps artifact and a controlled `xdg-open` executable. This
 fixture is not a real CurseForge author restriction, API request or browser/site

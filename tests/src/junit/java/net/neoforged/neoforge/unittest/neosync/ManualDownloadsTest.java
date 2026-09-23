@@ -15,9 +15,7 @@ import java.nio.channels.FileChannel;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
-import java.security.MessageDigest;
 import java.time.Duration;
-import java.util.HexFormat;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -28,8 +26,6 @@ import net.neoforged.neoforge.neosync.manual.ManualDownloads;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
 import net.neoforged.neoforge.neosync.protocol.InstallationPlan;
 import net.neoforged.neoforge.neosync.protocol.ProfileStore;
-import net.neoforged.neoforge.neosync.protocol.SyncManifest;
-import net.neoforged.neoforge.neosync.provider.SourceResolver;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -38,9 +34,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 class ManualDownloadsTest {
     private static InstallationPlan plan(Path jar) throws Exception {
         byte[] bytes = CurseForgeProviderTest.manifest(jar, true);
-        String sha1 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-1").digest(Files.readAllBytes(jar)));
-        var sources = new SourceResolver(CurseForgeProviderTest.transport("false", null, Files.size(jar), sha1))
-                .resolve(SyncManifest.parse(bytes), new DiscoveryCancellation());
+        var sources = CurseForgeProviderTest.fixtureSources(bytes);
         return InstallationPlan.create(InstallationPlanTest.endpoint(bytes), bytes, Set.of(), null, "0.1.0-dev", "21.1.251", null, sources);
     }
 

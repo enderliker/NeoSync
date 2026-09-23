@@ -89,34 +89,36 @@ class ModrinthProviderTest {
         byte[] content = Files.readAllBytes(jar);
         String sha512 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-512").digest(content));
         var fingerprint = ArtifactFiles.fingerprint(jar, new DiscoveryCancellation());
-        var server = AutomaticSources.resolve(Map.of(jar, fingerprint), Map.of(jar, CurseForgeProviderTest.HINT),
+        var server = AutomaticSources.resolve(Map.of(jar, fingerprint),
                 modrinthOnly("", "{\"" + sha512 + "\":" + version(content.length, sha512) + "}"), new DiscoveryCancellation());
         assertEquals(HINT, server.get(jar).identity());
 
         var root = JsonParser.parseString(new String(manifest(content.length, fingerprint.sha256()), StandardCharsets.UTF_8)).getAsJsonObject();
-        root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").add(JsonParser.parseString(
-                "{\"type\":\"external\",\"url\":\"https://www.curseforge.com/minecraft/mc-mods/test-mod/download/456\",\"provider\":{\"id\":\"curseforge\",\"projectId\":\"123\",\"fileId\":\"456\"}}"));
         var client = new SourceResolver(modrinthOnly("[" + version(content.length, sha512) + "]", ""))
                 .resolve(SyncManifest.parse(root.toString().getBytes(StandardCharsets.UTF_8)), new DiscoveryCancellation());
         assertEquals(HINT, client.get(fingerprint.sha256()).identity());
     }
 
     @Test
-    void explainsCurseForgeOnlyFilesWithoutQueryingItsApi(@TempDir Path directory) throws Exception {
+    void disablesCurseForgeRegardlessOfProviderAccess(@TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
         var fingerprint = ArtifactFiles.fingerprint(jar, new DiscoveryCancellation());
         var transport = modrinthOnly("[]", "{}");
         var client = new SourceResolver(transport);
         var manifest = SyncManifest.parse(CurseForgeProviderTest.manifest(jar));
         var error = assertThrows(IOException.class, () -> client.resolve(manifest, new DiscoveryCancellation()));
-        assertTrue(error.getMessage().contains("Ask its administrator"));
+        assertTrue(error.getMessage().contains("disabled"));
         var configured = SyncManifest.parse(CurseForgeProviderTest.manifest(jar, true));
         var configuredError = assertThrows(IOException.class, () -> AutomaticSources.requireConfiguredAccess(
-                configured.files().getFirst().sources(), transport));
-        assertTrue(configuredError.getMessage().contains("server administrator must set their own NEOSYNC_CURSEFORGE_API_KEY"));
+                configured.files().getFirst().sources()));
+        assertTrue(configuredError.getMessage().contains("disabled"));
         var serverError = assertThrows(IOException.class, () -> AutomaticSources.resolve(Map.of(jar, fingerprint),
                 Map.of(jar, CurseForgeProviderTest.HINT), transport, new DiscoveryCancellation()));
-        assertTrue(serverError.getMessage().contains("server administrator must set their own NEOSYNC_CURSEFORGE_API_KEY"));
+        assertTrue(serverError.getMessage().contains("disabled"));
+        var available = new ProviderHttpClient();
+        assertFalse(available.available(ProviderHttpClient.Service.CURSEFORGE));
+        assertTrue(assertThrows(IOException.class, () -> available.request(ProviderHttpClient.Service.CURSEFORGE,
+                "/v1/mods", "{}", new DiscoveryCancellation())).getMessage().contains("disabled"));
     }
 
     @Test

@@ -138,7 +138,10 @@ exact Modrinth resolution and a CurseForge/manual-import adapter. Modrinth has
 passed a new installed flow. Live, in-memory CurseForge metadata probes passed
 with an administrator-owned key, but full installed CurseForge acceptance remains
 blocked on an applicable provider agreement for retained metadata. The key stays
-on the server; clients treat its reported CurseForge metadata as unverified.
+on the server in the published alpha.4 build; clients treat its reported
+CurseForge metadata as unverified. Current development builds reject new
+CurseForge provider hints and make no CurseForge API requests until this retention
+issue is resolved. An administrator-owned key does not remove that restriction.
 Configured direct HTTPS
 downloads and restricted server sources remain available. See
 [Phase 5](docs/neosync/phase-5.md) for current evidence and limits.
@@ -297,12 +300,13 @@ file versions or hiding changes in source.
 Modrinth passed installed lookup/review/download/restart/join acceptance.
 Installed Linux browser-import fixtures using synthetic CurseForge metadata passed
 preparation/restart/join, including watcher, explicit-path and native KDialog
-selection. CurseForge lookup
-now uses the server administrator's own environment key and reports a missing key
-to that administrator. A real administrator-owned key passed in-memory permitted
+selection. The published alpha.4 lookup uses the server administrator's own
+environment key and reports a missing key to that administrator. A real
+administrator-owned key passed in-memory permitted
 and restricted file metadata probes. No provider agreement for retained metadata
 or installed CurseForge download/browser acceptance is recorded. Do not mark
-Phase 5 complete from metadata probes or fixture tests.
+Phase 5 complete from metadata probes or fixture tests. Current development
+builds disable CurseForge API lookup and new CurseForge provider plans.
 See [Phase 5](docs/neosync/phase-5.md).
 
 ### Phase 6 — Restart and updates
