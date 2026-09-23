@@ -124,13 +124,16 @@ public final class HostedInventory implements AutoCloseable {
     private static void clearSnapshot(Path path) throws IOException {
         if (!Files.exists(path, LinkOption.NOFOLLOW_LINKS)) return;
         checkDirectory(path);
+        var files = new java.util.ArrayList<Path>();
         try (var entries = Files.newDirectoryStream(path)) {
             for (Path entry : entries) {
-                if (!entry.getFileName().toString().matches(SyncManifest.HASH_PATTERN + "\\.jar") || Files.isDirectory(entry, LinkOption.NOFOLLOW_LINKS))
+                if (files.size() >= 2048 || !entry.getFileName().toString().matches(SyncManifest.HASH_PATTERN + "\\.jar")
+                        || !Files.isRegularFile(entry, LinkOption.NOFOLLOW_LINKS))
                     throw new IOException("Unexpected content in the private hosting snapshot.");
-                Files.delete(entry);
+                files.add(entry);
             }
         }
+        for (var file : files) Files.delete(file);
         Files.delete(path);
     }
 

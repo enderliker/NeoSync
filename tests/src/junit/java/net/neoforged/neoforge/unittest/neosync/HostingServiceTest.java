@@ -68,6 +68,7 @@ class HostingServiceTest {
                 Files.delete(snapshot);
                 Files.createSymbolicLink(snapshot, source);
                 assertEquals(503, get(client, uri.toString()).statusCode());
+                Files.delete(snapshot);
             }
         }
     }

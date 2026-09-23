@@ -101,8 +101,17 @@ class HostedInventoryTest {
             assertTrue(inventory.seal().isEmpty());
         }
         Files.createDirectory(snapshot);
+        Path valid = snapshot.resolve(SyncManifest.sha256(new byte[] { 2 }) + ".jar");
+        Files.write(valid, new byte[] { 2 });
         Files.writeString(snapshot.resolve("personal.txt"), "preserve");
         assertThrows(IOException.class, () -> new HostedInventory(root, 16));
         assertEquals("preserve", Files.readString(snapshot.resolve("personal.txt")));
+        assertTrue(Files.exists(valid));
+        Files.delete(snapshot.resolve("personal.txt"));
+        Path link = snapshot.resolve(SyncManifest.sha256(new byte[] { 3 }) + ".jar");
+        Files.createSymbolicLink(link, valid);
+        assertThrows(IOException.class, () -> new HostedInventory(root, 16));
+        assertTrue(Files.isSymbolicLink(link));
+        assertTrue(Files.exists(valid));
     }
 }
