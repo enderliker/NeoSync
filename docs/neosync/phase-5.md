@@ -68,11 +68,10 @@ Fetched the following official documentation over HTTPS during this work:
   Under **Use of Platform API**, the key is “non-transferable and may not be
   shared with any third party.” Under **Restrictions and Obligations of
   Developer**, developers may not “save or cache any data obtained through the
-  API or SDK.” These are concrete unresolved requirements for bundled keys,
-  retained manifests and provider audit records. Obtain written clarification or
-  an applicable agreement permitting NeoSync's intended behavior before enabling
-  a real key or distributing that integration. No permission is inferred from
-  other launchers or from submission of the application form.
+  API or SDK.” The administrator-owned key now remains on the server, but retained
+  manifests and provider audit records still need an applicable permission or
+  written clarification. No permission is inferred from another launcher, a
+  submitted application or possession of a key.
 
 Metadata requests use fixed API origins, public-address validation, TLS hostname
 verification, no redirects, a 2 MiB response cap, strict JSON parsing and bounded
@@ -82,16 +81,20 @@ HTTP 429 and Modrinth exhausted-budget headers establish a provider cooldown,
 including `Retry-After` dates or seconds. Failures never trigger silent source
 switching. Only supported provider CDN hosts may supply automatic downloads.
 
-## CurseForge prerequisite
+## CurseForge key ownership
 
-The maintainer confirmed on September 22 that the application form has been sent,
-but **NeoSync has no API key yet**. Live CurseForge acceptance and checking the
-application agreement for extractable desktop distribution remain blocked.
-Do not use another application's key or require end users to obtain one. The
-agreed model is a NeoSync application key injected at build time and included in
-the distributed binary, excluded from Git, source archives and logs. A mandatory
-backend is not part of this design. No credential has been distributed by this
-work, and the application form is not provider approval.
+Server administrators use their **own** CurseForge application keys in the
+`NEOSYNC_CURSEFORGE_API_KEY` environment variable of the NeoSync server process.
+The key is never written to a manifest, sent to a client, included in a release
+binary or read from a client environment. Only the server can query CurseForge.
+Missing keys leave Modrinth resolution active. If a selected file has no exact
+Modrinth match and needs CurseForge, server startup reports the missing variable
+to the administrator instead of advertising an incomplete inventory. A client's
+legacy CurseForge hint without server evidence also asks for administrator action.
+Administrators must use an applicable key and meet the provider's terms for this
+use and any retained metadata; obtaining a key alone does not resolve the
+documented storage restriction. This workspace has no real key or provider grant,
+so no live CurseForge behavior is certified.
 
 ## New execution evidence
 
@@ -116,13 +119,20 @@ work, and the application form is not provider approval.
 
 ## CurseForge and manual import implementation
 
-CurseForge exact IDs are requested through documented `POST /v1/mods` and
+The server requests CurseForge exact IDs through documented `POST /v1/mods` and
 `POST /v1/mods/files` batches of at most 32. The adapter checks project/file IDs,
 Minecraft game/category, available status, Minecraft 1.21.1/NeoForge tags, size
 and SHA-1. Explicit `allowModDistribution=true` plus a supported CDN URL selects
 automatic acquisition. Explicit `false` selects a locally constructed official
 project/file page and ignores any CDN URL. A missing/null permission or missing
 permitted URL fails explicitly; neither is interpreted as an author restriction.
+The server includes the resulting SHA-1 and manual-download decision in the
+bounded manifest. Clients validate the shape and source, treat these values as
+**server-reported** rather than independently checked provider evidence, and
+verify downloaded bytes against the reviewed SHA-256 and reported SHA-1. The
+review explicitly names this limit of provenance and retains default-negative
+unverified-source consent. Neither the server's claim nor its hash is a safety
+guarantee.
 
 Automatic server configuration can add an exact CurseForge hint:
 
@@ -165,33 +175,73 @@ The route change passed 243 JUnit tests with zero failures, errors or skips and
 formatting checks on September 22, 2026 (Linux, JDK 21.0.2), including legacy audit
 compatibility, exact-file URL rejection, consent and manual-import regressions.
 
-## Build-time credential injection
+## Server credential handling
 
-`generateProviderAccess` reads `NEOSYNC_PROVIDER_KEY_FILE` (an exact ASCII file
-without a trailing newline) or `NEOSYNC_PROVIDER_KEY` during task execution.
-Use only NeoSync's own application key. No key is requested from end users and
-there is no mandatory backend. The generated
-`META-INF/neosync/provider-access.bin` belongs to runtime resources only and is
-explicitly excluded from source archives and Git. A build without an input writes
-an empty resource so a previous generated credential cannot survive accidentally.
-The task is never up to date or stored in the Gradle build cache; credential values
-are not task inputs or configuration-cache state and are never logged by it.
+The build-time credential generator and embedded resource have been removed.
+`ProviderHttpClient` on a client has no CurseForge key. A server instance reads
+`NEOSYNC_CURSEFORGE_API_KEY` from its own environment and sends it only as an
+`x-api-key` header to the fixed CurseForge API origin; it is never placed in
+queries, logs, manifests, browser URLs, CDNs or a release asset. The value must
+be 1–512 printable ASCII characters without whitespace. A server that does not
+need CurseForge can run without the variable. Rotate a revoked or compromised
+administrator key in that server's environment; no client update is required.
 
-Before supplying a **real** key, obtain the applicable agreement covering desktop
-key disclosure, downloads and retained manifests/audit information. The build
-requires `NEOSYNC_PROVIDER_AGREEMENT=desktop-key-and-audit-approved` as the
-maintainer's explicit assertion that this prerequisite was met. This flag is not
-provider approval and must not be set merely because the application was sent.
-Binary extraction remains possible by design. Rotate a compromised/revoked key
-through a new immutable release. The adapter sends it only as `x-api-key` to the
-fixed CurseForge API origin, never to CDNs, browsers, queries, logs or redirects.
+## Alpha.4 release-candidate validation on September 23, 2026
+
+The final release-candidate build on Linux x86-64 with JDK 21.0.2 passed
+`applyAllFormatting`, `checkFormatting`, all 246 JUnit tests (zero failures,
+errors or skips), `:neoforge:installerJar`, `:neoforge:sourcesJar`, and
+`scripts/prepare_release.py --check`. Its installer SHA-256 is
+`4d9defee368167d63e7cc313e5db9083e031bdd28997698f97fc114b1850d6c4`.
+The embedded universal has no provider credential resource. The build log is
+`/tmp/neosync-alpha4-final-build.log`. The exact installer also passed
+`:neoforge:testProductionServer` and `:neoforge:testProductionClient`; their
+self-test reports were produced under `projects/neoforge/build/tmp`, and the
+combined run ended `BUILD SUCCESSFUL` in 2m 39s. Its log is
+`/tmp/neosync-alpha4-final-production-tests.log`.
+
+That exact installer populated a fresh dedicated server and client under
+`/tmp/neosync-alpha4-final-installations-20260923`. The first client install
+encountered a read timeout downloading Sponge Mixin from the NeoForged Maven
+repository; a retry with JDK 21 completed with checksum validation. The server
+installed successfully on the first attempt. This was a dependency download
+failure, not a passing install on the first attempt.
+
+The installed final build passed live Modrinth acceptance with Clumps 19.0.0.1:
+both default-negative cancellations left no profile store, explicit acceptance
+downloaded and verified the selected file, and a new graphical client process
+verified the prepared revision and joined the real dedicated server with Clumps
+loaded. The loading screen closed and the world rendered. Review, warning,
+activation and joined-world screenshots were inspected. The reports are
+`/tmp/neosync-alpha4-final-modrinth-acceptance-20260923/{install,resume}-report.txt`.
+This uses the repository's production launcher harness on Linux, not an external
+launcher certification.
+
+The same final client/server installations passed a separate **synthetic**
+CurseForge manual-import fixture. The server received a fixture-only value in
+`NEOSYNC_CURSEFORGE_API_KEY` to satisfy the configured-source gate; it made no
+CurseForge API request. The client showed the exact `/download/456` page and
+server-reported provenance, canceled both consent screens by default without
+opening the controlled browser, then accepted and imported the exact file from a
+relocated XDG Downloads directory. A new process verified the profile and joined
+the real server with Clumps loaded and the world rendered. The reports are
+`/tmp/neosync-alpha4-final-manual-acceptance-20260923/{install,resume}-report.txt`.
+This does not validate the real CurseForge website or author restrictions.
+
+A separate installed server with a newly generated, unpublished test mod and
+configured exact CurseForge IDs ran with no key. Modrinth had no exact match;
+the server logged the required administrator setting and did not start its HTTPS
+discovery listener on port 8443. The log is
+`/tmp/neosync-alpha4-final-no-key-server.log`. The earlier final Modrinth run
+demonstrates that no key is needed when Modrinth finds the exact file. No real
+CurseForge credential, metadata request or restricted download was exercised.
 
 ## Remaining acceptance blockers
 
-- The maintainer's CurseForge application is pending: no NeoSync API key exists.
-- Current published third-party terms require specific clarification/agreement
-  for key distribution and saved provider data. No real credential was injected
-  or distributed and no live CurseForge request was performed in this work.
+- This workspace has no administrator-owned CurseForge API key for a live test.
+- Current published third-party terms still require specific clarification or an
+  applicable agreement for saved provider data. No real credential was used and
+  no live CurseForge request was performed in this work.
 - A real permitted CurseForge download and a real author-restricted file/browser
   flow, including the website's actual steps, cannot be certified from fixtures.
 - Windows known-folder relocation, file locking, chooser/browser behavior and
@@ -207,13 +257,14 @@ identified in release notes.
 
 ## Additional local validation
 
-The credential build gate rejected a fictitious key without the agreement
+Before the administrator-key decision, the credential build gate rejected a fictitious key without the agreement
 assertion. With an explicitly fictitious packaging credential, the universal
 archive contained exactly the generated resource; the source archive contained
 neither that resource nor the credential bytes. Neither task log contained the
 credential. A subsequent build without inputs replaced the old generated value
 with an empty runtime resource. This validates packaging mechanics, **not**
-provider permission or a working CurseForge key. The temporary inspection report
+provider permission or a working CurseForge key. That earlier build-time mechanism
+has been removed; the report is historical. The temporary inspection report
 is `/tmp/neosync-phase5-key-packaging-report.json`.
 
 The final provider/manual increment passed 240 JUnit tests on Linux/JDK 21.0.2,

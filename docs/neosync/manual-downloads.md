@@ -3,8 +3,9 @@
 Status: implemented in the Phase 5 alpha.4 development tree, with installed Linux
 fixtures for watching, explicit paths and native KDialog selection, each followed
 by a verified restart and real-server join. **Live restricted CurseForge downloads
-and Windows runtime acceptance are pending.** NeoSync's own API key and an
-applicable agreement are not yet available. See [Phase 5](phase-5.md) for new execution evidence, provider
+and Windows runtime acceptance are pending.** The server administrator supplies
+their own CurseForge key; no live key or applicable agreement has been validated
+here. See [Phase 5](phase-5.md) for new execution evidence, provider
 terms and concrete blockers. The contract below remains the acceptance target;
 implementation or fixture coverage alone does not certify a real provider flow.
 The manifest retains v1 external sources with provider hints.
@@ -49,13 +50,12 @@ provider-specific rules; a server must not be able to open arbitrary URLs, local
 services, file paths, or custom URI schemes through this flow.
 
 List affected mods and their versions, provider, exact file-page links, sizes,
-and manual-download status in the existing installation review. When the author's
-restriction is established through provider information, use this English line:
+and manual-download status in the existing installation review. Attribute the
+server's reported author restriction in the review, for example:
 
-> This mod requires a manual download because its author disabled automatic downloads — your browser will open.
+> The server reports that the author disabled automatic downloads — your browser will open the exact file page.
 
-If the reason is only an administrator's claim, attribute it explicitly rather
-than presenting it as verified provider information. A timeout, missing download
+The client does not independently query CurseForge. A timeout, missing download
 URL, or HTTP error alone does not establish an author restriction. Until provider
 identity is independently verified, retain the unverified-source classification
 and its warning that mods can execute code; a matching server hash does not prove

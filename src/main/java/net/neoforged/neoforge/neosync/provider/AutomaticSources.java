@@ -13,6 +13,7 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Map;
 import net.neoforged.neoforge.neosync.protocol.ArtifactFiles;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
@@ -20,6 +21,16 @@ import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 
 public final class AutomaticSources {
     private AutomaticSources() {}
+
+    public static void requireConfiguredAccess(List<SyncManifest.Source> sources, ProviderTransport transport) throws IOException {
+        for (var source : sources) {
+            if (source.provider() == null || !source.provider().id().equals("curseforge")) continue;
+            if (source.evidence() == null)
+                throw new IOException("Configured CurseForge hints need exact server-reported evidence. Use resolveProviders with the administrator's own API key.");
+            if (!transport.available(ProviderHttpClient.Service.CURSEFORGE))
+                throw new IOException("The server administrator must set their own NEOSYNC_CURSEFORGE_API_KEY before advertising CurseForge files.");
+        }
+    }
 
     public static Map<Path, ProviderArtifact> resolve(Map<Path, ArtifactFiles.Fingerprint> files, ProviderTransport transport, DiscoveryCancellation token) throws IOException {
         return resolve(files, Map.of(), transport, token);
@@ -58,6 +69,8 @@ public final class AutomaticSources {
         var needed = hashes.entrySet().stream().filter(entry -> !matches.containsKey(entry.getValue())).map(Map.Entry::getKey).toList();
         for (var path : needed) if (!curseHints.containsKey(path))
             throw new IOException("Modrinth has no exact match for " + path.getFileName() + ". Supply exact CurseForge project/file IDs for lookup. Hosting is not a third-party fallback.");
+        if (!needed.isEmpty() && !transport.available(ProviderHttpClient.Service.CURSEFORGE))
+            throw new IOException("Modrinth has no exact match for a selected file. The server administrator must set their own NEOSYNC_CURSEFORGE_API_KEY or configure a permitted direct HTTPS source; hosting is not a third-party fallback.");
         var curseFiles = new CurseForgeProvider(transport).files(needed.stream().map(curseHints::get).toList(), token);
         var result = new HashMap<Path, ProviderArtifact>();
         for (var entry : hashes.entrySet()) {
@@ -77,6 +90,10 @@ public final class AutomaticSources {
         hint.addProperty("id", artifact.identity().id());
         hint.addProperty("projectId", artifact.identity().projectId());
         hint.addProperty("fileId", artifact.identity().fileId());
+        if (artifact.identity().id().equals("curseforge")) {
+            hint.addProperty("sha1", artifact.hash());
+            hint.addProperty("manual", artifact.manual());
+        }
         var source = new JsonObject();
         source.addProperty("type", "external");
         source.addProperty("url", artifact.source().toASCIIString());

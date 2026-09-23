@@ -6,20 +6,15 @@
 package net.neoforged.neoforge.neosync.provider;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 final class ProviderCredentials {
     private ProviderCredentials() {}
 
-    static String curseForge() throws IOException {
-        try (var input = ProviderCredentials.class.getResourceAsStream("/META-INF/neosync/provider-access.bin")) {
-            if (input == null) return "";
-            byte[] bytes = input.readNBytes(513);
-            if (bytes.length == 0) return "";
-            if (bytes.length > 512) throw new IOException("Invalid bundled provider credential.");
-            String key = new String(bytes, StandardCharsets.US_ASCII);
-            if (!key.matches("[!-~]+")) throw new IOException("Invalid bundled provider credential.");
-            return key;
-        }
+    static String serverCurseForge() throws IOException {
+        String key = System.getenv("NEOSYNC_CURSEFORGE_API_KEY");
+        if (key == null || key.isEmpty()) return "";
+        if (key.length() > 512 || !key.matches("[!-~]+"))
+            throw new IOException("The server's NEOSYNC_CURSEFORGE_API_KEY must contain 1–512 printable ASCII characters without whitespace.");
+        return key;
     }
 }

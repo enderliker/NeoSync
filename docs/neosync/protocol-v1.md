@@ -180,10 +180,12 @@ and startup, not through guessed entries in a dependency graph.
 Each source is one of:
 
 - `external`: an HTTPS URL, optionally with a `provider` hint containing a supported
-  provider ID, project ID, and file ID. A hint is a server claim. Only an independent
-  provider lookup matching the exact bytes may classify it as identified through
-  that provider. Phase 5 retains the hint and resolves metadata before review.
-  SHA-256 and the provider hash must both match downloaded bytes; before that,
+  provider ID, project ID, and file ID. A hint is a server claim. Modrinth identity
+  is checked through the client's own provider lookup before review. For CurseForge,
+  the server may add `sha1` and `manual` metadata after using its administrator's
+  API key. These fields remain server claims from the client's perspective; the
+  client does not receive the key or claim independent provider verification.
+  SHA-256 and the reported provider hash must both match downloaded bytes;
   the client retains the unverified-source warning.
 - `server`: no supplied URL. Derive the artifact URL from the already approved
   manifest origin and the artifact hash. Always require the additional warning.
@@ -200,8 +202,8 @@ mods unavailable elsewhere. Every route must match the exact required bytes and
 be covered by consent; this order never authorizes a silent source change or a
 different build. See [Phase 5](phase-5.md) for implementation and runtime status.
 
-For author-disabled third-party downloads, alpha.4 resolves the exact CurseForge
-file page from independently retrieved project/file metadata, then requires
+For author-disabled third-party downloads, the server resolves the exact CurseForge
+browser download page using its own key and reports the result. The client requires
 explicit browser handoff and verified local import. Hosting is never a fallback.
 See the [manual download contract](manual-downloads.md). V1 continues to carry an
 external URL and provider hint: alpha.4 clients must resolve hinted sources before
@@ -209,7 +211,7 @@ acquisition, and a manual page is never passed to the artifact HTTP downloader.
 Alpha.4 manifests require that exact NeoSync version, so alpha.3 cannot accept an
 installation that uses the new semantics. A bare HTML page without the resolved
 provider identity is not a supported direct artifact source. Live CurseForge
-acceptance still requires the own key and applicable agreement.
+acceptance still requires an administrator-owned key and applicable agreement.
 
 ## Validation beyond JSON Schema
 

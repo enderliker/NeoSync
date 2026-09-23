@@ -61,6 +61,16 @@ class CurseForgeProviderTest {
         return root.toString().getBytes(StandardCharsets.UTF_8);
     }
 
+    static byte[] manifest(Path jar, boolean manual) throws Exception {
+        var root = JsonParser.parseString(new String(manifest(jar), StandardCharsets.UTF_8)).getAsJsonObject();
+        var source = root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").get(0).getAsJsonObject();
+        source.addProperty("url", manual ? PAGE : CDN);
+        var provider = source.getAsJsonObject("provider");
+        provider.addProperty("sha1", java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-1").digest(java.nio.file.Files.readAllBytes(jar))));
+        provider.addProperty("manual", manual);
+        return root.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
     @Test
     void selectsPermittedDownloadsAndRestrictedExactPagesWithoutCdnBypass() throws Exception {
         var allowed = new CurseForgeProvider(transport("true", CDN, 12, "a".repeat(40))).files(List.of(HINT, HINT), new DiscoveryCancellation()).get(HINT);
@@ -114,12 +124,14 @@ class CurseForgeProviderTest {
     @Test
     void resolvesCurseForgeBeforeReviewWhenModrinthReportsAbsenceButNotOnErrors(@TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
-        var root = JsonParser.parseString(new String(manifest(jar), StandardCharsets.UTF_8)).getAsJsonObject();
+        var root = JsonParser.parseString(new String(manifest(jar, false), StandardCharsets.UTF_8)).getAsJsonObject();
         root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").add(JsonParser.parseString(
                 "{\"type\":\"external\",\"url\":\"https://cdn.modrinth.com/data/abcdefgh/versions/ijklmnop/mod.jar\",\"provider\":{\"id\":\"modrinth\",\"projectId\":\"abcdefgh\",\"fileId\":\"ijklmnop\"}}"));
         var manifest = SyncManifest.parse(root.toString().getBytes(StandardCharsets.UTF_8));
-        var cf = transport("true", CDN, manifest.files().getFirst().size(), "a".repeat(40));
-        var resolver = new SourceResolver((service, path, body, token) -> service == ProviderHttpClient.Service.MODRINTH ? "[]".getBytes(StandardCharsets.UTF_8) : cf.request(service, path, body, token));
+        var resolver = new SourceResolver((service, path, body, token) -> {
+            assertEquals(ProviderHttpClient.Service.MODRINTH, service);
+            return "[]".getBytes(StandardCharsets.UTF_8);
+        });
         assertEquals("curseforge", resolver.resolve(manifest, new DiscoveryCancellation()).values().iterator().next().identity().id());
         var failure = new SourceResolver((service, path, body, token) -> {
             assertEquals(ProviderHttpClient.Service.MODRINTH, service);
@@ -131,26 +143,17 @@ class CurseForgeProviderTest {
     @Test
     void prefersPermittedCurseForgeFilesOverEarlierManualCandidates(@TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
-        var root = JsonParser.parseString(new String(manifest(jar), StandardCharsets.UTF_8)).getAsJsonObject();
+        var root = JsonParser.parseString(new String(manifest(jar, true), StandardCharsets.UTF_8)).getAsJsonObject();
         var sources = root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources");
         var second = sources.get(0).deepCopy().getAsJsonObject();
         second.getAsJsonObject("provider").addProperty("projectId", "124");
         second.getAsJsonObject("provider").addProperty("fileId", "457");
+        second.getAsJsonObject("provider").addProperty("manual", false);
+        second.addProperty("url", CDN.replace("456", "457"));
         sources.add(second);
         var manifest = SyncManifest.parse(root.toString().getBytes(StandardCharsets.UTF_8));
-        var base = transport("false", null, manifest.files().getFirst().size(), "a".repeat(40));
         var resolver = new SourceResolver((service, path, body, token) -> {
-            boolean project = path.equals("/v1/mods");
-            var json = JsonParser.parseString(new String(base.request(service, path, project ? "{\"modIds\":[123]}" : "{\"fileIds\":[456]}", token), StandardCharsets.UTF_8)).getAsJsonObject();
-            var extra = json.getAsJsonArray("data").get(0).deepCopy().getAsJsonObject();
-            extra.addProperty("id", project ? 124 : 457);
-            if (project) extra.addProperty("allowModDistribution", true);
-            else {
-                extra.addProperty("modId", 124);
-                extra.addProperty("downloadUrl", CDN.replace("456", "457"));
-            }
-            json.getAsJsonArray("data").add(extra);
-            return json.toString().getBytes(StandardCharsets.UTF_8);
+            throw new AssertionError("Client CurseForge resolution must not use any provider API key.");
         });
         var selected = resolver.resolve(manifest, new DiscoveryCancellation()).values().iterator().next();
         assertFalse(selected.manual());
@@ -160,13 +163,14 @@ class CurseForgeProviderTest {
     @Test
     void bindsManualPagesAndChangedProviderEvidenceToFreshConsent(@TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
-        byte[] bytes = manifest(jar);
+        byte[] bytes = manifest(jar, true);
         var manifest = SyncManifest.parse(bytes);
         var resolver = new SourceResolver(transport("false", null, manifest.files().getFirst().size(), "a".repeat(40)));
         var sources = resolver.resolve(manifest, new DiscoveryCancellation());
         var plan = InstallationPlan.create(InstallationPlanTest.endpoint(bytes), bytes, Set.of(), null, "0.1.0-dev", "21.1.251", null, sources);
         assertTrue(plan.hasManualDownloads());
-        assertTrue(plan.reviewLines().contains("This mod requires a manual download because its author disabled automatic downloads — your browser will open."));
+        assertTrue(plan.reviewLines().contains("The server reports that the author disabled automatic downloads — your browser will open the exact file page."));
+        assertTrue(plan.reviewLines().stream().anyMatch(line -> line.contains("the server reports this provider identity")));
         assertTrue(plan.warningLines().stream().anyMatch(line -> line.contains(PAGE)));
         assertThrows(IOException.class, () -> plan.accept(true, false));
         assertThrows(IOException.class, () -> plan.accept(true, true).require(InstallationPlanTest.plan(bytes)));

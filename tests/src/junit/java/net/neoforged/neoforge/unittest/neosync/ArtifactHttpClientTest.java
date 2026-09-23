@@ -256,7 +256,7 @@ class ArtifactHttpClientTest {
         Path manualJar = JarMetadataTest.jar(Files.createDirectory(directory.resolve("manual")), JarMetadataTest.TOML, Map.of());
         Path privateJar = JarMetadataTest.jar(Files.createDirectory(directory.resolve("private")), JarMetadataTest.TOML.replace("test_mod", "private_mod"), Map.of());
         var privateHash = ArtifactFiles.fingerprint(privateJar, new DiscoveryCancellation());
-        var root = JsonParser.parseString(new String(CurseForgeProviderTest.manifest(manualJar), StandardCharsets.UTF_8)).getAsJsonObject();
+        var root = JsonParser.parseString(new String(CurseForgeProviderTest.manifest(manualJar, true), StandardCharsets.UTF_8)).getAsJsonObject();
         var extra = JsonParser.parseString(new String(SyncProtocolTest.manifest(), StandardCharsets.UTF_8).replace("test_mod", "private_mod")).getAsJsonObject().getAsJsonArray("files").get(0).getAsJsonObject();
         extra.addProperty("sha256", privateHash.sha256());
         extra.addProperty("size", privateHash.size());

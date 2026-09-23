@@ -155,7 +155,7 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 The alpha.4 development tree adds exact Modrinth resolution, with an installed
 review/download/restart/join result. Manual import has installed Linux fixture
 coverage with synthetic CurseForge metadata; **Phase 5 remains incomplete**.
-Live CurseForge acceptance is blocked on NeoSync's own key and an applicable
+Live CurseForge acceptance needs an administrator-owned key and an applicable
 provider agreement, and Windows runtime acceptance is pending. Alpha.3 remains
 the published release.
 See [Phase 5](docs/neosync/phase-5.md) for implementation status and evidence.
@@ -170,8 +170,13 @@ The provider preference for each exact required file is:
 
 Automatic downloads still require review and consent. A provider outage or author
 restriction never authorizes rehosting a third-party mod. CurseForge integration
-depends on approved API access and applicable provider terms; a browser may
-require additional user interaction.
+uses the server administrator's own `NEOSYNC_CURSEFORGE_API_KEY` environment
+variable. The key stays on that server; clients see its reported file metadata as
+unverified and still check downloaded bytes against the reviewed hashes. Without
+a key, exact Modrinth resolution remains available; a selected file requiring
+CurseForge produces an administrator-facing configuration error. Administrators
+must follow their applicable provider terms, including requirements for retained
+metadata. A browser may require additional user interaction.
 
 After consent, the manual flow opens
 `https://www.curseforge.com/minecraft/mc-mods/<slug>/download/<fileId>`.

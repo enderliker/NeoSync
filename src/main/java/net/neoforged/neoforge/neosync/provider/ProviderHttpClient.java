@@ -46,6 +46,21 @@ import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 
 /** Fixed-origin metadata transport. Never follows redirects or includes response bodies in errors. */
 public final class ProviderHttpClient implements ProviderTransport {
+    private final String curseForgeKey;
+
+    public ProviderHttpClient() {
+        this.curseForgeKey = "";
+    }
+
+    private ProviderHttpClient(String curseForgeKey) {
+        this.curseForgeKey = curseForgeKey;
+    }
+
+    /** Only the server process reads the administrator's environment. The key is never sent to clients. */
+    public static ProviderHttpClient forServer() throws IOException {
+        return new ProviderHttpClient(ProviderCredentials.serverCurseForge());
+    }
+
     public static final int MAX_BYTES = 2 * 1024 * 1024;
     private static final NioEventLoopGroup NETWORK = new NioEventLoopGroup(2, runnable -> {
         var thread = new Thread(runnable, "NeoSync provider HTTPS");
@@ -80,8 +95,14 @@ public final class ProviderHttpClient implements ProviderTransport {
     }
 
     @Override
+    public boolean available(Service service) throws IOException {
+        return service != Service.CURSEFORGE || !curseForgeKey.isEmpty();
+    }
+
+    @Override
     public byte[] request(Service service, String path, String body, DiscoveryCancellation token) throws IOException {
         token.check();
+        if (!available(service)) throw new IOException("CurseForge lookup needs the server administrator's NEOSYNC_CURSEFORGE_API_KEY; clients never supply it.");
         if (!path.startsWith(service == Service.MODRINTH ? "/v2/" : "/v1/") || path.length() > 8192
                 || !path.matches("/[A-Za-z0-9_/?=&%.,-]+") || body.length() > 65536)
             throw new IOException("Invalid provider request.");
@@ -141,15 +162,15 @@ public final class ProviderHttpClient implements ProviderTransport {
         }
     }
 
-    private static byte[] fetch(Request request, DiscoveryCancellation token) throws Exception {
+    private byte[] fetch(Request request, DiscoveryCancellation token) throws Exception {
         token.check();
         synchronized (COOLDOWNS) {
             if (COOLDOWNS.getOrDefault(request.service, Instant.MIN).isAfter(Instant.now()))
                 throw new ProviderFailure("The provider requested a pause. Retry later; no alternate source was selected.");
         }
-        String credential = request.service == Service.CURSEFORGE ? ProviderCredentials.curseForge() : "";
+        String credential = request.service == Service.CURSEFORGE ? curseForgeKey : "";
         if (request.service == Service.CURSEFORGE && credential.isEmpty())
-            throw new ProviderFailure("CurseForge integration is unavailable in this build while NeoSync's application key is pending. Users do not need to supply a key.");
+            throw new ProviderFailure("CurseForge lookup needs the server administrator's API key.");
         var addresses = InetAddress.getAllByName(request.service.host);
         token.check();
         if (addresses.length == 0) throw new IOException();

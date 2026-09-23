@@ -184,7 +184,7 @@ public final class InstallationPlan {
             file.artifact().mods().forEach(mod -> lines.add(mod.displayName() + " (" + mod.id() + ") " + mod.version()));
             lines.add("Source: " + sourceDescription(file));
             if (!file.available() && file.provider() != null && file.provider().manual())
-                lines.add("This mod requires a manual download because its author disabled automatic downloads — your browser will open.");
+                lines.add("The server reports that the author disabled automatic downloads — your browser will open the exact file page.");
             lines.add("SHA-256: " + file.artifact().sha256());
         }
         return List.copyOf(lines);
@@ -204,6 +204,8 @@ public final class InstallationPlan {
     }
 
     private String sourceDescription(File file) {
+        if (file.provider() != null && file.provider().identity().id().equals("curseforge")) return "CurseForge — " + file.source()
+                + " (unverified source; the server reports this provider identity and download permission; exact bytes will be checked against the approved SHA-256 and server-reported SHA-1; not a safety guarantee)";
         if (file.provider() != null) return file.provider().identity().id() + " — " + file.source()
                 + " (unverified source; provider metadata matched; exact bytes will be checked against the approved SHA-256 and provider hash; not a safety guarantee)";
         return file.providedByServer() ? "Provided by the server " + manifest.displayName() + " (" + identity.host() + ":" + identity.gamePort()

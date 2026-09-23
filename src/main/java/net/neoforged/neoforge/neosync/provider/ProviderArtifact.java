@@ -60,6 +60,11 @@ public record ProviderArtifact(SyncManifest.ProviderHint identity, URI source, l
         validate();
         if (size != artifact.size() || artifact.sources().stream().noneMatch(s -> identity.equals(s.provider())))
             throw new IOException("The provider result does not match the reviewed artifact hint.");
+        for (var source : artifact.sources()) {
+            if (!identity.equals(source.provider()) || source.evidence() == null) continue;
+            if (!source.url().equals(this.source) || !hash.equals(source.evidence().sha1()) || manual != source.evidence().manual())
+                throw new IOException("The provider audit does not match the server's reviewed evidence.");
+        }
     }
 
     public void verify(Path path, SyncManifest.Artifact artifact, DiscoveryCancellation token) throws IOException {

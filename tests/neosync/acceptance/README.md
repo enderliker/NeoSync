@@ -146,11 +146,15 @@ server join. Record the exact source commit and installer hash for each run.
 `prepare_fixture.py --manual-fixture` creates **synthetic CurseForge metadata**
 for the same public Clumps artifact and a controlled `xdg-open` executable. This
 fixture is not a real CurseForge author restriction, API request or browser/site
-interaction. It must never be reported as live CurseForge acceptance. No provider
-key is used. The test agent performs real local status/manifest discovery, resolves
-the synthetic metadata through the actual adapter, then exercises the product's
+interaction. It must never be reported as live CurseForge acceptance. Set
+`NEOSYNC_CURSEFORGE_API_KEY=neosync-fixture-only-key` only on the disposable server
+so its configured-source gate accepts the synthetic evidence; this is not a real
+provider key and the fixture makes no CurseForge API request. The server manifest
+carries synthetic, explicitly configured file evidence. The test agent performs
+real local status/manifest discovery, verifies
+that the client makes no CurseForge API request, then exercises the product's
 review, source warning, import workflow and transaction using real mouse/keyboard
-events. The server uses explicit fixture hints. A restarted, verified profile
+events. A restarted, verified profile
 can join the real local server without a missing-mod provider request.
 
 Set `XDG_CONFIG_HOME` to the fixture's `xdg-config` directory and prepend its

@@ -13,11 +13,9 @@ import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 
 public final class SourceResolver {
     private final ModrinthProvider modrinth;
-    private final CurseForgeProvider curseforge;
 
     public SourceResolver(ProviderTransport transport) {
         modrinth = new ModrinthProvider(transport);
-        curseforge = new CurseForgeProvider(transport);
     }
 
     public Map<String, ProviderArtifact> resolve(SyncManifest manifest, DiscoveryCancellation token) throws IOException {
@@ -37,18 +35,17 @@ public final class SourceResolver {
                 result.putIfAbsent(artifact.sha256(), matching.getFirst());
             }
         }
-        var curseHints = manifest.files().stream().filter(file -> !result.containsKey(file.sha256()))
-                .flatMap(file -> file.sources().stream()).map(SyncManifest.Source::provider)
-                .filter(hint -> hint != null && hint.id().equals("curseforge")).distinct().toList();
-        var curseFiles = curseforge.files(curseHints, token);
         for (var artifact : manifest.files()) {
             token.check();
             if (result.containsKey(artifact.sha256())) continue;
             for (var source : artifact.sources()) {
                 var hint = source.provider();
                 if (hint == null || !hint.id().equals("curseforge")) continue;
-                var file = curseFiles.get(hint);
-                if (file == null || file.size() != artifact.size()) throw new IOException("The CurseForge file does not match the requested identity and size.");
+                var evidence = source.evidence();
+                if (evidence == null)
+                    throw new IOException("The server did not provide exact CurseForge file evidence. Ask its administrator to set their own CurseForge API key or configure an exact Modrinth or permitted direct HTTPS source.");
+                var file = new ProviderArtifact(hint, source.url(), artifact.size(), "SHA-1", evidence.sha1(), evidence.manual());
+                file.require(artifact);
                 result.merge(artifact.sha256(), file, (first, next) -> first.manual() && !next.manual() ? next : first);
             }
             if (!result.containsKey(artifact.sha256()) && artifact.sources().stream().anyMatch(source -> source.provider() != null))

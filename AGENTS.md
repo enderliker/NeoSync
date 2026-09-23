@@ -136,7 +136,9 @@ acceptance; it means no additional browser step. Match the exact approved bytes,
 not just a project name or version label. Phase 5 implementation now includes
 exact Modrinth resolution and a CurseForge/manual-import adapter. Modrinth has
 passed a new installed flow; live CurseForge acceptance remains blocked on
-NeoSync's own key and an applicable provider agreement. Configured direct HTTPS
+an administrator-owned key and an applicable provider agreement. The key stays on
+the server; clients treat its reported CurseForge metadata as unverified.
+Configured direct HTTPS
 downloads and restricted server sources remain available. See
 [Phase 5](docs/neosync/phase-5.md) for current evidence and limits.
 
@@ -293,10 +295,11 @@ file versions or hiding changes in source.
 **Implementation status:** in progress in alpha.4. Modrinth passed installed
 lookup/review/download/restart/join acceptance. CurseForge uses synthetic metadata
 fixtures; installed Linux browser-import fixtures passed preparation/restart/join,
-including watcher, explicit-path and native KDialog selection. The maintainer has
-submitted the key application, but no own key or agreement allowing extractable
-desktop keys and retained provider audit data exists yet. Do not mark Phase 5
-complete from fixture tests.
+including watcher, explicit-path and native KDialog selection. CurseForge lookup
+now uses the server administrator's own environment key and reports a missing key
+to that administrator. No real key, provider agreement for retained metadata, or
+live CurseForge runtime acceptance is recorded. Do not mark Phase 5 complete from
+fixture tests.
 See [Phase 5](docs/neosync/phase-5.md).
 
 ### Phase 6 — Restart and updates

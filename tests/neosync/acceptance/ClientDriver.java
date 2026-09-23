@@ -222,10 +222,7 @@ public final class ClientDriver {
         Object manifest = call(type("net.neoforged.neoforge.neosync.protocol.SyncManifest"), "parse", bytes);
         Class<?> transportType = type("net.neoforged.neoforge.neosync.provider.ProviderTransport");
         Object transport = java.lang.reflect.Proxy.newProxyInstance(gameLoader, new Class<?>[] { transportType }, (proxy, method, arguments) -> {
-            if (!method.getName().equals("request")) throw new IllegalStateException("Unexpected fixture invocation");
-            String route = (String) arguments[1];
-            require(route.equals("/v1/mods") || route.equals("/v1/mods/files"), "Synthetic metadata uses only exact project/file API routes");
-            return Files.readAllBytes(fixture.resolve(route.equals("/v1/mods") ? "provider-projects.json" : "provider-files.json"));
+            throw new IllegalStateException("A client must not request CurseForge metadata or use the administrator's key.");
         });
         Object resolver = type("net.neoforged.neoforge.neosync.provider.SourceResolver").getConstructor(transportType).newInstance(transport);
         Object sources = call(resolver, "resolve", manifest, token);
@@ -249,7 +246,7 @@ public final class ClientDriver {
         var reviewMethod = attemptType.getDeclaredMethod("review", reviewType);
         reviewMethod.setAccessible(true);
         reviewMethod.invoke(attemptObject, review);
-        evidence.add("Manual branch uses synthetic CurseForge metadata and a controlled browser launcher; this is not live CurseForge acceptance.");
+        evidence.add("Manual branch uses synthetic server-reported CurseForge metadata and a controlled browser launcher; this is not live CurseForge acceptance.");
     }
 
     private static boolean initialized(Class<?> type) throws Exception {

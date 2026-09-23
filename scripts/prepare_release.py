@@ -63,6 +63,8 @@ def validate():
         with ZipFile(assets[kind]) as archive:
             require(not any(n.startswith(("net/minecraft/", "com/mojang/", "mcp/")) for n in archive.namelist()),
                     f"Minecraft content found in {kind} artifact.")
+            require("META-INF/neosync/provider-access.bin" not in archive.namelist(),
+                    f"A provider credential resource is present in the {kind} artifact.")
             require(archive.testzip() is None, f"Corrupt {kind} archive.")
             if kind == "universal":
                 require(version.encode() in archive.read(source_path + ".class"), "The compiled runtime has a different NeoSync version.")

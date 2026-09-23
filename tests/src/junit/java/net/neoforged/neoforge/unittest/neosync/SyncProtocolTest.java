@@ -18,6 +18,7 @@ import java.net.InetAddress;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import net.neoforged.neoforge.neosync.protocol.ArtifactFiles;
@@ -184,6 +185,20 @@ class SyncProtocolTest {
         var root = JsonParser.parseString(new String(InstallationPlanTest.manifest(), StandardCharsets.UTF_8)).getAsJsonObject();
         root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").get(0).getAsJsonObject().add("provider", JsonParser.parseString(hint));
         reject(root);
+    }
+
+    @Test
+    void rejectsIncompleteOrForgedProviderEvidence() {
+        for (String hint : List.of(
+                "{\"id\":\"curseforge\",\"projectId\":\"123\",\"fileId\":\"456\",\"sha1\":\"" + "a".repeat(40) + "\"}",
+                "{\"id\":\"curseforge\",\"projectId\":\"123\",\"fileId\":\"456\",\"manual\":true}",
+                "{\"id\":\"curseforge\",\"projectId\":\"123\",\"fileId\":\"456\",\"sha1\":\"short\",\"manual\":false}",
+                "{\"id\":\"modrinth\",\"projectId\":\"abcdefgh\",\"fileId\":\"ijklmnop\",\"sha1\":\"" + "a".repeat(40) + "\",\"manual\":false}")) {
+            var root = JsonParser.parseString(new String(InstallationPlanTest.manifest(), StandardCharsets.UTF_8)).getAsJsonObject();
+            root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").get(0).getAsJsonObject()
+                    .add("provider", JsonParser.parseString(hint));
+            reject(root);
+        }
     }
 
     @Test

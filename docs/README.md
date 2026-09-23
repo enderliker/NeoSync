@@ -7,8 +7,9 @@ isolated profiles, and manual activation. The full one-mod flow has passed with
 the repository's launcher harness. Restricted hosting is available in alpha.3.
 Phase 5 development in alpha.4 adds exact Modrinth resolution and manual import,
 with installed Linux fixtures for watching, explicit paths and native selection.
-Live CurseForge acceptance is blocked on NeoSync's own key and an applicable
-provider agreement; Windows runtime acceptance is pending. Alpha.4 is unreleased.
+Live CurseForge acceptance still needs an administrator-owned key and an
+applicable provider agreement; Windows runtime acceptance is pending. Alpha.4
+is unreleased.
 Automatic restart remains future work. See the phase documents for exact evidence.
 
 ## Setup and development

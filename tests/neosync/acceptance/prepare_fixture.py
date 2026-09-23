@@ -85,13 +85,9 @@ else:
     if args.manual_fixture:
         page = "https://www.curseforge.com/minecraft/mc-mods/neosync-test-fixture/download/456"
         selection = {"fileName": filename, "sources": [{"type": "external", "url": page,
-            "provider": {"id": "curseforge", "projectId": "123", "fileId": "456"}}]}
+            "provider": {"id": "curseforge", "projectId": "123", "fileId": "456",
+                         "sha1": hashlib.sha1(artifact).hexdigest(), "manual": True}}]}
         expected_source, phase = "www.curseforge.com", "Phase 5 manual fixture"
-        (root / "provider-projects.json").write_text(json.dumps({"data": [{"id": 123, "gameId": 432, "classId": 6,
-            "slug": "neosync-test-fixture", "allowModDistribution": False}]}))
-        (root / "provider-files.json").write_text(json.dumps({"data": [{"id": 456, "modId": 123, "gameId": 432,
-            "isAvailable": True, "gameVersions": ["1.21.1", "NeoForge"], "fileLength": len(artifact),
-            "hashes": [{"algo": 1, "value": hashlib.sha1(artifact).hexdigest()}], "downloadUrl": None}]}))
         (root / "browser-bin").mkdir()
         (root / "xdg-config").mkdir()
         (root / "Relocated Downloads").mkdir()

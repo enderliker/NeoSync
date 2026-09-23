@@ -37,7 +37,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class ManualDownloadsTest {
     private static InstallationPlan plan(Path jar) throws Exception {
-        byte[] bytes = CurseForgeProviderTest.manifest(jar);
+        byte[] bytes = CurseForgeProviderTest.manifest(jar, true);
         String sha1 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-1").digest(Files.readAllBytes(jar)));
         var sources = new SourceResolver(CurseForgeProviderTest.transport("false", null, Files.size(jar), sha1))
                 .resolve(SyncManifest.parse(bytes), new DiscoveryCancellation());

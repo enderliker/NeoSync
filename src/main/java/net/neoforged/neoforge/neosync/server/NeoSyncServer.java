@@ -191,6 +191,7 @@ public final class NeoSyncServer {
         var selections = SyncJson.array(config.get("files"), 0, 2048);
         var automatic = new HashMap<Path, ArtifactFiles.Fingerprint>();
         var curseHints = new HashMap<Path, SyncManifest.ProviderHint>();
+        var providerTransport = net.neoforged.neoforge.neosync.provider.ProviderHttpClient.forServer();
         for (var entry : selections) {
             var selection = SyncJson.object(entry, Set.of("fileName"), Set.of("sources", "hosting", "resolveProviders", "curseforge"));
             if (selection.has("resolveProviders")) {
@@ -206,11 +207,11 @@ public final class NeoSyncServer {
                 }
             } else {
                 if (selection.has("curseforge")) throw new IOException("CurseForge lookup IDs require automatic provider resolution.");
-                SyncManifest.parseSources(selection.get("sources"));
+                net.neoforged.neoforge.neosync.provider.AutomaticSources.requireConfiguredAccess(
+                        SyncManifest.parseSources(selection.get("sources")), providerTransport);
             }
         }
-        var resolved = net.neoforged.neoforge.neosync.provider.AutomaticSources.resolve(automatic, curseHints,
-                new net.neoforged.neoforge.neosync.provider.ProviderHttpClient(), cancellation);
+        var resolved = net.neoforged.neoforge.neosync.provider.AutomaticSources.resolve(automatic, curseHints, providerTransport, cancellation);
         for (var entry : selections) {
             var selection = entry.getAsJsonObject().deepCopy();
             if (selection.has("resolveProviders")) {
