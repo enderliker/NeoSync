@@ -12,7 +12,7 @@
   <a href="https://www.minecraft.net/about-minecraft"><img src="https://img.shields.io/badge/Minecraft-1.21.1-62B47A" alt="Minecraft Java Edition 1.21.1"></a>
   <a href="gradle.properties"><img src="https://img.shields.io/badge/NeoForge-21.1.251-E88A42" alt="Based on NeoForge 21.1.251"></a>
   <a href="docs/CONTRIBUTING.md"><img src="https://img.shields.io/badge/Java-21-E69B45" alt="Requires Java 21"></a>
-  <a href="docs/neosync/phase-3.md"><img src="https://img.shields.io/badge/Status-Early_development-8B78E6" alt="Status: early development"></a>
+  <a href="docs/neosync/phase-5.md"><img src="https://img.shields.io/badge/Status-Early_development-8B78E6" alt="Status: early development"></a>
   <a href="LICENSE.txt"><img src="https://img.shields.io/badge/License-LGPL--2.1--only-4D9AC5" alt="License: LGPL-2.1-only"></a>
 </p>
 
@@ -44,7 +44,8 @@ before installation.
 | --- | --- | --- |
 | Minecraft Java Edition | **1.21.1** | The Minecraft version targeted by this branch. |
 | NeoForge base build | **21.1.251** | The platform build used by NeoSync; mods must be compatible with this NeoForge/Minecraft combination. |
-| NeoSync identifier | **0.1.0-alpha.3** | Current alpha prerelease, separate from the NeoForge build number. Published alpha.2 remains unchanged. |
+| NeoSync development identifier | **0.1.0-alpha.4** | Current source tree; Phase 5 is incomplete and this build has not been released. |
+| Published NeoSync release | **0.1.0-alpha.3** | Available alpha prerelease with restricted hosting; published artifacts remain unchanged. |
 | Synchronization protocol | **1** | The version used for server discovery and manifests. |
 | Java | **21** | Required for running and developing this build; use a JDK for development. |
 | Gradle wrapper | **8.13** | Included in the repository; no separate Gradle installation is needed. |
@@ -98,6 +99,8 @@ You can postpone activation and leave the profile prepared for later.
 | Discovery | Retrieves a bounded HTTPS manifest before gameplay login and reports missing or incompatible requirements. |
 | Consent | Binds acceptance to the exact reviewed files and sources. Unverified-source warnings default to **No, cancel**. |
 | Downloads | Uses configured direct HTTPS URLs or restricted server hosting, with destination restrictions, transfer limits, and SHA-256 verification. |
+| Provider resolution (alpha.4 development) | Resolves exact Modrinth files before review and checks both provider and manifest hashes. Live CurseForge validation is pending. |
+| Manual import (alpha.4 development) | Opens the approved CurseForge browser download page after consent, then verifies a watched or selected local file. Installed Linux fixtures passed; real CurseForge and Windows acceptance remain pending. |
 | Server hosting | Alpha.3 serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
 | Preparation | Inspects JAR metadata without executing it and prepares a new revision while preserving existing profiles. |
 | Manual activation | Shows the exact game directory to select in the launcher; checks the selected profile and offers reconnection after restart. |
@@ -109,10 +112,17 @@ consent checks, cancellation and recovery checks, and a complete installation of
 for the test environment and limits. This is evidence for the tested flow, not
 a claim of compatibility with every modpack or launcher.
 
-The new [Phase 4 validation](docs/neosync/phase-4.md#installed-build-acceptance)
+The recorded [Phase 4 validation](docs/neosync/phase-4.md#installed-build-acceptance)
 passed **197 tests** and an installed hosted-mod flow including both consent
 cancellations, download, manual restart, a real server join and process-interruption
 recovery. The installed server also rejected a third-party hosting selection.
+
+The [Phase 5 validation record](docs/neosync/phase-5.md) includes **243 passing
+unit tests**, an installed live Modrinth flow, and installed Linux manual-import
+fixtures using synthetic CurseForge metadata. The manual fixtures exercised
+watching, explicit paths and native KDialog selection, followed by restart and a
+real-server join. These are separate executions; the recorded installed runs
+predate the latest browser URL change and do not certify live CurseForge behavior.
 
 ## Try the development build
 
@@ -134,16 +144,20 @@ the first run can take some time. On Windows, use `gradlew.bat`.
   then configure the [artifact sources](docs/neosync/phase-3.md#server-configuration-and-manual-activation).
   Configure direct HTTPS URLs or, for your own unpublished server-specific mods,
   the [restricted hosting declarations](docs/neosync/phase-4.md#server-configuration).
-  Both routes require explicit client-file selection in `config/neosync-server.json`.
+  The alpha.4 development tree also supports [exact provider resolution](docs/neosync/phase-5.md#provider-identity-and-protocol-compatibility)
+  with `resolveProviders: true`. All routes require explicit client-file selection
+  in `config/neosync-server.json`.
 - **Testing the full flow:** use the [installed-build acceptance harness](tests/neosync/acceptance/README.md)
   to reproduce installation, activation, and joining in a controlled environment.
 
 ## Provider source handling
 
-The alpha.4 development tree adds exact Modrinth resolution, with a new installed
-review/download/restart/join result. CurseForge and manual import have fixture
-coverage; **live CurseForge acceptance remains blocked** on NeoSync's own key and
-an applicable provider agreement. Alpha.3 remains the published release.
+The alpha.4 development tree adds exact Modrinth resolution, with an installed
+review/download/restart/join result. Manual import has installed Linux fixture
+coverage with synthetic CurseForge metadata; **Phase 5 remains incomplete**.
+Live CurseForge acceptance is blocked on NeoSync's own key and an applicable
+provider agreement, and Windows runtime acceptance is pending. Alpha.3 remains
+the published release.
 See [Phase 5](docs/neosync/phase-5.md) for implementation status and evidence.
 The provider preference for each exact required file is:
 
@@ -151,7 +165,7 @@ The provider preference for each exact required file is:
 | --- | --- | --- |
 | 1 | Modrinth | Automatic download when the exact file is available and permitted. |
 | 2 | CurseForge with third-party downloads enabled | Automatic download through the provider. |
-| 3 | CurseForge with third-party downloads disabled | A clear notice, the exact file page in the browser, and detection and verification of the user's download. |
+| 3 | CurseForge with third-party downloads disabled | A clear notice, the exact browser download page, and detection and verification of the user's download. |
 | 4 | Server hosting | Only unpublished mods written by the administrator for that server and unavailable elsewhere. |
 
 Automatic downloads still require review and consent. A provider outage or author
@@ -159,7 +173,13 @@ restriction never authorizes rehosting a third-party mod. CurseForge integration
 depends on approved API access and applicable provider terms; a browser may
 require additional user interaction.
 
-See the [manual download design](docs/neosync/manual-downloads.md) and
+After consent, the manual flow opens
+`https://www.curseforge.com/minecraft/mc-mods/<slug>/download/<fileId>`.
+NeoSync then verifies the downloaded file before importing it into the isolated
+profile. The website or browser may still require a click; automatic completion
+is not guaranteed.
+
+See the [manual download contract](docs/neosync/manual-downloads.md) and
 [source policy](AGENTS.md#source-resolution). Reliable launcher integration,
 update recovery, and broader compatibility testing remain on the
 [roadmap](AGENTS.md#roadmap-and-exit-criteria).
