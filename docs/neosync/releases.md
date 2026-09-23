@@ -4,7 +4,7 @@ NeoSync releases identify both the fork and its compatible NeoForge platform:
 
 ```text
 NeoSync-<neosync-version>-neoforge-<base-version>
-NeoSync-0.1.0-alpha.3-neoforge-21.1.251
+NeoSync-0.1.0-alpha.4-neoforge-21.1.251
 ```
 
 The first installation MVP is an **alpha prerelease** for Minecraft Java Edition
@@ -47,7 +47,7 @@ when switching to a prepared server-specific profile.
 Create a new server directory and run the installer with Java 21:
 
 ```bash
-java -jar NeoSync-0.1.0-alpha.3-neoforge-21.1.251-installer.jar --install-server /path/to/server
+java -jar NeoSync-0.1.0-alpha.4-neoforge-21.1.251-installer.jar --install-server /path/to/server
 ```
 
 Start the generated `run.sh` on Linux or `run.bat` on Windows. Review the Minecraft
@@ -72,7 +72,7 @@ never to replacement binaries from upstream NeoForge. LegacyInstaller requires
 a nonempty URL even for an embedded library; an empty URL makes it skip the file.
 FML 4 hard-codes the local
 `net/neoforged/neoforge` layout, so installed files use a unique version suffix:
-`21.1.251-neosync-0.1.0-alpha.3`. The mod metadata and `NeoForgeVersion` still
+`21.1.251-neosync-0.1.0-alpha.4`. The mod metadata and `NeoForgeVersion` still
 report the compatible base `21.1.251`. No modified NeoForge Maven publication
 is uploaded by this release process.
 
@@ -194,3 +194,29 @@ Alpha.1 and alpha.2 tags and assets were not changed. See the
 installation instructions, the recorded 197-test and installed-build results,
 and limits. Subsequent documentation commits do not move the release tag or
 change its binaries.
+
+### Alpha.4 source-resolution prerelease
+
+[NeoSync-0.1.0-alpha.4-neoforge-21.1.251](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.4-neoforge-21.1.251)
+was published as a prerelease on September 23, 2026 for Minecraft 1.21.1 and
+Java 21. Its immutable annotated tag points to source commit
+`49a54defc3dc6d2c074b89cd0f987abccfa077db`, matching the uploaded
+`release-manifest.json`. The installer SHA-256 is
+`4d9defee368167d63e7cc313e5db9083e031bdd28997698f97fc114b1850d6c4`.
+
+The exact installer passed 246 JUnit tests, formatting and package checks,
+production client/server self-tests, fresh installed Modrinth
+review/download/restart/join acceptance, and a separate installed synthetic
+CurseForge manual-import/restart/join fixture. A newly generated unmatched mod
+showed the administrator-facing missing-key error and left discovery disabled.
+The first fresh client install timed out fetching Sponge Mixin from Maven; its
+JDK 21 retry succeeded with checksum validation. See the
+[Phase 5 record](phase-5.md#alpha4-release-candidate-validation-on-september-23-2026)
+for exact execution evidence. Real CurseForge API and restricted website flows,
+Windows and external launchers remain unvalidated; Phase 5 is incomplete.
+
+The five JARs, manifest and checksums were uploaded to a draft, downloaded from
+GitHub, and compared byte for byte with the verified export before publication.
+Every checksum passed. Alpha.3 and older tags or binaries were not changed.
+This publication check is not another Minecraft gameplay run. See the
+[alpha.4 release notes](release-notes/0.1.0-alpha.4.md) for setup and limits.

@@ -1,7 +1,8 @@
 # Phase 5 — Exact provider files and browser imports
 
-Status: implementation in progress on alpha.4; alpha.3 remains the published
-Phase 4 release. Phase 5 acceptance is **not complete**. Automatic restart is
+Status: implementation in progress in the published alpha.4 prerelease;
+alpha.3 remains the published Phase 4 milestone. Phase 5 acceptance is
+**not complete**. Automatic restart is
 still deferred to Phase 6. Recorded Phase 3/4 runs do not validate these changes.
 
 ## Provider identity and protocol compatibility
@@ -169,8 +170,10 @@ never scrapes a restricted page or requests a CDN alternative for it.
 
 New manual resolutions now construct the official `/download/<fileId>` browser
 page instead of `/files/<fileId>`. Local audits using the earlier details-page
-route remain readable. The installed fixture runs recorded below predate this
-route change; they do not validate the website's behavior at the new URL.
+route remain readable. The September 22 installed fixtures recorded later in
+this document predate this route change. The alpha.4 release-candidate fixture
+exercises the new route through a controlled browser; neither run validates the
+real website's behavior at the new URL.
 The route change passed 243 JUnit tests with zero failures, errors or skips and
 formatting checks on September 22, 2026 (Linux, JDK 21.0.2), including legacy audit
 compatibility, exact-file URL rejection, consent and manual-import regressions.

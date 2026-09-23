@@ -292,8 +292,9 @@ consent; this subset cannot promise a zero-click installation.
 **Exit criterion:** reduce manual configuration without substituting different
 file versions or hiding changes in source.
 
-**Implementation status:** in progress in alpha.4. Modrinth passed installed
-lookup/review/download/restart/join acceptance. CurseForge uses synthetic metadata
+**Implementation status:** in progress in the published alpha.4 prerelease.
+Modrinth passed installed lookup/review/download/restart/join acceptance.
+CurseForge uses synthetic metadata
 fixtures; installed Linux browser-import fixtures passed preparation/restart/join,
 including watcher, explicit-path and native KDialog selection. CurseForge lookup
 now uses the server administrator's own environment key and reports a missing key

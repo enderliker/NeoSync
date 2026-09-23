@@ -44,8 +44,8 @@ before installation.
 | --- | --- | --- |
 | Minecraft Java Edition | **1.21.1** | The Minecraft version targeted by this branch. |
 | NeoForge base build | **21.1.251** | The platform build used by NeoSync; mods must be compatible with this NeoForge/Minecraft combination. |
-| NeoSync development identifier | **0.1.0-alpha.4** | Current source tree; Phase 5 is incomplete and this build has not been released. |
-| Published NeoSync release | **0.1.0-alpha.3** | Available alpha prerelease with restricted hosting; published artifacts remain unchanged. |
+| NeoSync development identifier | **0.1.0-alpha.4** | Current source tree; Phase 5 remains incomplete. |
+| Published NeoSync release | **0.1.0-alpha.4** | Current alpha prerelease with exact Modrinth resolution and browser-assisted import. |
 | Synchronization protocol | **1** | The version used for server discovery and manifests. |
 | Java | **21** | Required for running and developing this build; use a JDK for development. |
 | Gradle wrapper | **8.13** | Included in the repository; no separate Gradle installation is needed. |
@@ -65,7 +65,7 @@ these versions. Published releases are pinned to a specific source commit.
 
 Get the alpha installer from [GitHub Releases](https://github.com/enderliker/NeoSync/releases).
 Release names include both versions, for example
-**`NeoSync-0.1.0-alpha.3-neoforge-21.1.251`**.
+**`NeoSync-0.1.0-alpha.4-neoforge-21.1.251`**.
 
 Download the **`-installer.jar`** for either a client or a dedicated server. The
 same installer supports both; a separate universal JAR is not a standalone game
@@ -74,8 +74,9 @@ information. Follow the [client and server installation guide](docs/neosync/rele
 
 These are experimental prereleases. Use separate test directories and read the
 release notes for the actual validation results and remaining limitations.
-Restricted hosting is available in [alpha.3](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.3-neoforge-21.1.251);
-published alpha.2 supports configured external HTTPS sources.
+The [alpha.4 prerelease](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.4-neoforge-21.1.251)
+adds exact Modrinth resolution and browser-assisted import. Restricted hosting
+remains available for eligible administrator-authored mods.
 
 ## How it works
 
@@ -99,8 +100,8 @@ You can postpone activation and leave the profile prepared for later.
 | Discovery | Retrieves a bounded HTTPS manifest before gameplay login and reports missing or incompatible requirements. |
 | Consent | Binds acceptance to the exact reviewed files and sources. Unverified-source warnings default to **No, cancel**. |
 | Downloads | Uses configured direct HTTPS URLs or restricted server hosting, with destination restrictions, transfer limits, and SHA-256 verification. |
-| Provider resolution (alpha.4 development) | Resolves exact Modrinth files before review and checks both provider and manifest hashes. Live CurseForge validation is pending. |
-| Manual import (alpha.4 development) | Opens the approved CurseForge browser download page after consent, then verifies a watched or selected local file. Installed Linux fixtures passed; real CurseForge and Windows acceptance remain pending. |
+| Provider resolution | Resolves exact Modrinth files before review and checks both provider and manifest hashes. CurseForge needs an administrator-owned server key; live CurseForge validation is pending. |
+| Manual import | Opens the approved CurseForge browser download page after consent, then verifies a watched or selected local file. Installed Linux fixtures passed; real CurseForge and Windows acceptance remain pending. |
 | Server hosting | Alpha.3 serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
 | Preparation | Inspects JAR metadata without executing it and prepares a new revision while preserving existing profiles. |
 | Manual activation | Shows the exact game directory to select in the launcher; checks the selected profile and offers reconnection after restart. |
@@ -117,14 +118,14 @@ passed **197 tests** and an installed hosted-mod flow including both consent
 cancellations, download, manual restart, a real server join and process-interruption
 recovery. The installed server also rejected a third-party hosting selection.
 
-The [Phase 5 validation record](docs/neosync/phase-5.md) includes **243 passing
-unit tests**, an installed live Modrinth flow, and installed Linux manual-import
-fixtures using synthetic CurseForge metadata. The manual fixtures exercised
-watching, explicit paths and native KDialog selection, followed by restart and a
-real-server join. These are separate executions; the recorded installed runs
-predate the latest browser URL change and do not certify live CurseForge behavior.
+The [Phase 5 validation record](docs/neosync/phase-5.md) includes **246 passing
+unit tests** and, with the exact alpha.4 installer, installed live Modrinth and
+synthetic CurseForge manual-import flows followed by restart and a real-server
+join on Linux. Earlier installed fixtures also exercised explicit paths and
+native KDialog selection. No real CurseForge key, website flow or Windows
+runtime acceptance has been recorded.
 
-## Try the development build
+## Build from source
 
 Use **JDK 21** and the included **Gradle 8.13 wrapper**. Make sure `JAVA_HOME`
 points to JDK 21 before running:
@@ -144,7 +145,7 @@ the first run can take some time. On Windows, use `gradlew.bat`.
   then configure the [artifact sources](docs/neosync/phase-3.md#server-configuration-and-manual-activation).
   Configure direct HTTPS URLs or, for your own unpublished server-specific mods,
   the [restricted hosting declarations](docs/neosync/phase-4.md#server-configuration).
-  The alpha.4 development tree also supports [exact provider resolution](docs/neosync/phase-5.md#provider-identity-and-protocol-compatibility)
+  Alpha.4 also supports [exact provider resolution](docs/neosync/phase-5.md#provider-identity-and-protocol-compatibility)
   with `resolveProviders: true`. All routes require explicit client-file selection
   in `config/neosync-server.json`.
 - **Testing the full flow:** use the [installed-build acceptance harness](tests/neosync/acceptance/README.md)
@@ -152,12 +153,11 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 
 ## Provider source handling
 
-The alpha.4 development tree adds exact Modrinth resolution, with an installed
+The alpha.4 prerelease adds exact Modrinth resolution, with an installed
 review/download/restart/join result. Manual import has installed Linux fixture
 coverage with synthetic CurseForge metadata; **Phase 5 remains incomplete**.
 Live CurseForge acceptance needs an administrator-owned key and an applicable
-provider agreement, and Windows runtime acceptance is pending. Alpha.3 remains
-the published release.
+provider agreement, and Windows runtime acceptance is pending.
 See [Phase 5](docs/neosync/phase-5.md) for implementation status and evidence.
 The provider preference for each exact required file is:
 
