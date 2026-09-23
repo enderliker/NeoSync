@@ -135,9 +135,10 @@ after consent. Automatic acquisition still follows installation review and
 acceptance; it means no additional browser step. Match the exact approved bytes,
 not just a project name or version label. Phase 5 implementation now includes
 exact Modrinth resolution and a CurseForge/manual-import adapter. Modrinth has
-passed a new installed flow; live CurseForge acceptance remains blocked on
-an administrator-owned key and an applicable provider agreement. The key stays on
-the server; clients treat its reported CurseForge metadata as unverified.
+passed a new installed flow. Live, in-memory CurseForge metadata probes passed
+with an administrator-owned key, but full installed CurseForge acceptance remains
+blocked on an applicable provider agreement for retained metadata. The key stays
+on the server; clients treat its reported CurseForge metadata as unverified.
 Configured direct HTTPS
 downloads and restricted server sources remain available. See
 [Phase 5](docs/neosync/phase-5.md) for current evidence and limits.
@@ -294,13 +295,14 @@ file versions or hiding changes in source.
 
 **Implementation status:** in progress in the published alpha.4 prerelease.
 Modrinth passed installed lookup/review/download/restart/join acceptance.
-CurseForge uses synthetic metadata
-fixtures; installed Linux browser-import fixtures passed preparation/restart/join,
-including watcher, explicit-path and native KDialog selection. CurseForge lookup
+Installed Linux browser-import fixtures using synthetic CurseForge metadata passed
+preparation/restart/join, including watcher, explicit-path and native KDialog
+selection. CurseForge lookup
 now uses the server administrator's own environment key and reports a missing key
-to that administrator. No real key, provider agreement for retained metadata, or
-live CurseForge runtime acceptance is recorded. Do not mark Phase 5 complete from
-fixture tests.
+to that administrator. A real administrator-owned key passed in-memory permitted
+and restricted file metadata probes. No provider agreement for retained metadata
+or installed CurseForge download/browser acceptance is recorded. Do not mark
+Phase 5 complete from metadata probes or fixture tests.
 See [Phase 5](docs/neosync/phase-5.md).
 
 ### Phase 6 — Restart and updates

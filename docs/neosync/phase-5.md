@@ -94,8 +94,9 @@ to the administrator instead of advertising an incomplete inventory. A client's
 legacy CurseForge hint without server evidence also asks for administrator action.
 Administrators must use an applicable key and meet the provider's terms for this
 use and any retained metadata; obtaining a key alone does not resolve the
-documented storage restriction. This workspace has no real key or provider grant,
-so no live CurseForge behavior is certified.
+documented storage restriction. A local administrator-owned key was later used
+only for in-memory metadata probes; no provider grant for retaining API data is
+recorded, so the installed CurseForge flows are not certified.
 
 ## New execution evidence
 
@@ -239,14 +240,46 @@ discovery listener on port 8443. The log is
 demonstrates that no key is needed when Modrinth finds the exact file. No real
 CurseForge credential, metadata request or restricted download was exercised.
 
+## Post-release in-memory CurseForge probes on September 23, 2026
+
+After alpha.4 publication, the administrator supplied a free key from the
+CurseForge console in a local mode-600 file outside Git. The installed alpha.4
+runtime from installer SHA-256
+`4d9defee368167d63e7cc313e5db9083e031bdd28997698f97fc114b1850d6c4`
+queried the official API through `ProviderHttpClient` and `CurseForgeProvider` on
+Linux/JDK 21.0.2. The key and API responses were not printed, written to a
+manifest/audit or included in release assets. The disposable probe source was
+kept outside the repository at `/tmp/neosync-cf-live-probe-20260923`.
+
+- The exact file ID `8897017` supplied as an example was rejected because the
+  API did not list it for Minecraft 1.21.1 and NeoForge. This is a correct
+  compatibility refusal, not a provider outage.
+- An exact compatible Clumps file passed the live project/file lookup, required
+  identity, game, loader, availability, SHA-1, size and supported CDN URL checks.
+  The adapter selected the permitted automatic branch. No mod bytes were
+  downloaded in this probe.
+- A bounded search of compatible projects found a project with third-party
+  downloads disabled and an exact available 1.21.1/NeoForge file. The adapter
+  constructed its official `/download/<fileId>` page, selected manual import,
+  and passed URL validation without selecting a CDN bypass. The browser and
+  local import were not exercised with that real website.
+
+These were new **metadata-only** probes after the release. They do not change
+the alpha.4 tag or convert its earlier synthetic installed fixtures into live
+CurseForge acceptance. Current published third-party terms prohibit saving or
+caching API data; the free console key does not grant an exception. The product's
+server manifest and local audit retain provider values, so full installed
+CurseForge flows still need an applicable agreement or written clarification
+before they are exercised or represented as supported.
+
 ## Remaining acceptance blockers
 
-- This workspace has no administrator-owned CurseForge API key for a live test.
 - Current published third-party terms still require specific clarification or an
-  applicable agreement for saved provider data. No real credential was used and
-  no live CurseForge request was performed in this work.
+  applicable agreement for saved provider data. The local key validates API
+  access but does not authorize retention in manifests or audits.
 - A real permitted CurseForge download and a real author-restricted file/browser
-  flow, including the website's actual steps, cannot be certified from fixtures.
+  flow, including the website's actual steps, remain untested end to end. The
+  metadata-only probes and synthetic installed fixtures do not certify them.
 - Windows known-folder relocation, file locking, chooser/browser behavior and
   cancellation need actual Windows execution; this workspace is Linux.
 

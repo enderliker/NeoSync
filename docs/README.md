@@ -7,8 +7,9 @@ isolated profiles, and manual activation. The full one-mod flow has passed with
 the repository's launcher harness. Restricted hosting is available from alpha.3.
 The published alpha.4 prerelease adds exact Modrinth resolution and manual import,
 with installed Linux fixtures for watching, explicit paths and native selection.
-Live CurseForge acceptance still needs an administrator-owned key and an
-applicable provider agreement; Windows runtime acceptance is pending.
+An administrator-owned key passed live, in-memory CurseForge metadata probes.
+Full installed CurseForge acceptance still needs an applicable provider
+agreement for retained data; Windows runtime acceptance is pending.
 Automatic restart remains future work. See the phase documents for exact evidence.
 
 ## Setup and development

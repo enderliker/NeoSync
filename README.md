@@ -100,7 +100,7 @@ You can postpone activation and leave the profile prepared for later.
 | Discovery | Retrieves a bounded HTTPS manifest before gameplay login and reports missing or incompatible requirements. |
 | Consent | Binds acceptance to the exact reviewed files and sources. Unverified-source warnings default to **No, cancel**. |
 | Downloads | Uses configured direct HTTPS URLs or restricted server hosting, with destination restrictions, transfer limits, and SHA-256 verification. |
-| Provider resolution | Resolves exact Modrinth files before review and checks both provider and manifest hashes. CurseForge needs an administrator-owned server key; live CurseForge validation is pending. |
+| Provider resolution | Resolves exact Modrinth files before review and checks both provider and manifest hashes. In-memory CurseForge metadata probes passed with an administrator-owned server key; installed CurseForge flows remain unvalidated. |
 | Manual import | Opens the approved CurseForge browser download page after consent, then verifies a watched or selected local file. Installed Linux fixtures passed; real CurseForge and Windows acceptance remain pending. |
 | Server hosting | Alpha.3 serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
 | Preparation | Inspects JAR metadata without executing it and prepares a new revision while preserving existing profiles. |
@@ -122,8 +122,12 @@ The [Phase 5 validation record](docs/neosync/phase-5.md) includes **246 passing
 unit tests** and, with the exact alpha.4 installer, installed live Modrinth and
 synthetic CurseForge manual-import flows followed by restart and a real-server
 join on Linux. Earlier installed fixtures also exercised explicit paths and
-native KDialog selection. No real CurseForge key, website flow or Windows
-runtime acceptance has been recorded.
+native KDialog selection. No real CurseForge website flow or Windows runtime
+acceptance has been recorded.
+
+Post-release, the installed alpha.4 adapter also passed live, in-memory
+CurseForge metadata probes for both permitted and restricted exact files. These
+did not download mod bytes, open the real website, or save provider responses.
 
 ## Build from source
 
@@ -156,8 +160,9 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 The alpha.4 prerelease adds exact Modrinth resolution, with an installed
 review/download/restart/join result. Manual import has installed Linux fixture
 coverage with synthetic CurseForge metadata; **Phase 5 remains incomplete**.
-Live CurseForge acceptance needs an administrator-owned key and an applicable
-provider agreement, and Windows runtime acceptance is pending.
+An administrator-owned key has passed live metadata-only probes. Full CurseForge
+acceptance still needs an applicable agreement for retained API data and an
+installed download/browser run. Windows runtime acceptance is pending.
 See [Phase 5](docs/neosync/phase-5.md) for implementation status and evidence.
 The provider preference for each exact required file is:
 
