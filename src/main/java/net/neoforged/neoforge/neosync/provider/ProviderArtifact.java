@@ -60,6 +60,8 @@ public record ProviderArtifact(SyncManifest.ProviderHint identity, URI source, l
         validate();
         if (size != artifact.size() || artifact.sources().stream().noneMatch(s -> identity.equals(s.provider())))
             throw new IOException("The provider result does not match the reviewed artifact hint.");
+        if (identity.id().equals("modrinth") && artifact.sources().stream().noneMatch(s -> identity.equals(s.provider()) && source.equals(s.url())))
+            throw new IOException("The Modrinth source does not match the reviewed URL.");
         for (var source : artifact.sources()) {
             if (!identity.equals(source.provider()) || source.evidence() == null) continue;
             if (!source.url().equals(this.source) || !hash.equals(source.evidence().sha1()) || manual != source.evidence().manual())

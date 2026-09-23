@@ -31,7 +31,8 @@ not a malware-safety guarantee.
 
 Provider evidence is immutable within the installation plan; consent is tied to
 that plan object. Provider URLs and hashes are included in the local audit, which
-is validated against the manifest's provider hint when reopening a revision.
+is validated against the manifest's provider hint and exact Modrinth URL when
+reopening a revision.
 Existing v1 profile records remain readable. Audit records never authorize new
 requests. Redirects from provider artifact URLs are rejected. Active files and
 previous revisions retain the existing transactional guarantees.

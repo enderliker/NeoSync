@@ -181,13 +181,18 @@ class ModrinthProviderTest {
         var reopened = ProfileStore.open(prepared.gameDirectory());
         reopened.verify(prepared, "4.0.44", new DiscoveryCancellation());
         assertEquals(prepared, reopened.active().orElseThrow());
+        Path audit = prepared.gameDirectory().getParent().resolve("consent.json");
+        String originalAudit = Files.readString(audit);
+        assertTrue(originalAudit.contains(URL));
+        Files.writeString(audit, originalAudit.replace(URL, URL.replace("mod.jar", "different.jar")));
+        assertThrows(IOException.class, () -> store.verify(prepared, "4.0.44", new DiscoveryCancellation()));
+        Files.writeString(audit, originalAudit);
         var wrong = new SourceResolver(transport("[" + version(content.length, "b".repeat(128)) + "]")).resolve(SyncManifest.parse(bytes), new DiscoveryCancellation());
         var changed = InstallationPlan.create(InstallationPlanTest.endpoint(bytes), bytes, Set.of(fingerprint.sha256()), prepared.manifest(), "0.1.0-dev", "21.1.251", null, wrong);
         assertThrows(IOException.class, () -> plan.accept(true, true).require(changed));
         assertThrows(IOException.class, () -> store.prepare(changed, changed.accept(true, true), Map.of(fingerprint.sha256(), jar), "4.0.44", new DiscoveryCancellation(), (a, b, c) -> {}));
         assertEquals(prepared, store.prepared(plan.identity()).orElseThrow());
         assertEquals(fingerprint, ArtifactFiles.fingerprint(jar, new DiscoveryCancellation()));
-        Path audit = prepared.gameDirectory().getParent().resolve("consent.json");
         Files.writeString(audit, Files.readString(audit).replace(sha512, "c".repeat(128)));
         assertThrows(IOException.class, () -> store.verify(prepared, "4.0.44", new DiscoveryCancellation()));
     }
