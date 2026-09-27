@@ -100,6 +100,14 @@ public final class ClientDriver {
             return;
         }
         String mode = settings.getProperty("mode", "install");
+        if (mode.equals("bootstrap") && lastScreen.equals("TitleScreen")) {
+            require(System.getProperty("neosync.launcher.config") != null, "The external launcher supplied its local NeoSync descriptor");
+            require(type("net.neoforged.neoforge.neosync.protocol.SyncManifest").getField("NEOSYNC_VERSION").get(null).equals(settings.getProperty("expectedVersion")), "The expected NeoSync build is running");
+            require(hasButton(screen, "NeoSync profiles"), "The profile recovery button is visible");
+            screenshot("neosync-prism-startup.png");
+            finish();
+            return;
+        }
         if ((mode.equals("crash") || mode.equals("space")) && (lastScreen.equals("TitleScreen") || lastScreen.equals("DiscoveryScreen"))) {
             done = true;
             Thread worker = new Thread(() -> {
@@ -176,7 +184,18 @@ public final class ClientDriver {
         } else if (step == 1 && text.contains("Set Game Directory to this exact path")) {
             screenshot("neosync-activation.png");
             evidence.add("Manual activation instructions displayed with exact directory and loader version.");
-            finish();
+            if (Boolean.parseBoolean(settings.getProperty("prismRestart", "false"))) {
+                click(screen, "Prepare Prism instance");
+                step = 2;
+            } else finish();
+        } else if (step == 2 && hasButton(screen, "Close and launch")) {
+            String instance = paragraphs.stream().filter(line -> line.startsWith("Prism instance: ")).findFirst().orElseThrow().substring("Prism instance: ".length());
+            Files.writeString(Path.of(settings.getProperty("prismInstance")), instance);
+            evidence.add("Prepared a Prism instance after verifying the approved profile.");
+            evidence.add("PASS: restart handoff requested; verify the separate resumed-client report.");
+            Files.write(Path.of(settings.getProperty("report")), evidence);
+            done = true;
+            click(screen, "Close and launch");
         } else if (hasButton(screen, "Continue to server")) {
             click(screen, "Continue to server");
         }

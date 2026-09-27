@@ -69,6 +69,12 @@ public final class PrismIntegration {
             String gameArguments = SyncJson.string(component.get("minecraftArguments"), 16384);
             if (!gameArguments.contains("--gameDir ${game_directory}")) throw new IOException("The Prism component has no supported game directory argument.");
             component.addProperty("minecraftArguments", gameArguments.replace("--gameDir ${game_directory}", "--gameDir " + quote(prepared.gameDirectory().toString())));
+            if (component.has("+jvmArgs")) {
+                var args = component.getAsJsonArray("+jvmArgs");
+                for (int i = 0; i < args.size(); i++) {
+                    args.set(i, new com.google.gson.JsonPrimitive(args.get(i).getAsString().replace(base.resolve("libraries").toString().replace('\\', '/'), target.resolve("libraries").toString().replace('\\', '/'))));
+                }
+            }
             Path libraryTarget = ManagedPaths.directory(stage.resolve("libraries"), true);
             long total = 0;
             for (var entry : libraries.entrySet()) {

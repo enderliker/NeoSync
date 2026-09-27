@@ -95,6 +95,9 @@ def configure(installation, prism_root, java, executable, version=None, instance
                 bridge.writestr(path, source.read(path))
         jvm = [arg.replace('${library_directory}', libraries.as_posix()).replace('${classpath_separator}', os.pathsep)
                .replace('${version_name}', 'minecraft-1.21.1-client') for arg in profile['arguments']['jvm']]
+        # BootstrapLauncher requires module-path and classpath entries to refer to the same physical JAR.
+        module_index = jvm.index('-p') + 1
+        jvm[module_index] = os.pathsep.join((target / 'libraries' / Path(part).name).as_posix() for part in jvm[module_index].split(os.pathsep))
         jvm.append('-Dneosync.launcher.config=' + (target / 'neosync-launcher.json').as_posix())
         vanilla = '--username ${auth_player_name} --version ${version_name} --gameDir ${game_directory} --assetsDir ${assets_root} --assetIndex ${assets_index_name} --uuid ${auth_uuid} --accessToken ${auth_access_token} --userType ${user_type} --versionType ${version_type}'
         component = {'formatVersion': 1, 'uid': 'org.neosync', 'name': 'NeoSync', 'version': match[1],

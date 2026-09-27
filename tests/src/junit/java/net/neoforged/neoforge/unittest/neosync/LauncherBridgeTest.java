@@ -58,12 +58,17 @@ class LauncherBridgeTest {
         descriptor.add("libraries", new JsonObject());
         var component = new JsonObject();
         component.addProperty("minecraftArguments", "--gameDir ${game_directory} --accessToken ${auth_access_token}");
+        var jvm = new com.google.gson.JsonArray();
+        jvm.add("-p");
+        jvm.add(base.resolve("libraries/bootstrap.jar").toString().replace('\\', '/'));
+        component.add("+jvmArgs", jvm);
         descriptor.add("component", component);
         Path config = Files.writeString(base.resolve("neosync-launcher.json"), descriptor.toString());
         var launch = PrismIntegration.prepare(config, prepared, "4.0.44", new DiscoveryCancellation());
         assertTrue(launch.instance().startsWith(root.resolve("instances")));
         assertTrue(Files.readString(launch.instance().resolve("patches/org.neosync.json")).contains("${auth_access_token}"));
         assertTrue(Files.readString(launch.instance().resolve("instance.cfg")).contains("PreLaunchCommand="));
+        assertTrue(Files.readString(launch.instance().resolve("patches/org.neosync.json")).contains(launch.instance().resolve("libraries/bootstrap.jar").toString().replace('\\', '/')));
         LauncherBridge.Verifier.verify(launch.verification());
         assertEquals(launch, PrismIntegration.prepare(config, prepared, "4.0.44", new DiscoveryCancellation()));
         Path injected = Files.writeString(prepared.gameDirectory().resolve("mods/extra.jar"), "unreviewed");
