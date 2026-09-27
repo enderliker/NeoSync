@@ -7,10 +7,10 @@ NeoSync-<neosync-version>-neoforge-<base-version>
 NeoSync-0.1.0-beta.4-neoforge-21.1.252
 ```
 
-The current release target is **0.1.0-beta.4** for Minecraft Java Edition 1.21.1,
+The current published prerelease is **0.1.0-beta.4** for Minecraft Java Edition 1.21.1,
 NeoForge 21.1.252 and Java 21. See the [release notes](release-notes/0.1.0-beta.4.md)
-for validation and limits. Publication requires successful Linux and Windows CI
-on the tagged source commit. Earlier releases and their artifacts remain unchanged.
+for validation and limits. Linux and Windows CI passed on the tagged source
+commit before publication. Earlier releases and their artifacts remain unchanged.
 
 ## NeoForge 21.1.252 source validation
 

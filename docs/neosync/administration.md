@@ -60,7 +60,7 @@ The generated local certificate is not a public certificate authority.
 
 ## HTTP and HTTPS settings
 
-Unreleased beta.4 adds independent transport controls under **Connections** in
+Beta.4 adds independent transport controls under **Connections** in
 this panel. Both default to HTTPS. Choose the player and panel transports, select
 **Save changes**, then restart the dedicated server. The panel shows its address
 for the next start. A running beta.3 installation must first be updated to a build
@@ -112,7 +112,7 @@ The panel does not redirect or change protocol until the server restarts.
 
 The installed Linux panel passed browser authentication, selection, injection and
 responsive-layout checks. See [Phase 7](phase-7.md) for the tested build and platform
-limits. Windows ACL handling is implemented; beta.3 CI exercised installed dedicated-server startup. Interactive Windows panel usage remains unvalidated.
+limits. Windows ACL handling is implemented; beta.4 CI exercised installed dedicated-server startup. Interactive Windows panel usage remains unvalidated.
 
 ## Access limits
 
@@ -143,6 +143,6 @@ filtering, empty results, and transport notices passed. Desktop (1440 pixels) an
 mobile (390 pixels) screenshots were visually inspected with no horizontal overflow.
 The fixture used generated credentials and synthetic inventory, not a live server.
 Local evidence is under `build/neosync-admin-preview/` and is not a release asset.
-These are source-level service and browser results, not an installed multiplayer
-acceptance result or a newly published release. The running server and existing
+These are source-level service and browser results, not an installed HTTP multiplayer
+acceptance result. The running server and existing
 Prism instances are not updated by a source build.
