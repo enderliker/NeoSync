@@ -33,6 +33,7 @@ import net.neoforged.neoforge.neosync.protocol.ArtifactFiles;
 import net.neoforged.neoforge.neosync.protocol.ArtifactHttpClient;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
 import net.neoforged.neoforge.neosync.protocol.InstallationPlan;
+import net.neoforged.neoforge.neosync.protocol.ManifestHttpClient;
 import net.neoforged.neoforge.neosync.protocol.ProfileStore;
 import net.neoforged.neoforge.neosync.protocol.SyncCapability;
 import net.neoforged.neoforge.neosync.protocol.SyncEndpoint;
@@ -252,6 +253,88 @@ class ArtifactHttpClientTest {
         } finally {
             SSLContext.setDefault(originalTls);
         }
+    }
+
+    @Test
+    void downloadsHttpProfileWithBundledModDependencies(@TempDir Path directory) throws Exception {
+        String create = fixtureModToml("create", "Create Fixture") + """
+                [[dependencies.create]]
+                modId="flywheel"
+                versionRange="[1.0,)"
+                type="required"
+                side="BOTH"
+
+                [[dependencies.create]]
+                modId="ponder"
+                versionRange="[1.0,)"
+                type="required"
+                side="CLIENT"
+                """;
+        String flywheelPath = "META-INF/jarjar/flywheel-1.0.jar";
+        String ponderPath = "META-INF/jarjar/ponder-1.0.jar";
+        String jarJarMetadata = "{\"jars\":[" + JarMetadataTest.jarjarEntry("flywheel", "1.0", flywheelPath) + ","
+                + JarMetadataTest.jarjarEntry("ponder", "1.0", ponderPath) + "]}";
+        Path jar = JarMetadataTest.jar(directory, create, Map.of(
+                "META-INF/jarjar/metadata.json", jarJarMetadata.getBytes(StandardCharsets.UTF_8),
+                flywheelPath, JarMetadataTest.jarBytes(fixtureModToml("flywheel", "Flywheel Fixture"), Map.of()),
+                ponderPath, JarMetadataTest.jarBytes(fixtureModToml("ponder", "Ponder Fixture"), Map.of())));
+        var fingerprint = ArtifactFiles.fingerprint(jar, new DiscoveryCancellation());
+        byte[] manifest = ("""
+                {"schemaVersion":1,"serverId":"95d92dfd-680a-4a1c-b983-3d7a7fa8b14b",
+                 "revision":"bundled-http","displayName":"Bundled HTTP fixture","minecraftVersion":"1.21.1",
+                 "loader":{"id":"neosync","version":"0.1.0-dev","neoForgeVersion":"21.1.251"},
+                 "files":[{"sha256":"%s","size":%d,"fileName":"create-fixture.jar","required":true,
+                   "mods":[{"id":"create","version":"1.0","displayName":"Create Fixture","dependencies":[
+                     {"id":"flywheel","versionRange":"[1.0,)","type":"required"},
+                     {"id":"ponder","versionRange":"[1.0,)","type":"required"}]},
+                     {"id":"flywheel","version":"1.0","displayName":"Flywheel Fixture","dependencies":[]},
+                     {"id":"ponder","version":"1.0","displayName":"Ponder Fixture","dependencies":[]}],
+                   "sources":[{"type":"server"}]}]}
+                """).formatted(fingerprint.sha256(), fingerprint.size()).getBytes(StandardCharsets.UTF_8);
+        String digest = SyncManifest.sha256(manifest);
+        String route = "/.well-known/neosync/v1/servers/25575/manifests/" + digest + ".json";
+        var store = ProfileStore.open(Files.createDirectory(directory.resolve("game")));
+
+        try (var inventory = new HostedInventory(directory.resolve("hosting"), 1024 * 1024)) {
+            inventory.add(jar, fingerprint, new DiscoveryCancellation());
+            var hosted = inventory.seal();
+            try (var service = new ManifestService(new InetSocketAddress(InetAddress.getLoopbackAddress(), 8080), null, route, manifest,
+                    "/.well-known/neosync/v1/servers/25575/files/", hosted, new HostingPolicy(true, 1024 * 1024, 8, 65536, 120))) {
+                var endpoint = SyncEndpoint.create("localhost", 25575, new SyncCapability(service.port(), digest, "http"));
+                byte[] fetched = ManifestHttpClient.fetch(endpoint, InetAddress.getLoopbackAddress(), SSLContext.getDefault(), new DiscoveryCancellation());
+                assertArrayEquals(manifest, fetched);
+                var plan = InstallationPlan.create(endpoint, fetched, Set.of(), null, "0.1.0-dev", "21.1.251", InetAddress.getLoopbackAddress());
+                assertEquals(1, plan.files().size());
+                assertEquals(List.of("create", "flywheel", "ponder"),
+                        plan.manifest().files().getFirst().mods().stream().map(SyncManifest.Mod::id).toList());
+                assertEquals(fingerprint.size(), plan.downloadBytes());
+                assertTrue(plan.reviewLines().stream().anyMatch(line -> line.contains("3 mods in 1 file")));
+                assertTrue(plan.warningLines().stream().anyMatch(line -> line.contains("http://localhost:8080")));
+
+                var prepared = store.prepare(plan, plan.accept(true, true), Map.of(), "4.0.44", new DiscoveryCancellation(), (action, count, total) -> {});
+                var installed = prepared.gameDirectory().resolve("mods/" + fingerprint.sha256() + ".jar");
+                assertArrayEquals(Files.readAllBytes(jar), Files.readAllBytes(installed));
+                try (var files = Files.list(installed.getParent())) {
+                    assertEquals(1, files.count());
+                }
+                var active = ProfileStore.open(prepared.gameDirectory());
+                active.verify(prepared, "4.0.44", new DiscoveryCancellation());
+                assertEquals(prepared, active.active().orElseThrow());
+                assertFalse(Files.exists(directory.resolve("game/mods")));
+            }
+        }
+    }
+
+    private static String fixtureModToml(String id, String displayName) {
+        return """
+                modLoader="javafml"
+                loaderVersion="[4,)"
+                license="MIT"
+                [[mods]]
+                modId="%s"
+                version="1.0"
+                displayName="%s"
+                """.formatted(id, displayName);
     }
 
     @Test

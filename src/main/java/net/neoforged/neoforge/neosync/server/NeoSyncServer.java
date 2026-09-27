@@ -21,13 +21,12 @@ import java.security.KeyStore;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
-import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.common.EventBusSubscriber;
@@ -213,6 +212,11 @@ public final class NeoSyncServer {
     private static byte[] createManifest(JsonObject config, HostingPolicy policy, @Nullable HostedInventory inventory) throws IOException {
         var loadedFiles = new HashMap<Path, IModFileInfo>();
         ModList.get().getModFiles().forEach(info -> loadedFiles.put(info.getFile().getFilePath().toAbsolutePath().normalize(), info));
+        var loadedVersions = new HashMap<String, String>();
+        for (var mod : ModList.get().getMods()) {
+            if (loadedVersions.putIfAbsent(mod.getModId(), mod.getVersion().toString()) != null)
+                throw new IOException("The loaded server inventory has duplicate mod IDs.");
+        }
         Path modsDirectory = FMLPaths.MODSDIR.get().toAbsolutePath().normalize();
         var files = new JsonArray();
         var names = new HashSet<String>();
@@ -260,25 +264,14 @@ public final class NeoSyncServer {
             file.addProperty("fileName", fileName);
             file.addProperty("required", true);
             file.add("sources", selection.get("sources").deepCopy());
-            var mods = new JsonArray();
+            var selectedVersions = new HashMap<String, String>();
             for (var modInfo : info.getMods()) {
-                var mod = new JsonObject();
-                mod.addProperty("id", modInfo.getModId());
-                mod.addProperty("version", modInfo.getVersion().toString());
-                mod.addProperty("displayName", modInfo.getDisplayName());
-                var dependencies = new JsonArray();
-                for (var dependencyInfo : modInfo.getDependencies()) {
-                    if (!dependencyInfo.getSide().isContained(Dist.CLIENT)) continue;
-                    var dependency = new JsonObject();
-                    dependency.addProperty("id", dependencyInfo.getModId());
-                    dependency.addProperty("versionRange", SyncManifest.versionSpec(dependencyInfo.getVersionRange()));
-                    dependency.addProperty("type", dependencyInfo.getType().name().toLowerCase(Locale.ROOT));
-                    dependencies.add(dependency);
-                }
-                mod.add("dependencies", dependencies);
-                mods.add(mod);
+                if (selectedVersions.putIfAbsent(modInfo.getModId(), modInfo.getVersion().toString()) != null)
+                    throw new IOException("The selected client file has duplicate loaded mod IDs: " + fileName);
             }
-            file.add("mods", mods);
+            file.add("mods", manifestMods(JarMetadata.inspect(path, FMLLoader.versionInfo().fmlVersion(), cancellation), selectedVersions, loadedVersions));
+            if (!fingerprint.equals(ArtifactFiles.fingerprint(path, cancellation)))
+                throw new IOException("The selected file changed during metadata inspection: " + fileName);
             files.add(file);
         }
         var manifest = new JsonObject();
@@ -294,6 +287,36 @@ public final class NeoSyncServer {
         manifest.add("loader", loader);
         manifest.add("files", files);
         return manifest.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    static JsonArray manifestMods(List<SyncManifest.Mod> inspected, Map<String, String> selectedVersions,
+            Map<String, String> loadedVersions) throws IOException {
+        var mods = new JsonArray();
+        var inspectedIds = new HashSet<String>();
+        for (var inspectedMod : inspected) {
+            String id = inspectedMod.id();
+            if (!inspectedIds.add(id)) throw new IOException("The selected JAR contains duplicate mod IDs: " + id);
+            if (!inspectedMod.version().equals(loadedVersions.get(id))
+                    || selectedVersions.containsKey(id) && !inspectedMod.version().equals(selectedVersions.get(id)))
+                throw new IOException("The selected JAR differs from the loaded server inventory: " + id);
+            var mod = new JsonObject();
+            mod.addProperty("id", id);
+            mod.addProperty("version", inspectedMod.version());
+            mod.addProperty("displayName", inspectedMod.displayName());
+            var dependencies = new JsonArray();
+            for (var inspectedDependency : inspectedMod.dependencies()) {
+                var dependency = new JsonObject();
+                dependency.addProperty("id", inspectedDependency.id());
+                dependency.addProperty("versionRange", SyncManifest.versionSpec(inspectedDependency.range()));
+                dependency.addProperty("type", inspectedDependency.type());
+                dependencies.add(dependency);
+            }
+            mod.add("dependencies", dependencies);
+            mods.add(mod);
+        }
+        if (!inspectedIds.containsAll(selectedVersions.keySet()))
+            throw new IOException("The selected JAR omits a loaded top-level mod.");
+        return mods;
     }
 
     private static UUID serverId() throws IOException {

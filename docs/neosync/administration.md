@@ -37,6 +37,9 @@ and do not survive restart. Sign out when finished.
 The panel lists JARs from the loaded server `mods` inventory. Enable synchronization,
 choose the server name, and select only files needed by clients, including required
 dependencies. NeoSync does not assume that every server mod belongs on the client.
+For NeoForge JarJar dependencies declared inside a selected JAR, beta.6 includes
+the bundled mod identities in that file's manifest entry. Select a separate file
+only when the dependency is actually distributed as a separate JAR.
 
 - **Modrinth:** resolve the exact existing JAR by SHA-512 at the next server start.
   The client independently verifies provider metadata and both hashes.
@@ -53,6 +56,10 @@ browser view or a changed JAR is rejected without replacing the configuration.
 The startup process validates dependencies, sources and snapshots before
 advertising discovery. Check the server log for success; saving alone does not
 prove that Modrinth has the selected files or that the set is compatible.
+Before inviting a client, confirm the log says `NeoSync discovery enabled` and
+that the advertised manifest port accepts connections from the client network.
+If the log says `NeoSync discovery could not start`, fix the reported inventory or
+source error and restart the server.
 
 For an initial setup the panel selects `managed-https` on port 8443, using the same
 local TLS identity. Clients must trust that certificate through explicit enrollment

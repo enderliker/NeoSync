@@ -318,7 +318,13 @@ Also verify declined consent and profile recovery.
 validation. Security checks must accompany every phase; this phase expands
 coverage before release.
 
-**Validation:** published NeoSync 0.1.0-beta.5 uses NeoForge 21.1.252.
+**Validation:** the source builds unreleased NeoSync 0.1.0-beta.6 on NeoForge
+21.1.252. Its declared JarJar support addresses a discovery startup failure with
+Create's bundled Flywheel and Ponder dependencies. On Linux, formatting and 255
+unit tests pass; the exact installer passes installed client startup and a
+dedicated-server check with the real Create JAR, a Modrinth source, and a
+three-mod manifest. Windows CI and the remote Azure/Prism join remain pending.
+Published beta.5 uses the same NeoForge base.
 Its source commit passed Linux and Windows CI and installed client/server startup
 checks. Beta.5 addresses administrator access through public IPv4 NAT,
 first-run configuration, and a configurable panel port. Published beta.4 uses

@@ -2,7 +2,7 @@
 
 NeoSync versions are independent of the NeoForge base and synchronization protocol.
 All releases below target Minecraft 1.21.1 and are prereleases. Beta.3 through
-beta.5 use NeoForge 21.1.252; earlier releases use 21.1.251. Tags use
+beta.6 use NeoForge 21.1.252; earlier releases use 21.1.251. Tags use
 `NeoSync-<version>-neoforge-<base-version>`.
 
 These summaries describe the behavior at each release. Historical features may
@@ -10,6 +10,18 @@ have been removed; consult the current README and linked release notes before
 installing. Published artifacts and tags remain immutable.
 
 ## Unreleased
+
+## [0.1.0-beta.6] — 2026-09-27
+
+### Fixed
+
+- Include declared JarJar mods such as Flywheel and Ponder in the manifest for
+  their containing Create JAR, so their required dependencies no longer prevent
+  server discovery from starting.
+- Verify bundled mod identities and client dependencies against the reviewed
+  manifest before installing the containing JAR.
+
+[Full beta.6 notes](docs/neosync/release-notes/0.1.0-beta.6.md)
 
 ## [0.1.0-beta.5] — 2026-09-27
 

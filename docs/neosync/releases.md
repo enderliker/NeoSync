@@ -16,6 +16,13 @@ Beta.5 fixes public IPv4 panel access through NAT, creates a disabled
 configuration on the first server start, and adds a configurable administrator
 panel port. [Beta.4](release-notes/0.1.0-beta.4.md) remains available.
 
+The unreleased [beta.6 candidate](release-notes/0.1.0-beta.6.md) adds declared
+NeoForge JarJar mods to the manifest entry for their containing file, including
+Create's bundled Flywheel and Ponder dependencies.
+Local Linux checks passed with 255 unit tests, an installed client startup, and
+an installed server that advertised and served the real Create manifest. Windows
+CI and the remote Azure/Prism join remain pending before publication.
+
 ## NeoForge 21.1.252 source validation
 
 On September 27, 2026, the source imported upstream commit

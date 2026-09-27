@@ -5,9 +5,11 @@
 
 package net.neoforged.neoforge.unittest.neosync;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -38,17 +40,35 @@ class JarMetadataTest {
 
     static Path jar(Path directory, String toml, Map<String, byte[]> extra) throws IOException {
         Path path = directory.resolve(java.util.UUID.randomUUID() + ".jar");
-        try (var output = new ZipOutputStream(Files.newOutputStream(path))) {
-            output.putNextEntry(new ZipEntry("META-INF/neoforge.mods.toml"));
-            output.write(toml.getBytes(StandardCharsets.UTF_8));
-            output.closeEntry();
+        Files.write(path, jarBytes(toml, extra));
+        return path;
+    }
+
+    static byte[] jarBytes(String toml, Map<String, byte[]> extra) throws IOException {
+        var bytes = new ByteArrayOutputStream();
+        try (var output = new ZipOutputStream(bytes)) {
+            if (toml != null) {
+                output.putNextEntry(new ZipEntry("META-INF/neoforge.mods.toml"));
+                output.write(toml.getBytes(StandardCharsets.UTF_8));
+                output.closeEntry();
+            }
             for (var entry : extra.entrySet()) {
                 output.putNextEntry(new ZipEntry(entry.getKey()));
                 output.write(entry.getValue());
                 output.closeEntry();
             }
         }
-        return path;
+        return bytes.toByteArray();
+    }
+
+    static byte[] json(String value) {
+        return value.getBytes(StandardCharsets.UTF_8);
+    }
+
+    static String jarjarEntry(String artifact, String version, String path) {
+        return """
+                {"identifier":{"group":"example.test","artifact":"%s"},"version":{"range":"[%s,)","artifactVersion":"%s"},"path":"%s","isObfuscated":false}
+                """.formatted(artifact, version, version, path).trim();
     }
 
     static SyncManifest.Artifact artifact(Path path) throws IOException {
@@ -63,9 +83,109 @@ class JarMetadataTest {
             Path path = jar(directory, placeholder ? TOML.replace("version=\"1.0\"", "version=\"${file.jarVersion}\"") : TOML,
                     Map.of("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\r\nImplementation-Version: 1.0\r\n\r\n".getBytes(StandardCharsets.UTF_8),
                             "Test.class", "not bytecode; must never be loaded during inspection".getBytes(StandardCharsets.UTF_8)));
+            assertEquals(artifact(path).mods(), JarMetadata.inspect(path, "4.0.44", new DiscoveryCancellation()));
             JarMetadata.verify(path, artifact(path), "4.0.44", new DiscoveryCancellation());
         }
         assertFalse(Files.exists(directory.resolve("neosync-profile.json")));
+    }
+
+    @Test
+    void inspectsDeclaredModAndLibraryDependencies(@TempDir Path directory) throws Exception {
+        String parent = TOML + """
+
+                [[dependencies.test_mod]]
+                modId="embedded_mod"
+                versionRange="[1.2,)"
+                type="required"
+                side="BOTH"
+
+                [[dependencies.test_mod]]
+                modId="server_only"
+                versionRange="[1.0,)"
+                type="required"
+                side="SERVER"
+                """;
+        String embedded = """
+                modLoader="javafml"
+                loaderVersion="[4,)"
+                license="MIT"
+                [[mods]]
+                modId="embedded_mod"
+                version="1.2"
+                displayName="Embedded Mod"
+                [[dependencies.embedded_mod]]
+                modId="minecraft"
+                versionRange="[1.21.1]"
+                type="required"
+                side="CLIENT"
+                """;
+        String embeddedPath = "META-INF/jarjar/embedded-1.2.jar";
+        String libraryPath = "META-INF/jarjar/library-1.0.jar";
+        String metadata = "{\"jars\":[" + jarjarEntry("embedded", "1.2", embeddedPath) + ","
+                + jarjarEntry("library", "1.0", libraryPath) + "]}";
+        byte[] library = jarBytes(null, Map.of("META-INF/MANIFEST.MF", json("Manifest-Version: 1.0\r\nFMLModType: GAMELIBRARY\r\n\r\n")));
+        Path path = jar(directory, parent, Map.of("META-INF/jarjar/metadata.json", json(metadata),
+                embeddedPath, jarBytes(embedded, Map.of()), libraryPath, library));
+
+        var mods = JarMetadata.inspect(path, "4.0.44", new DiscoveryCancellation());
+        assertEquals(List.of("test_mod", "embedded_mod"), mods.stream().map(SyncManifest.Mod::id).toList());
+        assertEquals(List.of("embedded_mod"), mods.getFirst().dependencies().stream().map(SyncManifest.Dependency::id).toList());
+        assertEquals(List.of("minecraft"), mods.getLast().dependencies().stream().map(SyncManifest.Dependency::id).toList());
+        var fingerprint = ArtifactFiles.fingerprint(path, new DiscoveryCancellation());
+        var reviewed = new SyncManifest.Artifact(fingerprint.sha256(), fingerprint.size(), "test.jar", mods, List.of());
+        JarMetadata.verify(path, reviewed, "4.0.44", new DiscoveryCancellation());
+        assertThrows(IOException.class, () -> JarMetadata.verify(path, artifact(path), "4.0.44", new DiscoveryCancellation()));
+        var wrongEmbedded = new SyncManifest.Mod("embedded_mod", "1.3", "Embedded Mod", mods.getLast().dependencies());
+        var wrongVersion = new SyncManifest.Artifact(fingerprint.sha256(), fingerprint.size(), "test.jar", List.of(mods.getFirst(), wrongEmbedded), List.of());
+        assertThrows(IOException.class, () -> JarMetadata.verify(path, wrongVersion, "4.0.44", new DiscoveryCancellation()));
+        var wrongDependencies = new SyncManifest.Mod("embedded_mod", "1.2", "Embedded Mod", List.of());
+        var missingDependency = new SyncManifest.Artifact(fingerprint.sha256(), fingerprint.size(), "test.jar", List.of(mods.getFirst(), wrongDependencies), List.of());
+        assertThrows(IOException.class, () -> JarMetadata.verify(path, missingDependency, "4.0.44", new DiscoveryCancellation()));
+    }
+
+    @Test
+    void rejectsUnlistedAndDeeplyNestedJarJarArchives(@TempDir Path directory) throws Exception {
+        String path = "META-INF/jarjar/embedded-1.2.jar";
+        byte[] validNested = jarBytes(TOML, Map.of());
+        Path unlisted = jar(directory, TOML, Map.of(path, validNested));
+        assertThrows(IOException.class, () -> JarMetadata.inspect(unlisted, "4.0.44", new DiscoveryCancellation()));
+
+        String listed = "{\"jars\":[" + jarjarEntry("embedded", "1.2", path) + "]}";
+        Path extra = jar(directory, TOML, Map.of(path, validNested,
+                "META-INF/jarjar/unlisted.jar", validNested, "META-INF/jarjar/metadata.json", json(listed)));
+        assertThrows(IOException.class, () -> JarMetadata.inspect(extra, "4.0.44", new DiscoveryCancellation()));
+
+        byte[] deep = jarBytes(TOML, Map.of("META-INF/jarjar/deep.jar", validNested));
+        Path nested = jar(directory, TOML, Map.of(path, deep, "META-INF/jarjar/metadata.json", json(listed)));
+        assertThrows(IOException.class, () -> JarMetadata.inspect(nested, "4.0.44", new DiscoveryCancellation()));
+    }
+
+    @Test
+    void rejectsAlternativeLoaderInsideDeclaredJarJarArchive(@TempDir Path directory) throws Exception {
+        String path = "META-INF/jarjar/embedded-1.2.jar";
+        String metadata = "{\"jars\":[" + jarjarEntry("embedded", "1.2", path) + "]}";
+        for (String forbidden : List.of("fabric.mod.json", "META-INF/services/net.neoforged.neoforgespi.language.IModLanguageLoader")) {
+            byte[] nested = jarBytes(TOML, Map.of(forbidden, json("untrusted loader")));
+            Path outer = jar(directory, TOML, Map.of(path, nested, "META-INF/jarjar/metadata.json", json(metadata)));
+            assertThrows(IOException.class, () -> JarMetadata.inspect(outer, "4.0.44", new DiscoveryCancellation()));
+        }
+    }
+
+    @Test
+    void acceptsCreateSizedArchiveDirectory(@TempDir Path directory) throws Exception {
+        Path path = directory.resolve("large.jar");
+        try (var output = new ZipOutputStream(Files.newOutputStream(path))) {
+            output.putNextEntry(new ZipEntry("META-INF/neoforge.mods.toml"));
+            output.write(json(TOML));
+            output.closeEntry();
+            for (int index = 0; index < 12535; index++) {
+                output.putNextEntry(new ZipEntry("example/C" + index + ".class"));
+                output.write(0);
+                output.closeEntry();
+            }
+        }
+        assertEquals(1, JarMetadata.inspect(path, "4.0.44", new DiscoveryCancellation()).size());
+        JarMetadata.verify(path, artifact(path), "4.0.44", new DiscoveryCancellation());
     }
 
     @ParameterizedTest

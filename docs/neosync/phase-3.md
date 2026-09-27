@@ -31,6 +31,9 @@ its new installed-build acceptance; the results below remain the Phase 3 record.
   and bounds metadata expansion and TOML nesting without loading classes.
   ZIP64, nested JARs, alternate loader metadata, loader service providers, custom feature
   requirements, and multi-release archives are explicitly unsupported initially.
+  The later [beta.6 change](release-notes/0.1.0-beta.6.md) adds bounded support for
+  declared NeoForge JarJar dependencies; the original MVP result below did not
+  cover them.
 - The profile store now prepares fresh revision directories under a store lock,
   rehashes reusable bytes, uses independent cache copies, and publishes a verified
   revision followed by its pointer with atomic renames. It checks free space for
