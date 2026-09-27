@@ -10,6 +10,8 @@ installing. Published artifacts and tags remain immutable.
 
 ## Unreleased
 
+## [0.1.0-beta.2] — 2026-09-27
+
 ### Changed
 
 - Reorganized the README around installation, usage, and contributions while
@@ -100,3 +102,5 @@ installing. Published artifacts and tags remain immutable.
 [0.1.0-alpha.3]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.3-neoforge-21.1.251
 [0.1.0-alpha.2]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.2-neoforge-21.1.251
 [0.1.0-alpha.1]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.1-neoforge-21.1.251
+
+[0.1.0-beta.2]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.2-neoforge-21.1.251

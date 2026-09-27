@@ -4,12 +4,13 @@ NeoSync releases identify both the fork and its compatible NeoForge platform:
 
 ```text
 NeoSync-<neosync-version>-neoforge-<base-version>
-NeoSync-0.1.0-beta.1-neoforge-21.1.251
+NeoSync-0.1.0-beta.2-neoforge-21.1.251
 ```
 
-The current prerelease is **0.1.0-beta.1** for Minecraft Java Edition 1.21.1
-and Java 21. See the [release notes](release-notes/0.1.0-beta.1.md) and
-[Phase 7 validation](phase-7.md) for tested flows and launcher limitations.
+The current prerelease is **0.1.0-beta.2** for Minecraft Java Edition 1.21.1
+and Java 21. See the [release notes](release-notes/0.1.0-beta.2.md) for checks on
+this installer, and [Phase 7 validation](phase-7.md) for historical full-flow
+evidence and launcher limitations.
 Published alpha.4 remains unchanged.
 
 ## Download selection
@@ -48,7 +49,7 @@ when switching to a prepared server-specific profile.
 Create a new server directory and run the installer with Java 21:
 
 ```bash
-java -jar NeoSync-0.1.0-beta.1-neoforge-21.1.251-installer.jar --install-server /path/to/server
+java -jar NeoSync-0.1.0-beta.2-neoforge-21.1.251-installer.jar --install-server /path/to/server
 ```
 
 Start the generated `run.sh` on Linux or `run.bat` on Windows. Review the Minecraft
@@ -74,7 +75,7 @@ never to replacement binaries from upstream NeoForge. LegacyInstaller requires
 a nonempty URL even for an embedded library; an empty URL makes it skip the file.
 FML 4 hard-codes the local
 `net/neoforged/neoforge` layout, so installed files use a unique version suffix:
-`21.1.251-neosync-0.1.0-beta.1`. The mod metadata and `NeoForgeVersion` still
+`21.1.251-neosync-0.1.0-beta.2`. The mod metadata and `NeoForgeVersion` still
 report the compatible base `21.1.251`. No modified NeoForge Maven publication
 is uploaded by this release process.
 

@@ -22,7 +22,7 @@ follow up by email without publishing sensitive details.
 
 | Version | Security maintenance |
 | --- | --- |
-| Current beta, `0.1.0-beta.1` | Reports are accepted; confirmed fixes will ship in a new version. |
+| Current beta, `0.1.0-beta.2` | Reports are accepted; confirmed fixes will ship in a new version. |
 | Current `1.21.1` development branch | Reports and regression fixes are accepted. |
 | Earlier alpha releases | No maintained backport series; upgrade to the current beta. |
 

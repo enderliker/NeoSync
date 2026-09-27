@@ -308,10 +308,12 @@ Also verify declined consent and profile recovery.
 validation. Security checks must accompany every phase; this phase expands
 coverage before release.
 
-**Validation:** the source builds NeoSync 0.1.0-beta.1. The
+**Validation:** the source builds NeoSync 0.1.0-beta.2. Its branding and maintenance
+release checks are recorded in [beta.2 notes](docs/neosync/release-notes/0.1.0-beta.2.md). The
 [Phase 7 matrix](docs/neosync/phase-7.md) records exact installer checks,
-installed flows, failure tests, supported scope and concrete limits. The beta
-prerelease preserves the validated candidate JARs and does not alter alpha.4.
+installed flows, failure tests, supported scope and concrete limits for beta.1.
+Each prerelease preserves its own validated JARs; beta.2 does not replace beta.1
+or any earlier published artifacts.
 
 ## Code comments
 

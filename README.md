@@ -4,7 +4,7 @@
 
 Review the mods. Prepare a profile. Join the server.
 
-[![NeoSync 0.1.0-beta.1](https://img.shields.io/badge/NeoSync-0.1.0--beta.1-8B78E6)](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.1-neoforge-21.1.251)
+[![NeoSync 0.1.0-beta.2](https://img.shields.io/badge/NeoSync-0.1.0--beta.2-8B78E6)](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.2-neoforge-21.1.251)
 [![Build and test](https://github.com/enderliker/NeoSync/actions/workflows/build-prs.yml/badge.svg?branch=1.21.1)](https://github.com/enderliker/NeoSync/actions/workflows/build-prs.yml)
 [![Minecraft Java Edition 1.21.1](https://img.shields.io/badge/Minecraft-1.21.1-62B47A)](https://www.minecraft.net/about-minecraft)
 [![Java 21](https://img.shields.io/badge/Java-21-E69B45)](docs/CONTRIBUTING.md)
@@ -14,11 +14,11 @@ Review the mods. Prepare a profile. Join the server.
 
 ## Installation
 
-With **Java 21** installed, [download the beta.1 installer](https://github.com/enderliker/NeoSync/releases/download/NeoSync-0.1.0-beta.1-neoforge-21.1.251/NeoSync-0.1.0-beta.1-neoforge-21.1.251-installer.jar)
+With **Java 21** installed, [download the beta.2 installer](https://github.com/enderliker/NeoSync/releases/download/NeoSync-0.1.0-beta.2-neoforge-21.1.251/NeoSync-0.1.0-beta.2-neoforge-21.1.251-installer.jar)
 and run it from your download directory:
 
 ```sh
-java -jar NeoSync-0.1.0-beta.1-neoforge-21.1.251-installer.jar
+java -jar NeoSync-0.1.0-beta.2-neoforge-21.1.251-installer.jar
 ```
 
 Run Minecraft **1.21.1** once first, then choose **Install client**. Follow the
@@ -26,7 +26,7 @@ Run Minecraft **1.21.1** once first, then choose **Install client**. Follow the
 or configure Prism. For a dedicated server in a new directory:
 
 ```sh
-java -jar NeoSync-0.1.0-beta.1-neoforge-21.1.251-installer.jar --install-server ./neosync-server
+java -jar NeoSync-0.1.0-beta.2-neoforge-21.1.251-installer.jar --install-server ./neosync-server
 ```
 
 NeoSync is an open-source fork of [NeoForge](https://github.com/neoforged/NeoForge)
@@ -51,7 +51,7 @@ before installation.
 
 Get the beta installer from [GitHub Releases](https://github.com/enderliker/NeoSync/releases).
 Release names include both versions, for example
-**`NeoSync-0.1.0-beta.1-neoforge-21.1.251`**.
+**`NeoSync-0.1.0-beta.2-neoforge-21.1.251`**.
 
 Download the **`-installer.jar`** for either a client or a dedicated server. The
 same installer supports both; a separate universal JAR is not a standalone game
@@ -60,9 +60,10 @@ information. Follow the [client and server installation guide](docs/neosync/rele
 
 These are experimental prereleases. Use separate test directories and read the
 release notes for the actual validation results and remaining limitations.
-The [beta.1 prerelease](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.1-neoforge-21.1.251)
-adds the administrator panel, Prism restart and profile recovery, and removes
-CurseForge. Restricted hosting remains available for eligible administrator-authored mods.
+The [beta.2 prerelease](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.2-neoforge-21.1.251)
+updates the client and installer branding and repository maintenance. It retains
+the administrator panel, Prism restart and profile recovery introduced in beta.1.
+CurseForge remains removed. Restricted hosting remains available for eligible administrator-authored mods.
 
 </details>
 
@@ -181,8 +182,8 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 | --- | --- | --- |
 | Minecraft Java Edition | **1.21.1** | The Minecraft version targeted by this branch. |
 | NeoForge base build | **21.1.251** | The platform build used by NeoSync; mods must be compatible with this NeoForge/Minecraft combination. |
-| NeoSync development identifier | **0.1.0-beta.1** | Current source tree. |
-| Published NeoSync release | **0.1.0-beta.1** | Beta prerelease with Modrinth resolution, administrator panel, Prism restart and profile recovery. |
+| NeoSync development identifier | **0.1.0-beta.2** | Current source tree. |
+| Published NeoSync release | **0.1.0-beta.2** | Beta prerelease with Modrinth resolution, administrator panel, Prism restart and profile recovery. |
 | Synchronization protocol | **1** | The version used for server discovery and manifests. |
 | Java | **21** | Required for running and developing this build; use a JDK for development. |
 | Gradle wrapper | **8.13** | Included in the repository; no separate Gradle installation is needed. |
