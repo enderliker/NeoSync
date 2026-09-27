@@ -28,6 +28,9 @@ final class DiscoveryScreen extends Screen {
     private int presentation;
     @Nullable
     private Button negativeAction;
+    private List<Choice> choices = List.of();
+
+    record Choice(String label, Runnable action) {}
 
     DiscoveryScreen(Screen parent, Runnable cancel) {
         super(Component.literal("NeoSync"));
@@ -36,11 +39,19 @@ final class DiscoveryScreen extends Screen {
     }
 
     void show(List<String> paragraphs, String backLabel, String actionLabel, @Nullable Runnable action) {
+        choices = List.of();
         this.paragraphs = List.copyOf(paragraphs);
         this.backLabel = backLabel;
         this.actionLabel = actionLabel;
         this.action = action;
         presentation++;
+        rebuildWidgets();
+    }
+
+    void menu(List<String> paragraphs, List<Choice> choices) {
+        if (choices.size() > 3) throw new IllegalArgumentException("Too many screen choices.");
+        show(paragraphs, "Back", "", null);
+        this.choices = List.copyOf(choices);
         rebuildWidgets();
     }
 
@@ -57,6 +68,11 @@ final class DiscoveryScreen extends Screen {
                 button.active = false;
                 if (selected != null) selected.run();
             }).bounds(width / 2 + 4, height - 30, buttonWidth, 20).build());
+        }
+        for (int i = 0; i < choices.size(); i++) {
+            var choice = choices.get(i);
+            addRenderableWidget(Button.builder(Component.literal(choice.label()), button -> choice.action().run())
+                    .bounds(width / 2 - Math.min(180, width / 2 - 20), height - 34 - (choices.size() - i) * 24, Math.min(360, width - 40), 20).build());
         }
         setInitialFocus(back);
         addRenderableWidget(new TextPanel());
@@ -92,7 +108,7 @@ final class DiscoveryScreen extends Screen {
         private final List<FormattedCharSequence> lines;
 
         TextPanel() {
-            super(DiscoveryScreen.this.minecraft, DiscoveryScreen.this.width - 32, Math.max(20, DiscoveryScreen.this.height - 82), 38, 16);
+            super(DiscoveryScreen.this.minecraft, DiscoveryScreen.this.width - 32, Math.max(20, DiscoveryScreen.this.height - 82 - choices.size() * 24), 38, 16);
             lines = paragraphs.stream().flatMap(text -> font.split(Component.literal(text.isEmpty() ? " " : text), Math.max(20, width - 24)).stream()).toList();
         }
 

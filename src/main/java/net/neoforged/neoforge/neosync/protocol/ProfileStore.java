@@ -39,10 +39,20 @@ public final class ProfileStore {
 
     public record Prepared(String profileId, String revisionId, InstallationPlan.Identity identity, String digest, SyncManifest manifest, Path gameDirectory) {}
 
+    public record History(java.util.List<Prepared> revisions, java.util.List<String> problems) {}
+
     private record Profile(String id, InstallationPlan.Identity identity, String prepared, String launched) {}
 
     /** Reads local association only. Startup verification occurs after FML loading and cannot prevent execution of locally tampered mods. */
     public static ProfileStore open(Path gameDirectory) throws IOException {
+        return open(gameDirectory, false);
+    }
+
+    public static ProfileStore openForRecovery(Path gameDirectory) throws IOException {
+        return open(gameDirectory, true);
+    }
+
+    private static ProfileStore open(Path gameDirectory, boolean recovery) throws IOException {
         Path game = ManagedPaths.directory(gameDirectory, false);
         Path marker = game.resolve("neosync-profile.json");
         if (!Files.exists(marker, LinkOption.NOFOLLOW_LINKS)) {
@@ -67,6 +77,7 @@ public final class ProfileStore {
         ManagedPaths.directory(root, false);
         var store = new ProfileStore(root, null);
         var local = store.readProfile(root.resolve("profiles").resolve(profile));
+        if (recovery) return store;
         var prepared = store.readRevision(local, revision);
         if (!prepared.digest().equals(SyncJson.matching(record.get("manifestSha256"), 64, SyncManifest.HASH_PATTERN))) throw new IOException("The active profile marker has changed.");
         return new ProfileStore(root, prepared);
@@ -83,6 +94,67 @@ public final class ProfileStore {
     public Optional<Prepared> prepared(InstallationPlan.Identity identity) throws IOException {
         var profile = find(identity);
         return profile == null ? Optional.empty() : Optional.of(readRevision(profile, profile.prepared()));
+    }
+
+    public String selectedRevision(InstallationPlan.Identity identity) throws IOException {
+        var profile = find(identity);
+        if (profile == null) throw new IOException("The server profile no longer exists.");
+        return profile.prepared();
+    }
+
+    /** Enumerates valid local records, including completed revisions orphaned by an interrupted pointer update. */
+    public History history() throws IOException {
+        Path profiles = root.resolve("profiles");
+        if (!Files.exists(profiles, LinkOption.NOFOLLOW_LINKS)) return new History(java.util.List.of(), java.util.List.of());
+        ManagedPaths.directory(profiles, false);
+        var revisions = new java.util.ArrayList<Prepared>();
+        var problems = new java.util.ArrayList<String>();
+        int profileCount = 0;
+        int revisionCount = 0;
+        try (var directories = Files.newDirectoryStream(profiles)) {
+            for (Path directory : directories) {
+                if (++profileCount > 1024) throw new IOException("The local profile count exceeds the limit.");
+                if (!directory.getFileName().toString().matches(ID_PATTERN)) throw new IOException("Invalid local profile directory.");
+                ManagedPaths.directory(directory, false);
+                if (!Files.exists(directory.resolve("profile.json"), LinkOption.NOFOLLOW_LINKS)) continue;
+                var profile = readProfile(directory);
+                Path history = ManagedPaths.directory(directory.resolve("revisions"), false);
+                try (var entries = Files.newDirectoryStream(history)) {
+                    for (Path entry : entries) {
+                        if (++revisionCount > 4096) throw new IOException("The local revision count exceeds the recovery limit.");
+                        try {
+                            revisions.add(readRevision(profile, entry.getFileName().toString()));
+                        } catch (IOException e) {
+                            problems.add("A revision for " + profile.identity().host() + " could not be read and has been left untouched.");
+                        }
+                    }
+                }
+            }
+        }
+        revisions.sort(java.util.Comparator.comparing((Prepared revision) -> revision.manifest().displayName()).thenComparing(Prepared::revisionId));
+        return new History(java.util.List.copyOf(revisions), java.util.List.copyOf(problems));
+    }
+
+    /** Selects an already consented, verified revision for the next launch; never changes the running game directory. */
+    public void restore(Prepared revision, String expectedSelection, String javaFmlVersion, DiscoveryCancellation token) throws IOException {
+        token.check();
+        try (var lock = lock()) {
+            var profile = find(revision.identity());
+            if (profile == null || !profile.id().equals(revision.profileId()) || !profile.prepared().equals(expectedSelection))
+                throw new IOException("The selected revision changed. Review recovery again.");
+            verify(revision, javaFmlVersion, token);
+            Path directory = root.resolve("profiles").resolve(profile.id());
+            Path temporary = directory.resolve(UUID.randomUUID() + ".tmp");
+            try {
+                ManagedPaths.writeNew(temporary, json(profileRecord(new Profile(profile.id(), profile.identity(), revision.revisionId(), profile.launched()))));
+                synchronized (token) {
+                    token.check();
+                    ManagedPaths.move(temporary, directory.resolve("profile.json"));
+                }
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+        }
     }
 
     public java.util.List<Prepared> preparedProfiles() throws IOException {

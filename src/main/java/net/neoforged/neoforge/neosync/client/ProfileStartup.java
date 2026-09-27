@@ -30,6 +30,14 @@ public final class ProfileStartup {
     private ProfileStartup() {}
 
     @SubscribeEvent
+    public static void screen(net.neoforged.neoforge.client.event.ScreenEvent.Init.Post event) {
+        if (event.getScreen() instanceof TitleScreen title) {
+            event.addListener(net.minecraft.client.gui.components.Button.builder(net.minecraft.network.chat.Component.literal("NeoSync profiles"), button -> ProfileBrowser.open(title))
+                    .bounds(Math.max(4, title.width - 144), 8, 136, 20).build());
+        }
+    }
+
+    @SubscribeEvent
     public static void tick(ClientTickEvent.Post event) {
         var minecraft = Minecraft.getInstance();
         if (started || !(minecraft.screen instanceof TitleScreen parent) || minecraft.getOverlay() != null) return;

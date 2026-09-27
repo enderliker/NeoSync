@@ -46,6 +46,39 @@ class ProfileStoreTest {
     }
 
     @Test
+    void recoversAnOlderRevisionEvenWhenTheNewestRecordIsDamaged(@TempDir Path directory) throws Exception {
+        var store = ProfileStore.open(directory);
+        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
+        var first = prepare(store, plan(store, jar), jar);
+        var second = prepare(store, plan(store, jar), jar);
+        assertEquals(2, store.history().revisions().size());
+        assertThrows(IOException.class, () -> store.restore(first, first.revisionId(), "4.0.44", new DiscoveryCancellation()));
+        assertEquals(second, store.prepared(first.identity()).orElseThrow());
+        Files.writeString(second.gameDirectory().getParent().resolve("consent.json"), "damaged");
+        var history = store.history();
+        assertEquals(java.util.List.of(first), history.revisions());
+        assertEquals(1, history.problems().size());
+        store.restore(first, second.revisionId(), "4.0.44", new DiscoveryCancellation());
+        assertEquals(first, store.prepared(first.identity()).orElseThrow());
+        assertTrue(Files.exists(second.gameDirectory()));
+    }
+
+    @Test
+    void rejectsTamperedAndCanceledRecoveryWithoutChangingSelection(@TempDir Path directory) throws Exception {
+        var store = ProfileStore.open(directory);
+        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
+        var first = prepare(store, plan(store, jar), jar);
+        var second = prepare(store, plan(store, jar), jar);
+        var cancellation = new DiscoveryCancellation();
+        cancellation.close();
+        assertThrows(IOException.class, () -> store.restore(first, second.revisionId(), "4.0.44", cancellation));
+        Files.writeString(first.gameDirectory().resolve("mods").resolve(first.manifest().files().getFirst().sha256() + ".jar"), "tampered");
+        assertThrows(IOException.class, () -> store.restore(first, second.revisionId(), "4.0.44", new DiscoveryCancellation()));
+        assertEquals(second, store.prepared(first.identity()).orElseThrow());
+        store.verify(second, "4.0.44", new DiscoveryCancellation());
+    }
+
+    @Test
     void preparesIsolatedCopiesAndReopensOriginalStore(@TempDir Path directory) throws Exception {
         Path original = Files.createDirectory(directory.resolve("original"));
         Path personal = Files.writeString(Files.createDirectory(original.resolve("mods")).resolve("personal.jar"), "personal data");
