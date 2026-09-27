@@ -212,6 +212,8 @@ public final class ProfileStore {
             Path revisions = ManagedPaths.directory(profile.resolve("revisions"), true);
             Path stagingRoot = ManagedPaths.directory(root.resolve("staging"), true);
             Path cache = ManagedPaths.directory(root.resolve("cache/sha256"), true);
+            CacheMaintenance.reserve(cache, plan.manifest().files().stream().map(SyncManifest.Artifact::sha256).collect(java.util.stream.Collectors.toSet()),
+                    plan.totalBytes(), SyncManifest.MAX_TOTAL_BYTES, token);
             if (Files.getFileStore(root).getUsableSpace() < Math.addExact(Math.multiplyExact(plan.totalBytes(), 3), SPACE_RESERVE)) {
                 throw new IOException("Not enough free disk space for downloads, cache copies, the new profile, and a reserve.");
             }
