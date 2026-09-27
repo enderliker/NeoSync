@@ -56,7 +56,7 @@ function transportNotice() {
   byId('admin-http-warning').hidden = byId('admin-transport').value !== 'http';
   const port = snapshot && snapshot.transport === byId('transport').value ? snapshot.manifestPort : (http ? 8080 : 8443);
   byId('transport-detail').textContent = (http ? 'HTTP' : 'HTTPS') + ' on port ' + port + ' after restart.' + (http ? '' : ' Clients must trust the server certificate.');
-  byId('panel-address').textContent = 'Panel after restart: ' + byId('admin-transport').value + '://' + location.host;
+  byId('panel-address').textContent = 'Panel after restart: ' + byId('admin-transport').value + '://' + location.hostname + ':' + snapshot.adminPort;
 }
 byId('transport').addEventListener('change', transportNotice);
 byId('admin-transport').addEventListener('change', transportNotice);

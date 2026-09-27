@@ -11,7 +11,7 @@ import java.io.IOException;
 import net.neoforged.neoforge.neosync.protocol.SyncEndpoint;
 import net.neoforged.neoforge.neosync.protocol.SyncJson;
 
-public record ServerTransport(String mode, String bindAddress, int port, int advertisedPort, String adminTransport) {
+public record ServerTransport(String mode, String bindAddress, int port, int advertisedPort, String adminTransport, int adminPort) {
     public static ServerTransport parse(JsonObject config) throws IOException {
         String mode = config.has("mode") ? SyncJson.string(config.get("mode"), 32) : "managed-https";
         if (!java.util.Set.of("http", "https", "managed-https", "reverse-proxy").contains(mode))
@@ -25,7 +25,10 @@ public record ServerTransport(String mode, String bindAddress, int port, int adv
         int advertised = config.has(portKey) ? (int) SyncJson.number(config.get(portKey), 1, 65535) : (http ? 8080 : 8443);
         SyncEndpoint.validateTransport(http ? "http" : "https", advertised);
         String admin = config.has("adminTransport") ? protocol(SyncJson.string(config.get("adminTransport"), 8)) : "https";
-        return new ServerTransport(mode, bind, port, advertised, admin);
+        int adminPort = config.has("adminPort") ? (int) SyncJson.number(config.get("adminPort"), 1, 65535) : 6742;
+        if (port == adminPort && config.has("enabled") && SyncJson.bool(config.get("enabled")))
+            throw new IOException("The administrator and manifest listeners must use different ports.");
+        return new ServerTransport(mode, bind, port, advertised, admin, adminPort);
     }
 
     public static String protocol(String value) throws IOException {

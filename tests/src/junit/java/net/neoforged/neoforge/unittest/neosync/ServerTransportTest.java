@@ -31,6 +31,7 @@ class ServerTransportTest {
         var defaults = ServerTransport.parse(config);
         assertEquals("managed-https", defaults.mode());
         assertEquals("https", defaults.adminTransport());
+        assertEquals(6742, defaults.adminPort());
         assertEquals(8443, defaults.advertisedPort());
         config.addProperty("mode", "http");
         var http = ServerTransport.parse(config);
@@ -45,6 +46,19 @@ class ServerTransportTest {
         assertThrows(IOException.class, () -> ServerTransport.parse(config));
         config.remove("httpPort");
         config.addProperty("adminTransport", "automatic");
+        assertThrows(IOException.class, () -> ServerTransport.parse(config));
+    }
+
+    @Test
+    void acceptsCustomAdministratorPortAndRejectsListenerCollision() throws Exception {
+        var config = new JsonObject();
+        config.addProperty("adminPort", 7654);
+        assertEquals(7654, ServerTransport.parse(config).adminPort());
+        config.addProperty("adminPort", 0);
+        assertThrows(IOException.class, () -> ServerTransport.parse(config));
+        config.addProperty("adminPort", 7654);
+        config.addProperty("port", 7654);
+        config.addProperty("enabled", true);
         assertThrows(IOException.class, () -> ServerTransport.parse(config));
     }
 

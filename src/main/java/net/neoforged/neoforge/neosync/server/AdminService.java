@@ -32,6 +32,7 @@ import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.timeout.WriteTimeoutHandler;
 import io.netty.util.concurrent.GlobalEventExecutor;
 import java.io.IOException;
+import java.net.Inet4Address;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
@@ -169,7 +170,7 @@ public final class AdminService implements AutoCloseable {
             return;
         }
         if (!validHost(context, request.host())) {
-            error(context, 400, "Use this machine's IP address and the administrator port.");
+            error(context, 400, "Use an IPv4 address and the administrator port.");
             return;
         }
         boolean post = request.method().equals("POST");
@@ -249,7 +250,10 @@ public final class AdminService implements AutoCloseable {
                 return false;
             String name = uri.getHost().replace("[", "").replace("]", "");
             if (name.equals("localhost")) return local.getAddress().isLoopbackAddress();
-            return InetAddresses.isInetAddress(name) && InetAddresses.forString(name).equals(local.getAddress());
+            if (!InetAddresses.isInetAddress(name)) return false;
+            var address = InetAddresses.forString(name);
+            return address instanceof Inet4Address && !address.isAnyLocalAddress()
+                    && (!address.isLoopbackAddress() || local.getAddress().isLoopbackAddress());
         } catch (IllegalArgumentException e) {
             return false;
         }

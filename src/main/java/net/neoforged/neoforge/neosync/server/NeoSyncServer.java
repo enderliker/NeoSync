@@ -102,9 +102,10 @@ public final class NeoSyncServer {
                             .map(mod -> mod.getDisplayName() + " " + mod.getVersion()).collect(java.util.stream.Collectors.joining(", "))))
                     .sorted(java.util.Comparator.comparing(candidate -> candidate.path().getFileName().toString())).toList();
             var selection = new AdminSelection(configPath, candidates, event.getServer().getPort());
-            String adminTransport = selection.transport().adminTransport();
-            admin = new AdminService(new InetSocketAddress("0.0.0.0", 6742), secrets, selection, adminTransport.equals("https"));
-            LOGGER.info("NeoSync administrator panel: {}://<machine-IP>:6742. Password: config/neosync-admin/password.txt (server account only).", adminTransport);
+            var adminSettings = selection.transport();
+            String adminTransport = adminSettings.adminTransport();
+            admin = new AdminService(new InetSocketAddress("0.0.0.0", adminSettings.adminPort()), secrets, selection, adminTransport.equals("https"));
+            LOGGER.info("NeoSync administrator panel: {}://<machine-IP>:{}. Password: config/neosync-admin/password.txt (server account only).", adminTransport, adminSettings.adminPort());
             if (adminTransport.equals("http")) LOGGER.warn("The administrator panel uses unencrypted HTTP. Passwords and sessions can be read or changed in transit.");
             LOGGER.info("NeoSync administrator certificate SHA-256: {}", secrets.fingerprint());
         } catch (Exception e) {
@@ -118,7 +119,7 @@ public final class NeoSyncServer {
                 configBytes = input.readNBytes(SyncManifest.MAX_BYTES + 1);
             }
             var config = SyncJson.object(SyncJson.parse(configBytes, SyncManifest.MAX_BYTES), Set.of("enabled"),
-                    Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
+                    Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "adminPort", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
             if (!SyncJson.bool(config.get("enabled"))) return;
             var transport = ServerTransport.parse(config);
             String mode = transport.mode();

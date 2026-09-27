@@ -147,7 +147,8 @@ the server as the source and explicitly accept the default-negative warning.
 
 ### Administrator panel
 
-The dedicated server starts an HTTPS panel by default on IPv4 port 6742.
+The dedicated server starts an HTTPS panel by default on IPv4 port 6742;
+`adminPort` in `config/neosync-server.json` can select another IPv4 port.
 Administrators can explicitly select HTTP for the panel and/or player synchronization;
 see [transport settings](docs/neosync/administration.md#http-and-https-settings).
 HTTP does not provide encryption or server authentication. Clients must explicitly
@@ -317,7 +318,9 @@ Also verify declined consent and profile recovery.
 validation. Security checks must accompany every phase; this phase expands
 coverage before release.
 
-**Validation:** published NeoSync 0.1.0-beta.4 uses NeoForge 21.1.252.
+**Validation:** the source builds unreleased NeoSync 0.1.0-beta.5 on NeoForge 21.1.252.
+Published beta.4 uses the same NeoForge base. The beta.5 source addresses
+administrator access through public IPv4 NAT and first-run configuration.
 Configurable transports and the administrator panel update are documented in
 [administration](docs/neosync/administration.md) and the
 [beta.4 notes](docs/neosync/release-notes/0.1.0-beta.4.md). Its release source

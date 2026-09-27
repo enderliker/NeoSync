@@ -1,8 +1,10 @@
 # Server administration
 
-Current development starts an HTTPS administrator panel on every dedicated
-server at **https://MACHINE-IP:6742**. It is separate from the game port and from
-the manifest/download service. It starts even before synchronization is configured.
+The dedicated server starts an HTTPS administrator panel by default at
+**https://MACHINE-IP:6742**. It is separate from the game port and from
+the manifest/download service. On the first server start, NeoSync creates
+`config/neosync-server.json` with synchronization disabled and the HTTPS defaults;
+an existing file is preserved. The panel starts before synchronization is enabled.
 Java 21 with `keytool` is required for first-time certificate generation.
 
 ## First sign-in
@@ -18,9 +20,11 @@ In HTTPS mode, the panel uses a locally generated TLS certificate. Before accept
 initial certificate warning, compare its SHA-256 fingerprint with the fingerprint
 printed in the local server log. This is an explicit identity check: a warning
 alone does not establish which machine you reached. The certificate includes
-localhost and the IP addresses present when generated. Use the machine's literal
-IP and port; arbitrary Host names are deliberately rejected. A changed address
-may require regenerating the TLS identity while the server is stopped.
+localhost and the IP addresses present when generated. Use a literal IPv4 address
+and the configured panel port; arbitrary Host names are deliberately rejected.
+A public IPv4 address forwarded through NAT is accepted by the panel, though the
+generated certificate may not cover that public address. HTTPS still requires a
+certificate matching the address used in the browser.
 
 The public `config/neosync-admin/certificate.pem` may be copied through a trusted
 channel for certificate enrollment. Never distribute `tls.p12`,
@@ -43,7 +47,7 @@ dependencies. NeoSync does not assume that every server mod belongs on the clien
 - **Keep configured external source:** preserves an existing explicitly configured
   HTTPS source; the panel does not accept arbitrary download URLs.
 
-Save writes `config/neosync-server.json` atomically. Restart the server to apply
+Save updates `config/neosync-server.json` atomically. Restart the server to apply
 it. Until restart, clients continue to see the current published manifest. A stale
 browser view or a changed JAR is rejected without replacing the configuration.
 The startup process validates dependencies, sources and snapshots before
@@ -77,6 +81,7 @@ For local configuration, this enables HTTP for both services:
   "port": 8080,
   "httpPort": 8080,
   "adminTransport": "http",
+  "adminPort": 7654,
   "files": []
 }
 ```
@@ -85,8 +90,11 @@ Keep your reviewed `files` and `hosting` entries when editing an existing
 configuration. `port` is the manifest listener; `httpPort` is the port advertised
 to players. HTTP accepts advertised ports 80 or 8080. HTTPS accepts 443 or 8443,
 using `httpsPort` instead of `httpPort`. Do not specify both port fields.
-`adminTransport` is `https` by default; `http` uses the same administrator port,
-6742. These settings do not change Minecraft's game port.
+`adminTransport` is `https` by default. `adminPort` selects the panel listener
+port, defaults to 6742, and accepts any free TCP port from 1 to 65535. It must
+differ from the enabled manifest listener's `port`. With the example above, open
+`http://MACHINE-IP:7654/` after restarting and allow or forward TCP 7654 to that
+same server port. These settings do not change Minecraft's game port.
 
 The panel switches player transport between `http` on 8080 and `managed-https`
 on 8443. An existing `https` or `reverse-proxy` configuration is preserved when
@@ -123,7 +131,8 @@ attempts/minute globally. Requests and responses have time/size limits. Pages us
 text-only mod labels and a restrictive Content Security Policy. There is no remote
 shell, file upload, arbitrary file browser, account export or game restart endpoint.
 
-The panel binds IPv4 on all interfaces at port 6742. Configure the machine's
+The panel binds IPv4 on all interfaces at port 6742 by default, or the configured
+`adminPort`. Configure the machine's
 firewall according to who should administer the server. It does not inherit
 Minecraft's allowlist or player permissions. IPv6 panel binding and remote DNS
 names are not currently configurable.

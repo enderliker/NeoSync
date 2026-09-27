@@ -1,8 +1,8 @@
 # Changelog
 
 NeoSync versions are independent of the NeoForge base and synchronization protocol.
-All releases below target Minecraft 1.21.1 and are prereleases. Beta.3 and
-beta.4 use NeoForge 21.1.252; earlier releases use 21.1.251. Tags use
+All releases below target Minecraft 1.21.1 and are prereleases. Beta.3 through
+beta.5 use NeoForge 21.1.252; earlier releases use 21.1.251. Tags use
 `NeoSync-<version>-neoforge-<base-version>`.
 
 These summaries describe the behavior at each release. Historical features may
@@ -10,6 +10,23 @@ have been removed; consult the current README and linked release notes before
 installing. Published artifacts and tags remain immutable.
 
 ## Unreleased
+
+## [0.1.0-beta.5] — 2026-09-27
+
+### Added
+
+- Generate a disabled `config/neosync-server.json` on the first dedicated-server
+  start while preserving any existing configuration.
+- Allow a custom administrator panel listener port through `adminPort` in that
+  JSON file; the default remains 6742.
+
+### Fixed
+
+- Accept a literal public IPv4 address for the administrator panel when NAT
+  forwards the connection to a different local IP. Named hosts remain rejected,
+  and writes still require an exact matching origin and CSRF token.
+
+[Full beta.5 notes](docs/neosync/release-notes/0.1.0-beta.5.md)
 
 ## [0.1.0-beta.4] — 2026-09-27
 
@@ -143,3 +160,4 @@ installing. Published artifacts and tags remain immutable.
 
 [0.1.0-beta.3]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.3-neoforge-21.1.252
 [0.1.0-beta.4]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.4-neoforge-21.1.252
+[0.1.0-beta.5]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.5-neoforge-21.1.252

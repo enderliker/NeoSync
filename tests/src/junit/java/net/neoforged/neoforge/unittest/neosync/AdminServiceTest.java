@@ -5,6 +5,7 @@
 
 package net.neoforged.neoforge.unittest.neosync;
 
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -36,6 +37,7 @@ class AdminServiceTest {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
         Path config = directory.resolve("config/neosync-server.json");
         var selection = new AdminSelection(config, List.of(new AdminSelection.Candidate(jar, "<script>inventory</script>")), 25565);
+        byte[] defaultConfig = Files.readAllBytes(config);
         var secrets = AdminSecrets.open(directory.resolve("private"));
         var tls = secure ? trust(directory.resolve("private")) : null;
         try (var service = new AdminService(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), secrets, selection, secure)) {
@@ -66,7 +68,7 @@ class AdminServiceTest {
             String csrf = state.get("csrf").getAsString();
             var request = AdminSelectionTest.request(selection, "modrinth");
             assertTrue(send(tls, service, "POST", "/api/selection", request.toString(), origin, cookie, "wrong", "").startsWith("HTTP/1.1 403"));
-            assertFalse(Files.exists(config));
+            assertArrayEquals(defaultConfig, Files.readAllBytes(config));
             assertTrue(send(tls, service, "POST", "/api/selection", request.toString(), origin, cookie, csrf, "").startsWith("HTTP/1.1 200"));
             assertTrue(Files.readString(config).contains("resolveProviders"));
             assertTrue(send(tls, service, "GET", "/../private/password.txt", "", "", cookie, "", "").startsWith("HTTP/1.1 404"));
@@ -74,6 +76,25 @@ class AdminServiceTest {
             assertTrue(send(tls, service, "GET", "/api/state", "", "", cookie, "", "").startsWith("HTTP/1.1 401"));
             for (int i = 0; i < 10; i++) send(tls, service, "POST", "/api/login", "{\"password\":\"wrong\"}", origin, "", "", "");
             assertTrue(send(tls, service, "POST", "/api/login", login.toString(), origin, "", "", "").startsWith("HTTP/1.1 429"));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void acceptsLiteralPublicHostForwardedThroughNat(boolean secure, @TempDir Path directory) throws Exception {
+        var selection = new AdminSelection(directory.resolve("config/neosync-server.json"), List.of(), 25565);
+        var secrets = AdminSecrets.open(directory.resolve("private"));
+        var tls = secure ? trust(directory.resolve("private")) : null;
+        try (var service = new AdminService(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), secrets, selection, secure)) {
+            String host = "203.0.113.10:" + service.port();
+            String origin = (secure ? "https://" : "http://") + host;
+            assertTrue(send(tls, service, "GET", "/", "", "", "", "", host).startsWith("HTTP/1.1 200"));
+            assertTrue(send(tls, service, "GET", "/", "", "", "", "", "admin.example:" + service.port()).startsWith("HTTP/1.1 400"));
+            assertTrue(send(tls, service, "GET", "/", "", "", "", "", "0.0.0.0:" + service.port()).startsWith("HTTP/1.1 400"));
+            var login = new JsonObject();
+            login.addProperty("password", Files.readString(directory.resolve("private/password.txt")).strip());
+            assertTrue(send(tls, service, "POST", "/api/login", login.toString(), origin, "", "", host).startsWith("HTTP/1.1 200"));
+            assertTrue(send(tls, service, "POST", "/api/login", login.toString(), "https://attacker.example", "", "", host).startsWith("HTTP/1.1 403"));
         }
     }
 

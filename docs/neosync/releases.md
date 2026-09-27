@@ -12,6 +12,10 @@ NeoForge 21.1.252 and Java 21. See the [release notes](release-notes/0.1.0-beta.
 for validation and limits. Linux and Windows CI passed on the tagged source
 commit before publication. Earlier releases and their artifacts remain unchanged.
 
+The unreleased [beta.5 candidate](release-notes/0.1.0-beta.5.md) fixes public IPv4
+panel access through NAT, creates a disabled configuration on the first server
+start, and adds a configurable administrator panel port.
+
 ## NeoForge 21.1.252 source validation
 
 On September 27, 2026, the source imported upstream commit

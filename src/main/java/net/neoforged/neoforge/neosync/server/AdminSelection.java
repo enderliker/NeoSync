@@ -5,11 +5,13 @@
 
 package net.neoforged.neoforge.neosync.server;
 
+import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -56,12 +58,23 @@ public final class AdminSelection {
         defaults.addProperty("displayName", "NeoSync server");
         defaults.addProperty("mode", "managed-https");
         defaults.addProperty("adminTransport", "https");
+        defaults.addProperty("adminPort", 6742);
         defaults.addProperty("bindAddress", "0.0.0.0");
         defaults.addProperty("port", 8443);
         defaults.addProperty("httpsPort", 8443);
         defaults.addProperty("gamePort", gamePort);
         defaults.add("files", new JsonArray());
+        createDefaultConfig();
         startupDigest = SyncManifest.sha256(read());
+    }
+
+    private void createDefaultConfig() throws IOException {
+        try {
+            Files.writeString(configPath, new GsonBuilder().setPrettyPrinting().create().toJson(defaults) + "\n", StandardCharsets.UTF_8,
+                    StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
+        } catch (FileAlreadyExistsException ignored) {
+            // An existing administrator configuration must retain its exact bytes.
+        }
     }
 
     public synchronized ServerTransport transport() throws IOException {
@@ -79,6 +92,7 @@ public final class AdminSelection {
         result.addProperty("enabled", SyncJson.bool(config.get("enabled")));
         result.addProperty("transport", transport.insecure() ? "http" : "https");
         result.addProperty("adminTransport", transport.adminTransport());
+        result.addProperty("adminPort", transport.adminPort());
         result.addProperty("manifestPort", transport.advertisedPort());
         result.addProperty("displayName", config.has("displayName") ? SyncJson.string(config.get("displayName"), 128) : "NeoSync server");
         var files = new JsonArray();
@@ -211,7 +225,7 @@ public final class AdminSelection {
 
     private static JsonObject parse(byte[] bytes) throws IOException {
         return SyncJson.object(SyncJson.parse(bytes, SyncManifest.MAX_BYTES), Set.of("enabled"),
-                Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
+                Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "adminPort", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
     }
 
     private static Map<String, JsonObject> selections(JsonObject config) throws IOException {

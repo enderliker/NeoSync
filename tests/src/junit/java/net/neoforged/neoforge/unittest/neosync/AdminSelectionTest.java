@@ -14,6 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -26,6 +27,25 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class AdminSelectionTest {
+    @Test
+    void createsDisabledDefaultsOnFirstStartAndPreservesExistingConfig(@TempDir Path directory) throws Exception {
+        Path config = directory.resolve("config/neosync-server.json");
+        new AdminSelection(config, List.of(), 25565);
+        var defaults = JsonParser.parseString(Files.readString(config)).getAsJsonObject();
+        assertFalse(defaults.get("enabled").getAsBoolean());
+        assertEquals("managed-https", defaults.get("mode").getAsString());
+        assertEquals("https", defaults.get("adminTransport").getAsString());
+        assertEquals(6742, defaults.get("adminPort").getAsInt());
+        assertEquals(8443, defaults.get("httpsPort").getAsInt());
+        assertEquals(25565, defaults.get("gamePort").getAsInt());
+        defaults.addProperty("adminPort", 7654);
+        Files.writeString(config, defaults.toString());
+        byte[] original = Files.readAllBytes(config);
+        var restarted = new AdminSelection(config, List.of(), 25566);
+        assertArrayEquals(original, Files.readAllBytes(config));
+        assertEquals(7654, restarted.transport().adminPort());
+    }
+
     @Test
     void persistsPrivateGeneratedCredentialsAndTlsIdentity(@TempDir Path directory) throws Exception {
         Path privateDirectory = directory.resolve("admin");
@@ -58,11 +78,11 @@ class AdminSelectionTest {
         Path config = directory.resolve("config/neosync-server.json");
         var selection = new AdminSelection(config, List.of(new AdminSelection.Candidate(jar, "Test mod 1.0")), 25565);
         var request = request(selection, "modrinth");
-        assertFalse(Files.exists(config));
+        byte[] original = Files.readAllBytes(config);
         var unknown = request.deepCopy();
         unknown.getAsJsonArray("files").get(0).getAsJsonObject().addProperty("fileName", "unknown.jar");
         assertThrows(IOException.class, () -> selection.save(bytes(unknown)));
-        assertFalse(Files.exists(config));
+        assertArrayEquals(original, Files.readAllBytes(config));
         selection.save(bytes(request));
         assertTrue(Files.readString(config).contains("\"resolveProviders\":true"));
         assertTrue(selection.state().get("restartRequired").getAsBoolean());
