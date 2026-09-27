@@ -76,6 +76,7 @@ class LauncherBridgeTest {
         assertTrue(launch.instance().startsWith(root.resolve("instances")));
         assertTrue(Files.readString(launch.instance().resolve("patches/org.neosync.json")).contains("${auth_access_token}"));
         assertTrue(Files.readString(launch.instance().resolve("instance.cfg")).contains("PreLaunchCommand="));
+        assertTrue(Files.readString(launch.instance().resolve("instance.cfg")).contains("ConfigVersion=1.3"));
         assertTrue(Files.readString(launch.instance().resolve("patches/org.neosync.json")).contains(launch.instance().resolve("libraries/bootstrap.jar").toString().replace('\\', '/')));
         LauncherBridge.Verifier.verify(launch.verification());
         assertEquals(launch, PrismIntegration.prepare(config, prepared, "4.0.44", new DiscoveryCancellation()));

@@ -115,7 +115,7 @@ public final class PrismIntegration {
                 record.store(writer, "NeoSync pre-launch verification; contains no account data");
             }
             String preflight = quote(javaBinary.toString()) + " -cp " + quote(bridge.toString()) + " " + LauncherBridge.class.getName() + " verify " + quote(verification.toString());
-            String settings = "[General]\nInstanceType=OneSix\nname=NeoSync " + prepared.manifest().revision() + "\niconKey=default\nOverrideJavaLocation=true\nJavaPath=" + javaBinary.toString().replace('\\', '/')
+            String settings = "[General]\nConfigVersion=1.3\nInstanceType=OneSix\nname=" + quote("NeoSync " + prepared.manifest().revision()) + "\niconKey=default\nOverrideJavaLocation=true\nJavaPath=" + quote(javaBinary.toString().replace('\\', '/'))
                     + "\nOverrideMemory=true\nMaxMemAlloc=2048\nMinMemAlloc=512\nOverrideCommands=true\nPreLaunchCommand=" + quote(preflight) + "\n";
             Files.writeString(stage.resolve("instance.cfg"), settings, StandardCharsets.UTF_8);
             token.check();

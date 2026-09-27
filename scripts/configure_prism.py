@@ -110,7 +110,7 @@ def configure(installation, prism_root, java, executable, version=None, instance
                       'bridgeSha256': hashlib.sha256((stage / 'neosync-launcher-bridge.jar').read_bytes()).hexdigest()}
         for path, data in [(stage / 'mmc-pack.json', pack), (stage / 'patches/org.neosync.json', component), (stage / 'neosync-launcher.json', descriptor)]:
             path.write_text(json.dumps(data, indent=2) + '\n', encoding='utf-8')
-        (stage / 'instance.cfg').write_text('[General]\nInstanceType=OneSix\nname=' + name + '\niconKey=default\nOverrideJavaLocation=true\nJavaPath=' + java.as_posix() + '\nOverrideMemory=true\nMaxMemAlloc=2048\nMinMemAlloc=512\n', encoding='utf-8')
+        (stage / 'instance.cfg').write_text('[General]\nConfigVersion=1.3\nInstanceType=OneSix\nname=' + json.dumps(name, ensure_ascii=False) + '\niconKey=default\nOverrideJavaLocation=true\nJavaPath=' + json.dumps(java.as_posix(), ensure_ascii=False) + '\nOverrideMemory=true\nMaxMemAlloc=2048\nMinMemAlloc=512\n', encoding='utf-8')
         stage.rename(target)
         return target
     finally:
