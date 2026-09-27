@@ -142,7 +142,9 @@ def validate():
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--check", action="store_true", help="Validate built artifacts without exporting or requiring a clean tree.")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true", help="Validate built artifacts without exporting or requiring a clean tree.")
+    mode.add_argument("--local", action="store_true", help="Export an unpublished candidate from a clean local commit without requiring a push.")
     args = parser.parse_args()
     name, properties, assets = validate()
     if args.check:
@@ -150,8 +152,9 @@ def main():
         return
     require(not git("status", "--porcelain", "--untracked-files=no"), "Commit all tracked changes before exporting a release.")
     commit = git("rev-parse", "HEAD")
-    require(git("rev-parse", "origin/1.21.1") == commit, "Push the source commit to origin/1.21.1 before exporting.")
-    parent = ROOT / "build/neosync-release"
+    if not args.local:
+        require(git("rev-parse", "origin/1.21.1") == commit, "Push the source commit to origin/1.21.1 before exporting.")
+    parent = ROOT / ("build/neosync-candidates" if args.local else "build/neosync-release")
     parent.mkdir(parents=True, exist_ok=True)
     target = parent / name
     require(not target.exists(), f"Refusing to overwrite exported release: {target}")
@@ -163,7 +166,7 @@ def main():
             shutil.copyfile(path, dest)
             records.append({"name": dest.name, "size": dest.stat().st_size, "sha256": sha256(dest)})
         manifest = {
-            "release": name, "sourceCommit": commit,
+            "release": name, "sourceCommit": commit, "publication": "local-candidate" if args.local else "release-assets",
             "neoSyncVersion": properties["neosync_version"], "neoForgeBaseVersion": properties["neoforge_base_version"],
             "minecraftVersion": properties["minecraft_version"], "javaVersion": properties["java_version"],
             "protocolVersion": 1, "artifacts": records,
