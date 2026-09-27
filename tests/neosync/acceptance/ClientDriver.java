@@ -32,6 +32,7 @@ public final class ClientDriver {
     private static int step;
     private static Object parent;
     private static String lastScreen = "";
+    private static Map<Path, String> originalFiles;
 
     public static void premain(String argument, Instrumentation agent) throws Exception {
         instrumentation = agent;
@@ -85,6 +86,10 @@ public final class ClientDriver {
                 Object modList = call(type("net.neoforged.fml.ModList"), "get");
                 Object container = call(modList, "getModContainerById", settings.getProperty("expectedModId", "clumps"));
                 require((boolean) call(container, "isPresent"), "The expected mod is loaded after selecting the prepared directory");
+                for (String id : settings.getProperty("additionalMods", "").split(",")) if (!id.isBlank())
+                    require((boolean) call(call(modList, "getModContainerById", id), "isPresent"), "Additional mod loaded: " + id);
+                for (String id : settings.getProperty("absentMods", "").split(",")) if (!id.isBlank())
+                    require(!(boolean) call(call(modList, "getModContainerById", id), "isPresent"), "Removed mod absent: " + id);
                 evidence.add("Joined a real dedicated server with " + settings.getProperty("expectedModId", "clumps") + " loaded and normal NeoForge negotiation.");
                 evidence.add("The loading screen closed and the game rendered for ten driver ticks.");
                 screenshot("neosync-joined.png");
@@ -101,6 +106,7 @@ public final class ClientDriver {
             return;
         }
         String mode = settings.getProperty("mode", "install");
+        if (mode.equals("update") && originalFiles == null) originalFiles = snapshot();
         if (mode.equals("bootstrap") && lastScreen.equals("TitleScreen")) {
             if (++bootstrapFrames < 5) return;
             require(System.getProperty("neosync.launcher.config") != null, "The external launcher supplied its local NeoSync descriptor");
@@ -123,10 +129,12 @@ public final class ClientDriver {
         }
         if (screen.getClass().getSimpleName().equals("TitleScreen")) {
             parent = screen;
-            if (mode.equals("install") && !connecting) {
+            if (mode.equals("recovery")) { click(screen, "NeoSync profiles"); return; }
+            if ((mode.equals("install") || mode.equals("update")) && !connecting) {
                 if (attempt > 0) {
                     Path game = ((java.io.File) field(minecraft, "gameDirectory")).toPath();
-                    require(!Files.exists(game.resolve("neosync")), "Declined consent created no store or artifact staging area");
+                    if (mode.equals("update")) require(snapshot().equals(originalFiles), "Declined update preserved the running mods and selected revision");
+                    else require(!Files.exists(game.resolve("neosync")), "Declined consent created no store or artifact staging area");
                 }
                 connect();
             }
@@ -137,6 +145,26 @@ public final class ClientDriver {
         List<String> paragraphs = (List<String>) field(screen, "paragraphs");
         String text = String.join("\n", paragraphs);
         if (text.contains("could not complete") || text.contains("could not be verified")) throw new IllegalStateException(text);
+        if (mode.equals("recovery")) {
+            if (text.contains("Selected profile verified")) { click(screen, "Later"); return; }
+            if (hasButton(screen, "Review this revision")) {
+                if (text.contains("Directory: " + settings.getProperty("recoveryTarget"))) click(screen, "Review this revision");
+                else click(screen, "Next revision");
+                return;
+            }
+            if (hasButton(screen, "Verify and select")) {
+                require(label(call(screen, "getFocused")).equals("No, cancel"), "Recovery defaults to No");
+                click(screen, "Verify and select");
+                return;
+            }
+            if (text.contains("Set Game Directory to this exact path")) {
+                require(text.contains(settings.getProperty("recoveryTarget")), "Recovery selected the requested previous revision");
+                evidence.add("Recovery verified the previous revision and displayed its activation instructions.");
+                screenshot("neosync-recovery.png");
+                finish();
+            }
+            return;
+        }
         if (mode.equals("original") && text.contains("you launched your original game directory")) {
             evidence.add("Original directory reports pending activation.");
             finish();
@@ -151,6 +179,8 @@ public final class ClientDriver {
             require(text.contains(settings.getProperty("expectedName", "Clumps")) && text.contains(settings.getProperty("expectedSource", "cdn.modrinth.com")) && text.contains("unverified"), "Review names the exact file and unverified source");
             if (Boolean.parseBoolean(settings.getProperty("expectProvider", "false")))
                 require(text.contains("modrinth") && text.contains("provider metadata matched") && text.contains("approved SHA-256 and provider hash"), "Review identifies Modrinth and explains the pending independent byte checks");
+            for (String change : settings.getProperty("expectedChanges", "").split(";")) if (!change.isBlank())
+                require(text.contains(change), "Review reports change: " + change);
             if (mode.equals("changed")) {
                 evidence.add("Changed server snapshot requires fresh installation review.");
                 call(screen, "keyPressed", 257, 0, 0);
@@ -181,6 +211,10 @@ public final class ClientDriver {
             String game = paragraphs.stream().filter(line -> line.startsWith("/")).findFirst().orElseThrow();
             Files.writeString(Path.of(settings.getProperty("prepared")), game);
             evidence.add("Prepared verified isolated game directory: " + game);
+            if (mode.equals("update")) {
+                for (var entry : originalFiles.entrySet()) if (entry.getKey().getFileName().toString().endsWith(".jar"))
+                    require(hash(entry.getKey()).equals(entry.getValue()), "Update preserved the previous revision's mod bytes");
+            }
             click(screen, "Restart instructions");
             step = 1;
         } else if (step == 1 && text.contains("Set Game Directory to this exact path")) {
@@ -201,6 +235,21 @@ public final class ClientDriver {
         } else if (hasButton(screen, "Continue to server")) {
             click(screen, "Continue to server");
         }
+    }
+
+    private static Map<Path, String> snapshot() throws Exception {
+        Path game = ((java.io.File) field(minecraft, "gameDirectory")).toPath();
+        var files = new java.util.HashMap<Path, String>();
+        try (var paths = Files.list(game.resolve("mods"))) {
+            for (Path path : paths.toList()) files.put(path, hash(path));
+        }
+        Path pointer = game.getParent().getParent().getParent().resolve("profile.json");
+        files.put(pointer, hash(pointer));
+        return files;
+    }
+
+    private static String hash(Path path) throws Exception {
+        return java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(path)));
     }
 
     private static void connect() throws Exception {

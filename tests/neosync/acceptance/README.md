@@ -145,44 +145,34 @@ client review to identify Modrinth and pending byte checks. Run installed
 `install` and `resume` modes. These are live Modrinth calls, followed by a real
 server join. Record the exact source commit and installer hash for each run.
 
-## Phase 5: controlled manual-import fixture
+## Prism restart and update acceptance
 
-This fixture records the published alpha.4 behavior. Current development builds
-reject new CurseForge provider hints before review, so this installed fixture is
-not runnable against them. Keep importer unit tests synthetic while API data
-retention is unresolved; do not treat a local key as permission for a live flow.
+Use a fresh installed client and `scripts/configure_prism.py` to create a new
+instance. Do not edit an existing user's instance. Add the external driver and
+fixture trust store to that test instance's JVM arguments. For `install` mode,
+set `prismRestart=true` and `prismInstance=/absolute/path/to/instance-id.txt`.
+The driver declines both consent stages, prepares the profile through the real
+screens, exports a revision instance, and requests **Close and launch**.
 
-`prepare_fixture.py --manual-fixture` creates **synthetic CurseForge metadata**
-for the same public Clumps artifact and a controlled `xdg-open` executable. This
-fixture is not a real CurseForge author restriction, API request or browser/site
-interaction. It must never be reported as live CurseForge acceptance. Set
-`NEOSYNC_CURSEFORGE_API_KEY=neosync-fixture-only-key` only on the disposable server
-so its configured-source gate accepts the synthetic evidence; this is not a real
-provider key and the fixture makes no CurseForge API request. The server manifest
-carries synthetic, explicitly configured file evidence. The test agent performs
-real local status/manifest discovery, verifies
-that the client makes no CurseForge API request, then exercises the product's
-review, source warning, import workflow and transaction using real mouse/keyboard
-events. A restarted, verified profile
-can join the real local server without a missing-mod provider request.
+Put the `resume` driver arguments in the test-only local launcher's descriptor
+`component.+jvmArgs` so the newly generated instance writes a separate resume
+report. NeoSync never transfers account credentials. A real launcher account or
+its normal account selection is required for automatic handoff; an explicit
+`--offline NeoSyncTest` test launch must be recorded separately when used.
+Require both installation and resumed-join reports. Verify the generated
+pre-launch command rejects an added, missing or altered mod before launching.
 
-Set `XDG_CONFIG_HOME` to the fixture's `xdg-config` directory and prepend its
-`browser-bin` to the **client process** PATH. The fake browser records the exact
-approved page, copies the approved artifact to a partial filename in a relocated
-Downloads directory, and completes it by rename. Require both consent declines
-to leave `browser-report.txt` absent, then a single approved handoff and a verified
-prepared profile. Keep the fixture executable and all generated artifacts out of
-release binaries. The launcher and metadata substitutions live only in the
-external test harness, not in product test switches.
+`update` mode runs from an existing prepared revision and accepts a newly
+published set after exercising both default-negative cancellations. It checks
+that declining preserves the pointer and running mod bytes, and that successful
+preparation preserves the previous revision's mods. `expectedChanges` can list
+semicolon-separated review text. `additionalMods` and `absentMods` list
+comma-separated mod IDs checked by `resume` after a real join.
 
-To exercise browser-launch failure and explicit selection, use a fresh fixture,
-replace only its controlled `xdg-open` with an executable that records the page
-and exits nonzero, and set `manualSelection` in `install.properties` to a local
-copy of the exact JAR outside Downloads. The driver enters this path in the product
-screen and clicks **Use path**. This checks that failure retains manual selection.
-Alternatively, set `manualChooser=true` and provide native desktop input to select
-that fixture file within 15 seconds after **Choose downloaded file...** opens.
-The driver does not select a native dialog entry for you. Its report must show
-successful preparation; merely opening/closing the dialog is insufficient.
-Record the actual native dialog, display backend and input method. A native
-chooser fixture still does not validate the real browser or provider website.
+`recovery` mode opens **NeoSync profiles** and selects the directory supplied by
+`recoveryTarget`. It checks default-negative recovery consent, verifies the
+selection and displays activation instructions. Launch that directory separately
+and verify the corresponding server set to complete recovery acceptance.
+
+Historical alpha.4 browser-import evidence remains in the Phase 5 document. That
+provider and its fixture have been removed from the current source tree.
