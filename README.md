@@ -4,7 +4,7 @@
 
 Review the mods. Prepare a profile. Join the server.
 
-[![NeoSync 0.1.0-beta.5](https://img.shields.io/badge/NeoSync-0.1.0--beta.5-000000)](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.5-neoforge-21.1.252)
+[![NeoSync 0.1.0-beta.6](https://img.shields.io/badge/NeoSync-0.1.0--beta.6-000000)](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.6-neoforge-21.1.252)
 [![Build and test](https://github.com/enderliker/NeoSync/actions/workflows/build-prs.yml/badge.svg?branch=1.21.1)](https://github.com/enderliker/NeoSync/actions/workflows/build-prs.yml)
 [![Minecraft Java Edition 1.21.1](https://img.shields.io/badge/Minecraft-1.21.1-62B47A)](https://www.minecraft.net/about-minecraft)
 [![Java 21](https://img.shields.io/badge/Java-21-E69B45)](docs/CONTRIBUTING.md)
@@ -14,11 +14,11 @@ Review the mods. Prepare a profile. Join the server.
 
 ## Installation
 
-With **Java 21** installed, [download the beta.5 installer](https://github.com/enderliker/NeoSync/releases/download/NeoSync-0.1.0-beta.5-neoforge-21.1.252/NeoSync-0.1.0-beta.5-neoforge-21.1.252-installer.jar)
+With **Java 21** installed, [download the beta.6 installer](https://github.com/enderliker/NeoSync/releases/download/NeoSync-0.1.0-beta.6-neoforge-21.1.252/NeoSync-0.1.0-beta.6-neoforge-21.1.252-installer.jar)
 and run it from your download directory:
 
 ```sh
-java -jar NeoSync-0.1.0-beta.5-neoforge-21.1.252-installer.jar
+java -jar NeoSync-0.1.0-beta.6-neoforge-21.1.252-installer.jar
 ```
 
 Run Minecraft **1.21.1** once first, then choose **Install client**. Follow the
@@ -26,7 +26,7 @@ Run Minecraft **1.21.1** once first, then choose **Install client**. Follow the
 or configure Prism. For a dedicated server in a new directory:
 
 ```sh
-java -jar NeoSync-0.1.0-beta.5-neoforge-21.1.252-installer.jar --install-server ./neosync-server
+java -jar NeoSync-0.1.0-beta.6-neoforge-21.1.252-installer.jar --install-server ./neosync-server
 ```
 
 NeoSync is an open-source fork of [NeoForge](https://github.com/neoforged/NeoForge)
@@ -51,7 +51,7 @@ before installation.
 
 Get the beta installer from [GitHub Releases](https://github.com/enderliker/NeoSync/releases).
 Release names include both versions, for example
-**`NeoSync-0.1.0-beta.5-neoforge-21.1.252`**.
+**`NeoSync-0.1.0-beta.6-neoforge-21.1.252`**.
 
 Download the **`-installer.jar`** for either a client or a dedicated server. The
 same installer supports both; a separate universal JAR is not a standalone game
@@ -60,10 +60,12 @@ information. Follow the [client and server installation guide](docs/neosync/rele
 
 These are experimental prereleases. Use separate test directories and read the
 release notes for the actual validation results and remaining limitations.
-The [beta.5 prerelease](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.5-neoforge-21.1.252)
-fixes administrator access through public IPv4 NAT, generates a disabled server
-configuration on first start, and allows a custom panel port. It retains beta.4's
-configurable HTTP or HTTPS, panel branding, Prism restart and profile recovery.
+The [beta.6 prerelease](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.6-neoforge-21.1.252)
+recognizes declared NeoForge mods bundled inside a selected JAR, including
+Create's Flywheel and Ponder dependencies. It retains beta.5's public IPv4 NAT
+panel access, first-run server configuration, and custom panel port, as well as
+beta.4's configurable HTTP or HTTPS, panel branding, Prism restart and profile
+recovery.
 CurseForge remains removed. Restricted hosting remains available for eligible administrator-authored mods.
 
 </details>
@@ -183,8 +185,8 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 | --- | --- | --- |
 | Minecraft Java Edition | **1.21.1** | The Minecraft version targeted by this branch. |
 | NeoForge base build | **21.1.252** | The platform build used by NeoSync; mods must be compatible with this NeoForge/Minecraft combination. |
-| NeoSync source identifier | **0.1.0-beta.6** | Unreleased support for declared JarJar mods bundled inside a selected file. |
-| Published NeoSync release | **0.1.0-beta.5** | Earlier prereleases remain available with their own validated artifacts. |
+| NeoSync source identifier | **0.1.0-beta.6** | Declared JarJar mods bundled inside a selected file. |
+| Published NeoSync release | **0.1.0-beta.6** | Earlier prereleases remain available with their own validated artifacts. |
 | Synchronization protocol | **1 (HTTPS), 2 (HTTP)** | Discovery capability versions; manifest schema remains 1. Beta.3 supports HTTPS protocol 1. |
 | Java | **21** | Required for running and developing this build; use a JDK for development. |
 | Gradle wrapper | **8.13** | Included in the repository; no separate Gradle installation is needed. |

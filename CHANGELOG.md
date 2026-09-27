@@ -173,3 +173,4 @@ installing. Published artifacts and tags remain immutable.
 [0.1.0-beta.3]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.3-neoforge-21.1.252
 [0.1.0-beta.4]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.4-neoforge-21.1.252
 [0.1.0-beta.5]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.5-neoforge-21.1.252
+[0.1.0-beta.6]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.6-neoforge-21.1.252

@@ -4,24 +4,24 @@ NeoSync releases identify both the fork and its compatible NeoForge platform:
 
 ```text
 NeoSync-<neosync-version>-neoforge-<base-version>
-NeoSync-0.1.0-beta.5-neoforge-21.1.252
+NeoSync-0.1.0-beta.6-neoforge-21.1.252
 ```
 
-The current published prerelease is **0.1.0-beta.5** for Minecraft Java Edition 1.21.1,
-NeoForge 21.1.252 and Java 21. See the [release notes](release-notes/0.1.0-beta.5.md)
+The current published prerelease is **0.1.0-beta.6** for Minecraft Java Edition 1.21.1,
+NeoForge 21.1.252 and Java 21. See the [release notes](release-notes/0.1.0-beta.6.md)
 for validation and limits. Linux and Windows CI passed on the tagged source
 commit before publication. Earlier releases and their artifacts remain unchanged.
 
-Beta.5 fixes public IPv4 panel access through NAT, creates a disabled
-configuration on the first server start, and adds a configurable administrator
-panel port. [Beta.4](release-notes/0.1.0-beta.4.md) remains available.
-
-The unreleased [beta.6 candidate](release-notes/0.1.0-beta.6.md) adds declared
-NeoForge JarJar mods to the manifest entry for their containing file, including
-Create's bundled Flywheel and Ponder dependencies.
-Local Linux checks passed with 255 unit tests, an installed client startup, and
-an installed server that advertised and served the real Create manifest. Windows
-CI and the remote Azure/Prism join remain pending before publication.
+Beta.6 includes declared NeoForge JarJar mods in the manifest entry for their
+containing file, including Create's bundled Flywheel and Ponder dependencies.
+The [Linux build](https://github.com/enderliker/NeoSync/actions/runs/36338833090),
+[Windows build](https://github.com/enderliker/NeoSync/actions/runs/36338833116),
+and [release packaging](https://github.com/enderliker/NeoSync/actions/runs/36338865256)
+passed on source commit `7b3a4b071a2c505ea16f074b8280e4cbdfc2468b`.
+Local Linux checks passed 255 unit tests, an installed client startup, and an
+installed server that served the real Create manifest. The remote Azure/Prism
+join remains unvalidated. [Beta.5](release-notes/0.1.0-beta.5.md) remains
+available with its public IPv4 NAT and first-run configuration fixes.
 
 ## NeoForge 21.1.252 source validation
 
@@ -88,7 +88,7 @@ when switching to a prepared server-specific profile.
 Create a new server directory and run the installer with Java 21:
 
 ```bash
-java -jar NeoSync-0.1.0-beta.5-neoforge-21.1.252-installer.jar --install-server /path/to/server
+java -jar NeoSync-0.1.0-beta.6-neoforge-21.1.252-installer.jar --install-server /path/to/server
 ```
 
 Start the generated `run.sh` on Linux or `run.bat` on Windows. Review the Minecraft
@@ -114,7 +114,7 @@ never to replacement binaries from upstream NeoForge. LegacyInstaller requires
 a nonempty URL even for an embedded library; an empty URL makes it skip the file.
 FML 4 hard-codes the local
 `net/neoforged/neoforge` layout, so installed files use a unique version suffix:
-`21.1.252-neosync-0.1.0-beta.5`. The mod metadata and `NeoForgeVersion` still
+`21.1.252-neosync-0.1.0-beta.6`. The mod metadata and `NeoForgeVersion` still
 report the compatible base `21.1.252`. No modified NeoForge Maven publication
 is uploaded by this release process.
 
@@ -143,9 +143,11 @@ After validation, commit and push the source, then export the exact built assets
 python3 scripts/prepare_release.py
 ```
 
-Release archives use stable entry ordering, manifest attribute ordering and
-normalized timestamps. The executable installer manifest is checked as the first
-file. The exporter requires a clean tracked tree, verifies the installer identity,
+The exporter normalizes entry ordering and checks installer manifest attributes.
+Separate builds can still differ in ZIP metadata, compression, and generated
+launcher timestamps, so use checksums for the exact published files. The
+executable installer manifest is checked as the first file. The exporter
+requires a clean tracked tree, verifies the installer identity,
 embedded libraries, branding, unchanged FML code, source version, and absence of bundled Minecraft classes, and
 writes artifacts to `build/neosync-release/<release-name>/`. Untracked personal
 handoff files are not included. Checksums identify the published bytes; they are

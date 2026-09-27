@@ -318,21 +318,21 @@ Also verify declined consent and profile recovery.
 validation. Security checks must accompany every phase; this phase expands
 coverage before release.
 
-**Validation:** the source builds unreleased NeoSync 0.1.0-beta.6 on NeoForge
-21.1.252. Its declared JarJar support addresses a discovery startup failure with
-Create's bundled Flywheel and Ponder dependencies. On Linux, formatting and 255
-unit tests pass; the exact installer passes installed client startup and a
-dedicated-server check with the real Create JAR, a Modrinth source, and a
-three-mod manifest. Windows CI and the remote Azure/Prism join remain pending.
-Published beta.5 uses the same NeoForge base.
-Its source commit passed Linux and Windows CI and installed client/server startup
-checks. Beta.5 addresses administrator access through public IPv4 NAT,
-first-run configuration, and a configurable panel port. Published beta.4 uses
-the same NeoForge base.
+**Validation:** published NeoSync 0.1.0-beta.6 uses NeoForge 21.1.252. Its
+declared JarJar support addresses a discovery startup failure with Create's
+bundled Flywheel and Ponder dependencies. Linux and Windows CI passed on the
+tagged source commit; the release workflow installed and started the client and
+server on Linux. Local Linux checks passed 255 unit tests and a dedicated-server
+check with the real Create JAR, a Modrinth source, and a three-mod manifest.
+The remote Azure/Prism join remains unvalidated. See the
+[beta.6 notes](docs/neosync/release-notes/0.1.0-beta.6.md) for exact results.
+Published beta.5 uses the same NeoForge base and addresses administrator access
+through public IPv4 NAT, first-run configuration, and a configurable panel port.
+Published beta.4 uses the same NeoForge base.
 Configurable transports and the administrator panel update are documented in
 [administration](docs/neosync/administration.md) and the
 [beta.4 notes](docs/neosync/release-notes/0.1.0-beta.4.md). The
-[beta.5 notes](docs/neosync/release-notes/0.1.0-beta.5.md) record this release's
+[beta.5 notes](docs/neosync/release-notes/0.1.0-beta.5.md) record beta.5's
 validation and limits.
 Beta.3 imported upstream [#3469](https://github.com/neoforged/NeoForge/pull/3469).
 Published beta.2 uses NeoForge 21.1.251;
@@ -340,7 +340,7 @@ its branding checks remain in [beta.2 notes](docs/neosync/release-notes/0.1.0-be
 The [Phase 7 matrix](docs/neosync/phase-7.md) records installed flows, failure tests,
 supported scope and concrete limits for beta.1. A base update and startup checks
 are not a new multiplayer acceptance result. Each prerelease preserves its own
-validated JARs; beta.5 does not replace any earlier published artifacts.
+validated JARs; beta.6 does not replace any earlier published artifacts.
 
 ## Code comments
 
