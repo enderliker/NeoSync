@@ -1,3 +1,4 @@
+/* Copyright (c) NeoSync contributors; SPDX-License-Identifier: LGPL-2.1-only */
 'use strict';
 const byId = id => document.getElementById(id);
 let snapshot, csrf = '', rows = [];
@@ -16,7 +17,7 @@ async function api(path, body) {
 function showLogin() { csrf = ''; byId('login').hidden = false; byId('panel').hidden = true; byId('logout').hidden = true; }
 function element(tag, text, parent) { const e = document.createElement(tag); if (text) e.textContent = text; parent.append(e); return e; }
 function check(parent, text) { const label = element('label', '', parent); const input = element('input', '', label); input.type = 'checkbox'; label.append(document.createTextNode(text)); return input; }
-function totals() { const chosen = rows.filter(row => row.selected.checked); byId('totals').textContent = chosen.length + ' files selected · ' + chosen.reduce((sum, row) => sum + row.file.size, 0).toLocaleString() + ' bytes'; }
+function totals() { const chosen = rows.filter(row => row.selected.checked); byId('totals').textContent = chosen.length + (chosen.length === 1 ? ' file selected · ' : ' files selected · ') + chosen.reduce((sum, row) => sum + row.file.size, 0).toLocaleString() + ' bytes'; }
 async function reload() {
   const data = await api('/api/state'); snapshot = data; csrf = data.csrf;
   byId('login').hidden = true; byId('panel').hidden = false; byId('logout').hidden = false;
