@@ -181,7 +181,7 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 | Component | Current version | What it means |
 | --- | --- | --- |
 | Minecraft Java Edition | **1.21.1** | The Minecraft version targeted by this branch. |
-| NeoForge base build | **21.1.251** | The platform build used by NeoSync; mods must be compatible with this NeoForge/Minecraft combination. |
+| NeoForge base build | **21.1.252** | Current source tree; the published beta.2 installer uses 21.1.251. Mods must be compatible with the installed NeoForge/Minecraft combination. |
 | NeoSync development identifier | **0.1.0-beta.2** | Current source tree. |
 | Published NeoSync release | **0.1.0-beta.2** | Beta prerelease with Modrinth resolution, administrator panel, Prism restart and profile recovery. |
 | Synchronization protocol | **1** | The version used for server discovery and manifests. |
@@ -190,7 +190,7 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 
 The current installation flow requires the client's NeoSync and NeoForge versions
 to match those declared by the server. Both sides need NeoSync's synchronization
-code; installing ordinary NeoForge 21.1.251 alone does not provide it. These
+code; installing ordinary NeoForge alone does not provide it. These
 versions do not guarantee compatibility with every mod or launcher.
 
 The values come from [gradle.properties](gradle.properties), the

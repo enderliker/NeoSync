@@ -10,6 +10,19 @@ installing. Published artifacts and tags remain immutable.
 
 ## Unreleased
 
+### Changed
+
+- Updated the source tree's NeoForge base to **21.1.252** for Minecraft 1.21.1.
+  Published beta.2 artifacts remain on NeoForge 21.1.251.
+
+### Fixed
+
+- Imported NeoForge [#3469](https://github.com/neoforged/NeoForge/pull/3469),
+  commit [`61045a61fca76876999281676a9e794688390a9e`](https://github.com/neoforged/NeoForge/commit/61045a61fca76876999281676a9e794688390a9e),
+  by sciwhiz12 and Shadows_of_Fire: `StackCopySlot` accepts the underlying slot
+  index, and both `ItemHandlerCopySlot` constructors propagate it. The previous
+  two-argument constructor remains available, deprecated, with index zero.
+
 ## [0.1.0-beta.2] — 2026-09-27
 
 ### Changed

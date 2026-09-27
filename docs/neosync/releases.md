@@ -13,6 +13,40 @@ this installer, and [Phase 7 validation](phase-7.md) for historical full-flow
 evidence and launcher limitations.
 Published alpha.4 remains unchanged.
 
+The source tree now targets NeoForge **21.1.252**, including upstream
+[#3469](https://github.com/neoforged/NeoForge/pull/3469). The published beta.2
+installer and its validation below remain on **21.1.251**. This source update
+does not publish a release; the next release requires a new NeoSync version.
+
+## NeoForge 21.1.252 source validation
+
+On September 27, 2026, the source imported upstream commit
+[`61045a61fca76876999281676a9e794688390a9e`](https://github.com/neoforged/NeoForge/commit/61045a61fca76876999281676a9e794688390a9e)
+by sciwhiz12 and Shadows_of_Fire. Its parent is the fork's original upstream
+baseline, `6c69a6559056e7781980c3f4fc0ae40147f1bdf8`. Both imported Java files
+match the upstream Git blobs exactly; existing license headers are retained.
+
+Validation on Linux with OpenJDK 21.0.2 passed:
+
+- `setup`, `checkFormatting`, `:tests:runUnitTests`, `:neoforge:installerJar`
+  and `:neoforge:sourcesJar`: 239 tests, zero failures, errors or skips.
+- Three added regression cases cover both `ItemHandlerCopySlot` constructors
+  with different menu and backing indices, writes to the selected backing slot,
+  and the deprecated `StackCopySlot` constructor's zero index.
+- `python3 scripts/prepare_release.py --check`: embedded libraries, isolated
+  version paths, source identity, branding and unchanged FML code.
+- `:neoforge:testProductionClient` and `:neoforge:testProductionServer`:
+  fresh installations under `build/neosync-252-validation`, using the acceptance
+  init script and its `neosyncAcceptanceInstallationRoot` property. Both loaded
+  NeoForge 21.1.252 and completed their startup self-tests.
+
+The local `NeoSync-0.1.0-beta.2-neoforge-21.1.252-installer.jar` has SHA-256
+`c02919bf735b35a13d1914194add97d1a516504b94173db1533e323f9781f973`.
+Logs are `/tmp/neosync-252-setup.log`, `/tmp/neosync-252-build.log` and
+`/tmp/neosync-252-production.log`. This is an unpublished source build retaining
+the beta.2 development identifier. These checks do not establish a new multiplayer,
+external-launcher, Windows or macOS acceptance result.
+
 ## Download selection
 
 | Asset | Purpose |
