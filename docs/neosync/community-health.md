@@ -94,20 +94,21 @@ beta evidence remains in [Phase 7](phase-7.md).
 
 ## Manual GitHub settings
 
-These are suggested values; this review does not change repository settings.
+The topics below were applied and confirmed through GitHub's API at the
+maintainer's request after this review. The other values remain suggestions.
 
 | Setting | Suggested value |
 | --- | --- |
 | About description | Server mod synchronization for Minecraft 1.21.1: verified downloads, isolated profiles and Prism restart. Based on NeoForge. |
-| Topics | `minecraft`, `minecraft-java`, `minecraft-mod`, `neoforge`, `java`, `gradle`, `modrinth`, `mod-manager`, `mod-sync`, `dedicated-server`, `prism-launcher`, `open-source` |
+| Topics (applied) | `minecraft`, `minecraft-java`, `minecraft-mod`, `minecraft-server`, `neoforge`, `java`, `gradle`, `modrinth`, `mod-manager`, `mod-sync`, `dedicated-server`, `prism-launcher`, `open-source` |
 | Website | `https://github.com/enderliker/NeoSync/tree/1.21.1/docs` until a dedicated website exists. |
 | Social preview | Upload [`docs/assets/neosync-social.png`](../assets/neosync-social.png), 1280 × 640, in Settings → General → Social preview. |
 | Discussions | Enable Q&A and Ideas for support and proposals; retain issues for actionable bugs. |
 | Private vulnerability reporting | Enable in Settings → Security. It was disabled during review; `SECURITY.md` provides the approved email channel. Update the policy if this setting changes. |
 | Actions account access | Resolve the GitHub billing lock, then rerun Linux and Windows workflows. |
 
-The current About description still describes synchronization as planned, topics
-are empty, and no website is configured. These settings should be updated by the
+The About description observed during review described synchronization as planned,
+and no website was configured. These settings should be updated by the
 maintainer. No replacement license or additional product claims are needed.
 
 ## Files changed during this review
