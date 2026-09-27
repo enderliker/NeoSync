@@ -8,9 +8,9 @@ the secondary reading. The opening stays transparent in every color application.
 The installer, launcher profile, mod list, and repository share this identity.
 The wordmark uses DejaVu Sans Bold with compact spacing.
 
-The palette is ink `#182521`, ivory `#f3f0e8`, and lime `#c6eb80`. Use lime on ink
-for launcher icons; use ink on ivory for documentation. Color supplements the
-silhouette; it is not needed to distinguish its two pieces. Keep the identity
+The palette is ink `#182521` and ivory `#f3f0e8`. Use ink on ivory for launcher
+icons, installer graphics, and documentation. An ivory-on-ink version is available
+for dark backgrounds. The two pieces use the same color. Keep the identity
 flat and legible; avoid mascots, gradients, textures, and decorative effects.
 The previous violet/mint mark remains part of historical release binaries.
 
@@ -24,7 +24,7 @@ The previous violet/mint mark remains part of historical release binaries.
 | `docs/assets/neosync-installer.svg` | Editable wordmark and installer banner. |
 | `docs/assets/neosync-installer.png` | Installer banner. |
 | `docs/assets/neosync-social.svg`, `neosync-social.png` | Editable 1280 × 640 GitHub social preview and rendered upload. |
-| `docs/assets/neosync-branding-preview.svg`, `neosync-branding-preview.png` | Four flat color applications and small-size review. |
+| `docs/assets/neosync-branding-preview.svg`, `neosync-branding-preview.png` | Two monochrome applications and small-size review. |
 | `src/main/resources/neosync_logo.png` | Mod-list banner, generated from the same wordmark. |
 
 After editing the SVGs, run `scripts/render_branding.sh` with librsvg, ImageMagick,
@@ -35,8 +35,8 @@ sizes before publishing.
 Keep at least 14% of the mark canvas clear around the shape. Do not close the
 shared opening, add outlines, or stretch either element independently. The 16 px
 and 32 px icons are rendered from the same source and must retain the opening.
-The [interactive preview](branding-preview.html) shows the mark on light, dark,
-and accent backgrounds, with downloadable files and actual-size samples.
+The [interactive preview](branding-preview.html) shows the mark on light and dark
+backgrounds, with downloadable files and actual-size samples.
 
 ## Design references
 

@@ -9,6 +9,6 @@
     <text x="83" y="450" font-size="25" fill="#4d5c51">Review downloads. Prepare an isolated profile. Restart.</text>
     <text x="83" y="572" font-size="21">Minecraft 1.21.1 · Based on NeoForge</text>
   </g>
-  <path d="M1120 526h80v80h-80Z" fill="#c6eb80"/>
+  <path d="M1120 526h80v80h-80Z" fill="#f3f0e8"/>
   <g transform="translate(1120 526) scale(.8)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
 </svg>
