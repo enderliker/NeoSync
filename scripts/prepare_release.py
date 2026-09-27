@@ -97,6 +97,8 @@ def validate():
             require(archive.read("META-INF/earlydisplay-NOTICE.txt") == (ROOT / "docs/assets/earlydisplay-NOTICE.txt").read_bytes(), "Missing startup attribution.")
     with ZipFile(assets["installer"]) as archive:
         require(archive.testzip() is None, "Corrupt installer archive.")
+        require(next(name for name in archive.namelist() if not name.endswith("/")) == "META-INF/MANIFEST.MF",
+                "The executable installer manifest must be the first file.")
         profile = json.loads(archive.read("install_profile.json"))
         launcher = json.loads(archive.read("version.json"))
         require(profile["profile"] == "NeoSync" and profile["version"] == name and launcher["id"] == name,

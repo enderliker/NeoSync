@@ -410,8 +410,9 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.setMetadataCharset("UTF-8");
             task.getDestinationDirectory().convention(project.getExtensions().getByType(BasePluginExtension.class).getLibsDirectory());
 
+            task.from(project.zipTree(project.provider(installerConfig::getSingleFile)).matching(pattern -> pattern.include("META-INF/MANIFEST.MF")));
             task.from(project.zipTree(project.provider(installerConfig::getSingleFile)), spec -> {
-                spec.exclude("big_logo.png", "icons/neoforged_16x16.png", "icons/neoforged_background_16x16.png",
+                spec.exclude("META-INF/MANIFEST.MF", "big_logo.png", "icons/neoforged_16x16.png", "icons/neoforged_background_16x16.png",
                         "icons/neoforged_background_32x32.png", "icons/neoforged_background_128x128.png");
             });
             new java.util.TreeMap<>(Map.of("neoforged_16x16.png", "neosync-icon-16.png",
