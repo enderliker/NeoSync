@@ -103,7 +103,7 @@ def configure(installation, prism_root, java, executable, version=None, instance
         component = {'formatVersion': 1, 'uid': 'org.neosync', 'name': 'NeoSync', 'version': match[1],
                      'requires': [{'uid': 'net.minecraft', 'equals': '1.21.1'}], 'mainClass': profile['mainClass'],
                      'minecraftArguments': vanilla + ' ' + ' '.join(arguments), 'libraries': entries, '+jvmArgs': jvm}
-        pack = {'formatVersion': 1, 'components': [{'uid': 'net.minecraft', 'version': '1.21.1', 'important': True}, {'uid': 'org.neosync', 'version': match[1]}]}
+        pack = {'formatVersion': 1, 'components': [{'uid': 'org.lwjgl3', 'version': '3.3.3'}, {'uid': 'net.minecraft', 'version': '1.21.1', 'important': True}, {'uid': 'org.neosync', 'version': match[1]}]}
         descriptor = {'schemaVersion': 1, 'kind': 'prism', 'version': match[1], 'neoForgeVersion': match[2],
                       'root': prism_root.as_posix(), 'instance': target.as_posix(), 'executable': str(executable),
                       'java': java.as_posix(), 'libraries': fingerprints, 'component': component,

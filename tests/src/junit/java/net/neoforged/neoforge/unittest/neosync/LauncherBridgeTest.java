@@ -28,6 +28,14 @@ import org.junit.jupiter.api.io.TempDir;
 
 class LauncherBridgeTest {
     @Test
+    void rejectsMalformedPrelaunchRecordsWithoutUncheckedFailures(@TempDir Path directory) throws Exception {
+        Path record = Files.writeString(directory.resolve("verification.properties"), "count=0\n");
+        assertThrows(IOException.class, () -> LauncherBridge.Verifier.verify(record));
+        Files.writeString(record, "gameDirectory=../outside\ncount=0\n");
+        assertThrows(IOException.class, () -> LauncherBridge.Verifier.verify(record));
+    }
+
+    @Test
     void exportsAnIsolatedInstanceAndChecksModsBeforeLaunch(@TempDir Path directory) throws Exception {
         var store = ProfileStore.open(directory);
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());

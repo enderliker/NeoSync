@@ -43,6 +43,14 @@ public final class LauncherBridge {
         private Verifier() {}
 
         public static void verify(Path specification) throws IOException {
+            try {
+                verifyRecord(specification);
+            } catch (IllegalArgumentException | NullPointerException | ArithmeticException e) {
+                throw new IOException("The launch verification record is malformed.", e);
+            }
+        }
+
+        private static void verifyRecord(Path specification) throws IOException {
             requirePath(specification, false);
             if (Files.size(specification) > 1024 * 1024) throw new IOException("The launch verification record is oversized.");
             var record = new Properties();

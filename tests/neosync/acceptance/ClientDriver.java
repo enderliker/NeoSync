@@ -75,6 +75,7 @@ public final class ClientDriver {
     }
 
     private static int worldFrames;
+    private static int bootstrapFrames;
 
     private static void drive() throws Exception {
         Object screen = field(minecraft, "screen");
@@ -101,6 +102,7 @@ public final class ClientDriver {
         }
         String mode = settings.getProperty("mode", "install");
         if (mode.equals("bootstrap") && lastScreen.equals("TitleScreen")) {
+            if (++bootstrapFrames < 5) return;
             require(System.getProperty("neosync.launcher.config") != null, "The external launcher supplied its local NeoSync descriptor");
             require(type("net.neoforged.neoforge.neosync.protocol.SyncManifest").getField("NEOSYNC_VERSION").get(null).equals(settings.getProperty("expectedVersion")), "The expected NeoSync build is running");
             require(hasButton(screen, "NeoSync profiles"), "The profile recovery button is visible");

@@ -95,7 +95,7 @@ public final class PrismIntegration {
             var pack = new JsonObject();
             pack.addProperty("formatVersion", 1);
             var components = new JsonArray();
-            for (var entry : Map.of("net.minecraft", "1.21.1", "org.neosync", prepared.manifest().loaderVersion()).entrySet()) {
+            for (var entry : Map.of("org.lwjgl3", "3.3.3", "net.minecraft", "1.21.1", "org.neosync", prepared.manifest().loaderVersion()).entrySet()) {
                 var item = new JsonObject();
                 item.addProperty("uid", entry.getKey());
                 item.addProperty("version", entry.getValue());
