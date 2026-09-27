@@ -1,4 +1,4 @@
-<img src="docs/assets/neosync-icon.svg" align="right" width="72" height="72" alt="NeoSync N logo">
+<img src="docs/assets/neosync-mark.svg" align="right" width="72" height="72" alt="NeoSync N logo">
 
 # NeoSync
 

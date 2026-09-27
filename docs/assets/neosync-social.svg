@@ -1,14 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
   <title>NeoSync — server mod synchronization</title>
-  <rect width="1280" height="640" fill="#f3f0e8"/>
-  <g transform="translate(61 51) scale(1.22)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
-  <text x="204" y="146" font-family="DejaVu Sans, sans-serif" font-weight="bold" font-size="76" letter-spacing="-3" fill="#182521">NeoSync</text>
-  <g font-family="DejaVu Sans, sans-serif" fill="#182521">
+  <rect width="1280" height="640" fill="#ffffff"/>
+  <g transform="translate(61 51) scale(1.22)" fill="#000000"><path d="M58 14H70V70H58L42 50V86H30V30H42L58 50Z" fill="#ffffff"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+  <text x="204" y="146" font-family="DejaVu Sans, sans-serif" font-weight="bold" font-size="76" letter-spacing="-3" fill="#000000">NeoSync</text>
+  <g font-family="DejaVu Sans, sans-serif" fill="#000000">
     <text x="80" y="309" font-weight="bold" font-size="64" letter-spacing="-2">Your server’s mods.</text>
     <text x="80" y="388" font-weight="bold" font-size="64" letter-spacing="-2">Ready to join.</text>
-    <text x="83" y="450" font-size="25" fill="#4d5c51">Review downloads. Prepare an isolated profile. Restart.</text>
+    <text x="83" y="450" font-size="25" fill="#000000">Review downloads. Prepare an isolated profile. Restart.</text>
     <text x="83" y="572" font-size="21">Minecraft 1.21.1 · Based on NeoForge</text>
   </g>
-  <path d="M1120 526h80v80h-80Z" fill="#f3f0e8"/>
-  <g transform="translate(1120 526) scale(.8)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+  <path d="M1120 526h80v80h-80Z" fill="#ffffff"/>
+  <g transform="translate(1120 526) scale(.8)" fill="#000000"><path d="M58 14H70V70H58L42 50V86H30V30H42L58 50Z" fill="#ffffff"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
 </svg>

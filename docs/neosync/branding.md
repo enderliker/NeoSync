@@ -4,20 +4,20 @@ NeoSync uses an abstract geometric mark made from two interlocking elements.
 One element is rotated 180 degrees to form its matching counterpart, suggesting
 synchronization between client and server. The shared negative space reveals
 an N. The outer silhouette is a compact loop with two openings; the letter is
-the secondary reading. The opening stays transparent in every color application.
+the secondary reading. The N is filled white so it remains white on dark pages;
+only the area outside the symbol is transparent.
 The installer, launcher profile, mod list, and repository share this identity.
 The wordmark uses DejaVu Sans Bold with compact spacing.
 
-The palette is ink `#182521` and ivory `#f3f0e8`. Use ink on ivory for launcher
-icons, installer graphics, and documentation. An ivory-on-ink version is available
-for dark backgrounds. The two pieces use the same color. Keep the identity
+The palette is pure black `#000000` and pure white `#ffffff`. The two interlocking
+pieces are black and the N between them is white on every background. Keep the identity
 flat and legible; avoid mascots, gradients, textures, and decorative effects.
 The previous violet/mint mark remains part of historical release binaries.
 
 | Asset | Purpose |
 | --- | --- |
-| `docs/assets/neosync-mark.svg`, `neosync-mark.png` | Transparent, monochrome mark; SVG uses `currentColor`, PNG is 1024 × 1024. |
-| `docs/assets/neosync-icon.svg` | Editable square mark and repository header. |
+| `docs/assets/neosync-mark.svg`, `neosync-mark.png` | Black-and-white mark with transparent exterior; repository header and 1024 × 1024 PNG export. |
+| `docs/assets/neosync-icon.svg` | Editable launcher mark, cropped to its silhouette without an enclosing tile. |
 | `docs/assets/neosync-icon.png` | Installer's launcher-profile icon. |
 | `docs/assets/neosync-icon-16.png`, `neosync-icon-32.png` | Small installer window icons. |
 | `docs/assets/neosync-startup.png` | Static N repeated across FML's 28-frame startup texture. |
@@ -32,8 +32,9 @@ and DejaVu Sans installed. Commit the generated PNGs so normal Java builds need 
 graphics tools. Inspect both the square icon and the banner at their display
 sizes before publishing.
 
-Keep at least 14% of the mark canvas clear around the shape. Do not close the
-shared opening, add outlines, or stretch either element independently. The 16 px
+The icon viewBox follows the symbol's bounds: no internal padding, background
+tile, or border. Place any layout spacing outside the image. Do not recolor the
+white N, add outlines, or stretch either element independently. The 16 px
 and 32 px icons are rendered from the same source and must retain the opening.
 The [interactive preview](branding-preview.html) shows the mark on light and dark
 backgrounds, with downloadable files and actual-size samples.

@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="14 14 72 72">
   <title>NeoSync interlocking mark</title>
-  <g fill="currentColor"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+  <g fill="#000000"><path d="M58 14H70V70H58L42 50V86H30V30H42L58 50Z" fill="#ffffff"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
 </svg>
