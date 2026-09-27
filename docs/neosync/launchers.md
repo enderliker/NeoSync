@@ -51,6 +51,10 @@ Prism instances for earlier revisions remain available. Use **NeoSync profiles**
 to verify and select an older revision, then select its existing Prism instance.
 Current server requirements are checked again before reconnecting.
 
+The normal generated paths work when the Prism application root contains spaces.
+A relocated profile whose relative path contains whitespace or quotes must use
+manual activation; Prism's component argument format cannot represent it directly.
+
 ## SKlauncher and Minecraft Launcher
 
 Run the NeoSync installer against the launcher's Minecraft installation directory.
@@ -88,7 +92,9 @@ Official pages consulted with Tavily on September 27, 2026:
 - [SKlauncher game directories](https://docs.skmedix.pl/faq/launcher-related)
 
 The adapter also follows Prism's `Library.cpp`, `OneSixVersionFormat.cpp` and
-`MinecraftInstance.cpp` source contracts. Unit tests verify isolated export,
+`MinecraftInstance.cpp` and `INIFile.cpp` source contracts. Components are ordered
+LWJGL, Minecraft, NeoSync. Versioned QSettings serialization preserves commands,
+and game-directory expansion follows Prism's split-before-variable-expansion rule. Unit tests verify isolated export,
 repeated selection and rejection of modified or additional mod files. Documentation
 and source inspection alone do not certify a launcher. Installed execution results,
 including launcher versions and platform limits, are recorded in [Phase 7](phase-7.md).

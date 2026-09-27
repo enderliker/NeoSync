@@ -172,4 +172,5 @@ used a local status service, while the required-channel probe used a real
 dedicated server. These checks do not certify public DNS/SRV deployments,
 third-party proxies, every screen/input configuration, unmodified client
 interoperability, or launcher profile activation. Those remain targeted
-compatibility checks; no launcher is runtime-certified yet.
+compatibility checks at the Phase 2 checkpoint. See [Phase 7](phase-7.md) for
+current installed launcher validation.

@@ -26,7 +26,7 @@ external downloads, verified isolated profiles, and manual activation instructio
 The installed-build one-mod flow has passed. [Phase 4](docs/neosync/phase-4.md)
 adds restricted hosting with a newly generated administrator-authored mod passing
 installed download/restart/join acceptance in the alpha.3 build;
-automatic restart is not implemented.
+Prism restart is now implemented in [Phase 6](docs/neosync/phase-6.md).
 Keep this distinction explicit as each phase
 progresses; a design or source trace is not a runtime compatibility result.
 
@@ -223,7 +223,8 @@ mods and how to activate the prepared profile with a supported launcher.
 [version 1 protocol](docs/neosync/protocol-v1.md), with structural schemas and an
 example manifest. Source inspection establishes the pre-login status path and
 the launcher game-directory path into FML. The corresponding runtime acceptance
-checks remain assigned to Phases 2 and 3; no launcher is runtime-certified yet.
+checks were completed in later phases. Current launcher evidence is recorded
+in [Phase 7](docs/neosync/phase-7.md).
 
 ### Phase 2 — Discovery
 
@@ -278,10 +279,10 @@ not confuse a project page with a direct file link.
 **Exit criterion:** reduce manual configuration with exact Modrinth resolution
 without substituting versions or hiding changes in source.
 
-**Implementation status:** exact Modrinth lookup, client review, verified download,
-restart and join passed with the alpha.4 installer on Linux. The current removal
-of the second provider requires a fresh installed-build regression run. See
-[Phase 5](docs/neosync/phase-5.md).
+**Implementation:** Modrinth is the only provider. Exact lookup, review, verified
+download and real-server join are implemented. The current beta validation is
+recorded in [Phase 7](docs/neosync/phase-7.md); historical provider evidence
+remains in [Phase 5](docs/neosync/phase-5.md).
 
 ### Phase 6 — Restart and updates
 
@@ -290,6 +291,12 @@ and replacement, and restoration of the previous profile.
 
 **Exit criterion:** rejoin updated servers through a clear, recoverable flow;
 retain manual restart when automatic restart is unsupported.
+
+**Implementation:** isolated revisions preserve removed and replaced files in the
+previous set. The title-screen profile browser verifies and selects older
+revisions. Prism instances support pre-launch verification and restart handoff;
+SKlauncher and Minecraft Launcher retain the installed-version/manual-directory
+route. See [Phase 6](docs/neosync/phase-6.md) and [launcher guidance](docs/neosync/launchers.md).
 
 ### Phase 7 — Hardening and beta
 
@@ -300,6 +307,11 @@ Also verify declined consent and profile recovery.
 **Exit criterion:** a beta with documented compatibility, limitations, and
 validation. Security checks must accompany every phase; this phase expands
 coverage before release.
+
+**Validation:** the source builds NeoSync 0.1.0-beta.1. The
+[Phase 7 matrix](docs/neosync/phase-7.md) records exact installer checks,
+installed flows, failure tests, supported scope and concrete limits. Local beta
+artifacts are separate from the immutable published alpha.4 release.
 
 ## Code comments
 

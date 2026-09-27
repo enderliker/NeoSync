@@ -5,7 +5,7 @@ Status: implementation contract from [Phase 1](phase-1.md).
 and requirements reporting. [Phase 3](phase-3.md) implements reviewed external
 downloads, persistent profile associations, transactional preparation, and manual
 activation. [Phase 4](phase-4.md) implements restricted server artifact hosting;
-automatic restart remains later work. Version 1
+[Phase 6](phase-6.md) adds launcher integration and recovery. Version 1
 initially targets direct connections to Minecraft 1.21.1 servers with public HTTPS
 or an explicitly approved, trusted LAN endpoint.
 

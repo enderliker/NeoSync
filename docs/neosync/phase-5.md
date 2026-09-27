@@ -25,6 +25,9 @@ queues and deadlines, no redirects, and a bounded ten-minute in-memory cache.
 Failure does not choose another source. Configured direct HTTPS sources and
 restricted administrator-authored hosting are independent explicit choices.
 
+The current beta's installed Modrinth regression, Prism restart and update
+results are recorded in [Phase 7](phase-7.md).
+
 ## Historical alpha.4 implementation and evidence
 
 The sections below describe the immutable alpha.4 release and previous audit
@@ -293,7 +296,7 @@ A real desktop browser and Windows known-folder behavior are not certified by
 Linux watcher, KDialog or controlled-launcher fixtures. Native Wayland chooser
 behavior was not exercised; the Linux chooser run explicitly used Qt's X11 backend.
 
-Phase 5 remains incomplete until those required branches have current runtime
+At the alpha.4 checkpoint, Phase 5 remained incomplete pending those branches' runtime
 acceptance. The Modrinth run and synthetic/manual tests must remain separately
 identified in release notes.
 

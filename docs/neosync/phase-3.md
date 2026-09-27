@@ -206,29 +206,12 @@ loopback-only offline test server, not a personal Minecraft account.
 
 ## Acceptance limits and next work
 
-The one-mod Phase 3 exit flow has passed. Current concrete compatibility limits
-are unsupported server-only sources, query-bearing artifact URLs, redirects to
-another origin, nested/library/alternate-loader arrangements, and external
-launcher certification. The official launcher and its GUI are not installed on
-this machine. No automatic restart, provider resolution, or server file hosting
-is claimed. Public SRV/proxy deployments, broader mod combinations, power-loss
-durability, and spoken narration still need targeted validation.
+The one-mod Phase 3 exit flow passed with the alpha.1 implementation. Its runtime
+acceptance did not cover external launchers, provider resolution, or hosted
+artifacts. Those capabilities were implemented and tested in later phases; see
+[Phase 7](phase-7.md) for current compatibility, tested combinations and limits.
 
-The accepted [manual download design](manual-downloads.md) covers mods whose
-authors disable third-party automatic downloads: review explains the restriction,
-the user accepts an exact CurseForge browser link, and a future Downloads watcher
-imports only verified files through transactional preparation. This replaces
-server hosting as the planned fallback for that case. Browser handoff, platform
-Downloads discovery, and watched-file import are not implemented or covered by
-the Phase 3 acceptance results above. The planned source preference is Modrinth,
-then permitted CurseForge automatic downloads, then restricted CurseForge browser
-downloads. Future hosting is limited to mods written by the administrator for
-that server and not published or distributed elsewhere.
-
-Published increments use scoped Conventional Commits, starting at `4a45dff`
-(planning/consent), `0dcc6b6` (HTTPS transfer), `0b306cb` (metadata), `8f321be`
-(profiles), `9c65ff6` (application services), `954c0ec` (exact version ranges), and
-`ff119a5` (client/manual activation and installed-build harness), and `353b851`
-(mouse focus and expanded runtime acceptance driver). Corrections are
-published as follow-ups, preserving history. GitHub's inherited Release workflow
-was skipped for these pushes; no remote test result is claimed.
+The browser-assisted design recorded during this phase was implemented in
+alpha.4 and subsequently removed with CurseForge. Current builds use Modrinth,
+configured direct HTTPS sources and restricted administrator-authored hosting.
+Historical browser-import evidence is retained in [Phase 5](phase-5.md).

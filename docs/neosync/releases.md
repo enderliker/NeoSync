@@ -4,11 +4,11 @@ NeoSync releases identify both the fork and its compatible NeoForge platform:
 
 ```text
 NeoSync-<neosync-version>-neoforge-<base-version>
-NeoSync-0.1.0-alpha.4-neoforge-21.1.251
+NeoSync-0.1.0-beta.1-neoforge-21.1.251
 ```
 
-The first installation MVP is an **alpha prerelease** for Minecraft Java Edition
-1.21.1 and Java 21. The [Phase 3 validation](phase-3.md) establishes the tested
+The current source builds a local **0.1.0-beta.1 candidate** for Minecraft Java
+Edition 1.21.1 and Java 21. Published alpha.4 remains unchanged. The [Phase 3 validation](phase-3.md) establishes the tested
 one-mod flow; it does not certify every modpack or external launcher.
 
 ## Download selection
@@ -47,7 +47,7 @@ when switching to a prepared server-specific profile.
 Create a new server directory and run the installer with Java 21:
 
 ```bash
-java -jar NeoSync-0.1.0-alpha.4-neoforge-21.1.251-installer.jar --install-server /path/to/server
+java -jar NeoSync-0.1.0-beta.1-neoforge-21.1.251-installer.jar --install-server /path/to/server
 ```
 
 Start the generated `run.sh` on Linux or `run.bat` on Windows. Review the Minecraft
@@ -55,10 +55,11 @@ EULA and accept it yourself if you agree. Adjust `user_jvm_args.txt` as needed.
 The installer downloads Minecraft and required libraries; it does not include a
 world, third-party mods, or an accepted EULA.
 
-Place your chosen server mods in `mods`, then configure the
-[HTTPS manifest service](phase-2.md#server-setup) and
-[client file sources](phase-3.md#server-configuration-and-manual-activation).
-Installing the server does not automatically enable or configure synchronization.
+Place your chosen server mods in `mods`, then select client requirements through
+the [administrator panel](administration.md) at `https://MACHINE-IP:6742`.
+The generated password is stored in `config/neosync-admin/password.txt`.
+Restart the server to apply selections. Public servers should configure a
+publicly trusted [HTTPS manifest service](phase-2.md#server-setup).
 
 ## Packaging and validation
 
@@ -72,7 +73,7 @@ never to replacement binaries from upstream NeoForge. LegacyInstaller requires
 a nonempty URL even for an embedded library; an empty URL makes it skip the file.
 FML 4 hard-codes the local
 `net/neoforged/neoforge` layout, so installed files use a unique version suffix:
-`21.1.251-neosync-0.1.0-alpha.4`. The mod metadata and `NeoForgeVersion` still
+`21.1.251-neosync-0.1.0-beta.1`. The mod metadata and `NeoForgeVersion` still
 report the compatible base `21.1.251`. No modified NeoForge Maven publication
 is uploaded by this release process.
 
@@ -101,11 +102,19 @@ After validation, commit and push the source, then export the exact built assets
 python3 scripts/prepare_release.py
 ```
 
-The exporter requires a clean tracked tree, verifies the installer identity,
+Release archives use stable entry ordering, manifest attribute ordering and
+normalized timestamps. The executable installer manifest is checked as the first
+file. The exporter requires a clean tracked tree, verifies the installer identity,
 embedded libraries, branding, unchanged FML code, source version, and absence of bundled Minecraft classes, and
 writes artifacts to `build/neosync-release/<release-name>/`. Untracked personal
 handoff files are not included. Checksums identify the published bytes; they are
 not a code signature or a claim that downloaded code is harmless.
+
+For a local candidate, commit the reviewed changes and use
+`python3 scripts/prepare_release.py --local`. This performs the same archive
+checks but exports to `build/neosync-candidates/` without requiring a push. Its
+manifest explicitly identifies an unpublished candidate. Neither mode uploads
+anything or replaces an existing export.
 
 ## Publication
 
@@ -197,7 +206,7 @@ change its binaries.
 
 ### Alpha.4 source-resolution prerelease
 
-[NeoSync-0.1.0-alpha.4-neoforge-21.1.251](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.4-neoforge-21.1.251)
+[NeoSync-0.1.0-beta.1-neoforge-21.1.251](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.1-neoforge-21.1.251)
 was published as a prerelease on September 23, 2026 for Minecraft 1.21.1 and
 Java 21. Its immutable annotated tag points to source commit
 `49a54defc3dc6d2c074b89cd0f987abccfa077db`, matching the uploaded

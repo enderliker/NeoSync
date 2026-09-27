@@ -33,10 +33,10 @@ required client files and their sources; the player reviews and accepts the set
 before installation.
 
 > [!IMPORTANT]
-> NeoSync is in early development. The complete one-mod installation and join
-> flow has passed on Linux using the repository's production launcher harness.
-> Activation requires setting the prepared game directory in the launcher and
-> restarting manually. No external launcher is certified yet.
+> NeoSync is a beta for Minecraft 1.21.1. Modrinth is the only provider.
+> The administrator panel, isolated updates, verified recovery and Prism restart
+> integration are implemented. See the [validation matrix](docs/neosync/phase-7.md)
+> for the exact tested builds, platforms and remaining limits.
 
 ## Compatibility and build
 
@@ -44,7 +44,7 @@ before installation.
 | --- | --- | --- |
 | Minecraft Java Edition | **1.21.1** | The Minecraft version targeted by this branch. |
 | NeoForge base build | **21.1.251** | The platform build used by NeoSync; mods must be compatible with this NeoForge/Minecraft combination. |
-| NeoSync development identifier | **0.1.0-alpha.4** | Current source tree; Phase 5 remains incomplete. |
+| NeoSync development identifier | **0.1.0-beta.1** | Current source tree; local beta candidate, not a published release. |
 | Published NeoSync release | **0.1.0-alpha.4** | Current alpha prerelease with exact Modrinth resolution and browser-assisted import. |
 | Synchronization protocol | **1** | The version used for server discovery and manifests. |
 | Java | **21** | Required for running and developing this build; use a JDK for development. |
@@ -87,9 +87,9 @@ remains available for eligible administrator-authored mods.
 3. **Prepare.** NeoSync downloads the approved files, verifies their hashes and
    metadata, and prepares a new isolated revision. Your regular mod directory
    stays untouched.
-4. **Activate and join.** Follow the displayed instructions to select the new
-   game directory in your launcher, restart, and review the refreshed server
-   requirements before reconnecting.
+4. **Activate and join.** Prepare a Prism instance and choose **Close and launch**,
+   or select the displayed game directory manually in a supported launcher.
+   Review the refreshed server requirements before reconnecting.
 
 You can postpone activation and leave the profile prepared for later.
 
@@ -102,32 +102,15 @@ You can postpone activation and leave the profile prepared for later.
 | Consent | Binds acceptance to the exact reviewed files and sources. Unverified-source warnings default to **No, cancel**. |
 | Downloads | Uses configured direct HTTPS URLs or restricted server hosting, with destination restrictions, transfer limits, and SHA-256 verification. |
 | Provider resolution | Resolves exact Modrinth files before review and checks both provider and manifest hashes. Modrinth is the only provider. |
-| Server hosting | Alpha.3 serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
+| Server hosting | Serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
 | Preparation | Inspects JAR metadata without executing it and prepares a new revision while preserving existing profiles. |
+| Launcher support | Prism instance export and restart handoff, with pre-launch verification. Manual installed-version instructions for SKlauncher and Minecraft Launcher. See [launchers](docs/neosync/launchers.md). |
+| Profile recovery | Reviews and verifies an earlier revision before selecting it; preserves the running game and all previous revisions. |
 | Manual activation | Shows the exact game directory to select in the launcher; checks the selected profile and offers reconnection after restart. |
 
-The recorded Phase 3 validation includes **187 passing unit tests**, graphical
-consent checks, cancellation and recovery checks, and a complete installation of
-**Clumps 19.0.0.1** followed by joining a real dedicated server. See the
-[validation record](docs/neosync/phase-3.md#installed-build-acceptance-evidence)
-for the test environment and limits. This is evidence for the tested flow, not
-a claim of compatibility with every modpack or launcher.
-
-The recorded [Phase 4 validation](docs/neosync/phase-4.md#installed-build-acceptance)
-passed **197 tests** and an installed hosted-mod flow including both consent
-cancellations, download, manual restart, a real server join and process-interruption
-recovery. The installed server also rejected a third-party hosting selection.
-
-The [Phase 5 validation record](docs/neosync/phase-5.md) includes **246 passing
-unit tests** and, with the exact alpha.4 installer, installed live Modrinth and
-synthetic CurseForge manual-import flows followed by restart and a real-server
-join on Linux. Earlier installed fixtures also exercised explicit paths and
-native KDialog selection. No real CurseForge website flow or Windows runtime
-acceptance has been recorded.
-
-Post-release, the installed alpha.4 adapter also passed live, in-memory
-CurseForge metadata probes for both permitted and restricted exact files. These
-did not download mod bytes, open the real website, or save provider responses.
+Current validation and release limitations are recorded in [Phase 7](docs/neosync/phase-7.md).
+Historical alpha acceptance remains in [Phase 3](docs/neosync/phase-3.md),
+[Phase 4](docs/neosync/phase-4.md), and [Phase 5](docs/neosync/phase-5.md).
 
 ## Build from source
 
@@ -145,13 +128,11 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 
 - **Developers:** follow the [contribution guide](docs/CONTRIBUTING.md) for IDE
   setup, checks, and the Minecraft patch workflow.
-- **Server administrators:** follow the [HTTPS and manifest setup](docs/neosync/phase-2.md#server-setup),
-  then configure the [artifact sources](docs/neosync/phase-3.md#server-configuration-and-manual-activation).
-  Configure direct HTTPS URLs or, for your own unpublished server-specific mods,
-  the [restricted hosting declarations](docs/neosync/phase-4.md#server-configuration).
-  Alpha.4 also supports [exact provider resolution](docs/neosync/phase-5.md#provider-identity-and-protocol-compatibility)
-  with `resolveProviders: true`. All routes require explicit client-file selection
-  in `config/neosync-server.json`.
+- **Server administrators:** open `https://MACHINE-IP:6742` and read the generated
+  password locally from `config/neosync-admin/password.txt`. Select the client
+  files and restart the server to apply them. Follow the
+  [administrator guide](docs/neosync/administration.md) for TLS identity,
+  public HTTPS configuration, and restricted hosting.
 - **Testing the full flow:** use the [installed-build acceptance harness](tests/neosync/acceptance/README.md)
   to reproduce installation, activation, and joining in a controlled environment.
 
@@ -179,8 +160,9 @@ existing installation.
 HTTPS and matching hashes establish transport identity and byte consistency;
 they do not prove that a mod is trustworthy. Separate game directories organize
 mods and data, but **are not a sandbox**: accepted mods run with Minecraft's
-permissions. Startup verification runs after FML loads mods and cannot prevent
-locally tampered code from executing. Read the
+permissions. Generated Prism revision instances verify the mod inventory before FML starts.
+Other launch routes verify after mod loading. Neither check is a sandbox or a
+defense against an attacker who controls the local launcher and its records. Read the
 [security requirements](AGENTS.md#security-rules) and
 [current limitations](docs/neosync/phase-3.md#acceptance-limits-and-next-work).
 

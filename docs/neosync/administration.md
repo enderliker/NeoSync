@@ -58,6 +58,12 @@ or the loopback `reverse-proxy` mode from [Phase 2](phase-2.md#server-setup).
 The panel preserves that existing transport configuration when saving selections.
 The generated local certificate is not a public certificate authority.
 
+## Validation
+
+The installed Linux panel passed browser authentication, selection, injection and
+responsive-layout checks. See [Phase 7](phase-7.md) for the tested build and platform
+limits. Windows ACL handling is implemented but has not been runtime-tested.
+
 ## Access limits
 
 The panel requires same-origin JSON POSTs, a Secure/HttpOnly/SameSite session
