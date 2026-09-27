@@ -308,16 +308,15 @@ Also verify declined consent and profile recovery.
 validation. Security checks must accompany every phase; this phase expands
 coverage before release.
 
-**Validation:** the source targets NeoForge 21.1.252 after importing upstream
-[#3469](https://github.com/neoforged/NeoForge/pull/3469), retaining the NeoSync
-0.1.0-beta.2 development identifier. Published beta.2 uses NeoForge 21.1.251;
-the base update is not a new release or a new multiplayer acceptance result.
-Published beta.2 branding and maintenance release checks are recorded in
-[beta.2 notes](docs/neosync/release-notes/0.1.0-beta.2.md). The
-[Phase 7 matrix](docs/neosync/phase-7.md) records exact installer checks,
-installed flows, failure tests, supported scope and concrete limits for beta.1.
-Each prerelease preserves its own validated JARs; beta.2 does not replace beta.1
-or any earlier published artifacts.
+**Validation:** the source builds NeoSync 0.1.0-beta.3 on NeoForge 21.1.252 after
+importing upstream [#3469](https://github.com/neoforged/NeoForge/pull/3469).
+The [beta.3 notes](docs/neosync/release-notes/0.1.0-beta.3.md) describe validation
+and the Linux/Windows publication gate. Published beta.2 uses NeoForge 21.1.251;
+its branding checks remain in [beta.2 notes](docs/neosync/release-notes/0.1.0-beta.2.md).
+The [Phase 7 matrix](docs/neosync/phase-7.md) records installed flows, failure tests,
+supported scope and concrete limits for beta.1. A base update and startup checks
+are not a new multiplayer acceptance result. Each prerelease preserves its own
+validated JARs; beta.3 does not replace any earlier published artifacts.
 
 ## Code comments
 

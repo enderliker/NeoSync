@@ -1,14 +1,16 @@
 # Changelog
 
 NeoSync versions are independent of the NeoForge base and synchronization protocol.
-All releases below target Minecraft 1.21.1 and NeoForge 21.1.251 and are
-prereleases. Tags use `NeoSync-<version>-neoforge-<base-version>`.
+All releases below target Minecraft 1.21.1 and are prereleases. Beta.3 uses
+NeoForge 21.1.252; earlier releases use 21.1.251. Tags use `NeoSync-<version>-neoforge-<base-version>`.
 
 These summaries describe the behavior at each release. Historical features may
 have been removed; consult the current README and linked release notes before
 installing. Published artifacts and tags remain immutable.
 
 ## Unreleased
+
+## [0.1.0-beta.3] — 2026-09-27
 
 ### Changed
 
@@ -117,3 +119,5 @@ installing. Published artifacts and tags remain immutable.
 [0.1.0-alpha.1]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.1-neoforge-21.1.251
 
 [0.1.0-beta.2]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.2-neoforge-21.1.251
+
+[0.1.0-beta.3]: https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.3-neoforge-21.1.252

@@ -4,19 +4,13 @@ NeoSync releases identify both the fork and its compatible NeoForge platform:
 
 ```text
 NeoSync-<neosync-version>-neoforge-<base-version>
-NeoSync-0.1.0-beta.2-neoforge-21.1.251
+NeoSync-0.1.0-beta.3-neoforge-21.1.252
 ```
 
-The current prerelease is **0.1.0-beta.2** for Minecraft Java Edition 1.21.1
-and Java 21. See the [release notes](release-notes/0.1.0-beta.2.md) for checks on
-this installer, and [Phase 7 validation](phase-7.md) for historical full-flow
-evidence and launcher limitations.
-Published alpha.4 remains unchanged.
-
-The source tree now targets NeoForge **21.1.252**, including upstream
-[#3469](https://github.com/neoforged/NeoForge/pull/3469). The published beta.2
-installer and its validation below remain on **21.1.251**. This source update
-does not publish a release; the next release requires a new NeoSync version.
+The current release target is **0.1.0-beta.3** for Minecraft Java Edition 1.21.1,
+NeoForge 21.1.252 and Java 21. See the [release notes](release-notes/0.1.0-beta.3.md)
+for validation and limits. Publication requires successful Linux and Windows CI
+on the tagged source commit. Earlier releases and their artifacts remain unchanged.
 
 ## NeoForge 21.1.252 source validation
 
@@ -83,7 +77,7 @@ when switching to a prepared server-specific profile.
 Create a new server directory and run the installer with Java 21:
 
 ```bash
-java -jar NeoSync-0.1.0-beta.2-neoforge-21.1.251-installer.jar --install-server /path/to/server
+java -jar NeoSync-0.1.0-beta.3-neoforge-21.1.252-installer.jar --install-server /path/to/server
 ```
 
 Start the generated `run.sh` on Linux or `run.bat` on Windows. Review the Minecraft
@@ -109,8 +103,8 @@ never to replacement binaries from upstream NeoForge. LegacyInstaller requires
 a nonempty URL even for an embedded library; an empty URL makes it skip the file.
 FML 4 hard-codes the local
 `net/neoforged/neoforge` layout, so installed files use a unique version suffix:
-`21.1.251-neosync-0.1.0-beta.2`. The mod metadata and `NeoForgeVersion` still
-report the compatible base `21.1.251`. No modified NeoForge Maven publication
+`21.1.252-neosync-0.1.0-beta.3`. The mod metadata and `NeoForgeVersion` still
+report the compatible base `21.1.252`. No modified NeoForge Maven publication
 is uploaded by this release process.
 
 The startup library has its own `io.github.enderliker.neosync:earlydisplay`
