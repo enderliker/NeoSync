@@ -318,20 +318,23 @@ Also verify declined consent and profile recovery.
 validation. Security checks must accompany every phase; this phase expands
 coverage before release.
 
-**Validation:** the source builds unreleased NeoSync 0.1.0-beta.5 on NeoForge 21.1.252.
-Published beta.4 uses the same NeoForge base. The beta.5 source addresses
-administrator access through public IPv4 NAT and first-run configuration.
+**Validation:** published NeoSync 0.1.0-beta.5 uses NeoForge 21.1.252.
+Its source commit passed Linux and Windows CI and installed client/server startup
+checks. Beta.5 addresses administrator access through public IPv4 NAT,
+first-run configuration, and a configurable panel port. Published beta.4 uses
+the same NeoForge base.
 Configurable transports and the administrator panel update are documented in
 [administration](docs/neosync/administration.md) and the
-[beta.4 notes](docs/neosync/release-notes/0.1.0-beta.4.md). Its release source
-commit passed Linux and Windows CI and installed client/server startup checks.
+[beta.4 notes](docs/neosync/release-notes/0.1.0-beta.4.md). The
+[beta.5 notes](docs/neosync/release-notes/0.1.0-beta.5.md) record this release's
+validation and limits.
 Beta.3 imported upstream [#3469](https://github.com/neoforged/NeoForge/pull/3469).
 Published beta.2 uses NeoForge 21.1.251;
 its branding checks remain in [beta.2 notes](docs/neosync/release-notes/0.1.0-beta.2.md).
 The [Phase 7 matrix](docs/neosync/phase-7.md) records installed flows, failure tests,
 supported scope and concrete limits for beta.1. A base update and startup checks
 are not a new multiplayer acceptance result. Each prerelease preserves its own
-validated JARs; beta.4 does not replace any earlier published artifacts.
+validated JARs; beta.5 does not replace any earlier published artifacts.
 
 ## Code comments
 

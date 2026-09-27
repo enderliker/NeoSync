@@ -4,17 +4,17 @@ NeoSync releases identify both the fork and its compatible NeoForge platform:
 
 ```text
 NeoSync-<neosync-version>-neoforge-<base-version>
-NeoSync-0.1.0-beta.4-neoforge-21.1.252
+NeoSync-0.1.0-beta.5-neoforge-21.1.252
 ```
 
-The current published prerelease is **0.1.0-beta.4** for Minecraft Java Edition 1.21.1,
-NeoForge 21.1.252 and Java 21. See the [release notes](release-notes/0.1.0-beta.4.md)
+The current published prerelease is **0.1.0-beta.5** for Minecraft Java Edition 1.21.1,
+NeoForge 21.1.252 and Java 21. See the [release notes](release-notes/0.1.0-beta.5.md)
 for validation and limits. Linux and Windows CI passed on the tagged source
 commit before publication. Earlier releases and their artifacts remain unchanged.
 
-The unreleased [beta.5 candidate](release-notes/0.1.0-beta.5.md) fixes public IPv4
-panel access through NAT, creates a disabled configuration on the first server
-start, and adds a configurable administrator panel port.
+Beta.5 fixes public IPv4 panel access through NAT, creates a disabled
+configuration on the first server start, and adds a configurable administrator
+panel port. [Beta.4](release-notes/0.1.0-beta.4.md) remains available.
 
 ## NeoForge 21.1.252 source validation
 
@@ -81,7 +81,7 @@ when switching to a prepared server-specific profile.
 Create a new server directory and run the installer with Java 21:
 
 ```bash
-java -jar NeoSync-0.1.0-beta.4-neoforge-21.1.252-installer.jar --install-server /path/to/server
+java -jar NeoSync-0.1.0-beta.5-neoforge-21.1.252-installer.jar --install-server /path/to/server
 ```
 
 Start the generated `run.sh` on Linux or `run.bat` on Windows. Review the Minecraft
@@ -107,7 +107,7 @@ never to replacement binaries from upstream NeoForge. LegacyInstaller requires
 a nonempty URL even for an embedded library; an empty URL makes it skip the file.
 FML 4 hard-codes the local
 `net/neoforged/neoforge` layout, so installed files use a unique version suffix:
-`21.1.252-neosync-0.1.0-beta.4`. The mod metadata and `NeoForgeVersion` still
+`21.1.252-neosync-0.1.0-beta.5`. The mod metadata and `NeoForgeVersion` still
 report the compatible base `21.1.252`. No modified NeoForge Maven publication
 is uploaded by this release process.
 
