@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="860" viewBox="0 0 1200 860">
+  <title>NeoSync identity — four flat color applications</title>
+<rect width="1200" height="860" fill="#f3f0e8"/>
+<text x="48" y="63" font-family="DejaVu Sans" font-size="29" font-weight="bold" fill="#182521">NeoSync / Interlocking mark</text>
+<rect x="48" y="94" width="540" height="250" fill="#f3f0e8"/>
+<g transform="translate(226 118) scale(1.55)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+<text x="72" y="320" font-family="DejaVu Sans" font-size="16" fill="#182521">Ivory / ink</text>
+<rect x="612" y="94" width="540" height="250" fill="#182521"/>
+<g transform="translate(790 118) scale(1.55)" fill="#f3f0e8"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+<text x="636" y="320" font-family="DejaVu Sans" font-size="16" fill="#f3f0e8">Ink / ivory</text>
+<rect x="48" y="369" width="540" height="250" fill="#182521"/>
+<g transform="translate(226 393) scale(1.55)" fill="#c6eb80"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+<text x="72" y="595" font-family="DejaVu Sans" font-size="16" fill="#c6eb80">Ink / lime</text>
+<rect x="612" y="369" width="540" height="250" fill="#c6eb80"/>
+<g transform="translate(790 393) scale(1.55)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+<text x="636" y="595" font-family="DejaVu Sans" font-size="16" fill="#182521">Lime / ink</text>
+<g font-family="DejaVu Sans" fill="#182521"><text x="48" y="704" font-size="22">Two interlocking elements. An N in the negative space.</text><text x="48" y="744" font-size="16">The symbol suggests synchronization; the opening reveals the initial.</text></g>
+<g transform="translate(65 775) scale(0.16)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+<g transform="translate(157 775) scale(0.32)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+<g transform="translate(261 775) scale(0.64)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+<g transform="translate(425 751) scale(.8)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+</svg>

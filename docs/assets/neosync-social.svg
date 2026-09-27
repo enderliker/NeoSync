@@ -1,16 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
-  <title>NeoSync — Review the mods. Prepare a profile. Join the server.</title>
-  <desc>NeoSync for Minecraft Java Edition 1.21.1. Modrinth downloads, isolated profiles, and Prism restart.</desc>
-  <rect width="1280" height="640" fill="#171b2b"/>
-  <g transform="translate(96 84) scale(1.75)">
-    <path d="M0 64V0h16l32 40V0h16v64H48L16 24v40Z" fill="#9b8afb"/>
-    <path d="M48 0h16v24H48Z" fill="#72dfb0"/>
+  <title>NeoSync — server mod synchronization</title>
+  <rect width="1280" height="640" fill="#f3f0e8"/>
+  <g transform="translate(61 51) scale(1.22)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
+  <text x="204" y="146" font-family="DejaVu Sans, sans-serif" font-weight="bold" font-size="76" letter-spacing="-3" fill="#182521">NeoSync</text>
+  <g font-family="DejaVu Sans, sans-serif" fill="#182521">
+    <text x="80" y="309" font-weight="bold" font-size="64" letter-spacing="-2">Your server’s mods.</text>
+    <text x="80" y="388" font-weight="bold" font-size="64" letter-spacing="-2">Ready to join.</text>
+    <text x="83" y="450" font-size="25" fill="#4d5c51">Review downloads. Prepare an isolated profile. Restart.</text>
+    <text x="83" y="572" font-size="21">Minecraft 1.21.1 · Based on NeoForge</text>
   </g>
-  <g font-family="DejaVu Sans, sans-serif">
-    <text x="250" y="178" font-size="92" font-weight="bold" fill="#f5f4ff">NeoSync</text>
-    <text x="96" y="302" font-size="42" fill="#f5f4ff">Review the mods. Prepare a profile.</text>
-    <text x="96" y="360" font-size="42" fill="#f5f4ff">Join the server.</text>
-    <text x="96" y="458" font-size="26" fill="#c1c6dc">Modrinth downloads · Isolated profiles · Prism restart</text>
-    <text x="96" y="552" font-size="24" fill="#72dfb0">Minecraft Java Edition 1.21.1 · Based on NeoForge · Beta</text>
-  </g>
+  <path d="M1120 526h80v80h-80Z" fill="#c6eb80"/>
+  <g transform="translate(1120 526) scale(.8)" fill="#182521"><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/><path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/></g>
 </svg>

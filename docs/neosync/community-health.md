@@ -67,9 +67,16 @@ Gradle invocations to respect the source-generation workflow.
 - JUnit: 236 tests in 27 suites; zero failures, errors, or skipped tests.
 - Actionlint 1.7.12 passed for all workflows.
 - `bash -n scripts/render_branding.sh` and `git diff --check` passed.
-- Checked 65 local documentation links, README navigation anchors, six matched
+- Checked local documentation links, README navigation anchors, six matched
   details blocks, and preservation of all nine original README body sections.
 - The prepared social preview is a valid 1280 × 640 PNG.
+- Rebuilt the installer and sources after the final interlocking-logo revision.
+  `python3 scripts/prepare_release.py --check` passed: current graphics are
+  embedded, archive identities and licenses are preserved, and non-graphics FML
+  contents match the pinned upstream digests. No release was published.
+- Inspected the rendered mark, installer banner, and social preview; checked
+  SVG syntax, exported PNG dimensions, and preview links. Browser interaction
+  testing was not run because this environment has no installed browser engine.
 
 All five README badge URLs returned valid SVG responses after publication.
 The first remote build could not start: GitHub reported, "The job was not
@@ -80,7 +87,8 @@ reports this actual status; local success does not replace a remote result.
 
 A separate Windows workflow uses PowerShell and `gradlew.bat` for assembly,
 formatting, unit tests, and the installed dedicated-server self-test. Its syntax
-has been checked; Windows execution remains pending the GitHub account fix.
+has been checked. [Windows run 36324665935](https://github.com/enderliker/NeoSync/actions/runs/36324665935)
+was also prevented from starting by the same billing lock.
 These checks do not constitute a new installed gameplay acceptance run. Published
 beta evidence remains in [Phase 7](phase-7.md).
 
@@ -101,3 +109,54 @@ These are suggested values; this review does not change repository settings.
 The current About description still describes synchronization as planned, topics
 are empty, and no website is configured. These settings should be updated by the
 maintainer. No replacement license or additional product claims are needed.
+
+## Files changed during this review
+
+### Created
+
+- `.github/ISSUE_TEMPLATE/bug_report.yml`
+- `.github/ISSUE_TEMPLATE/config.yml`
+- `.github/ISSUE_TEMPLATE/feature_request.yml`
+- `.github/PULL_REQUEST_TEMPLATE.md`
+- `.github/workflows/test-windows.yml`
+- `CHANGELOG.md`
+- `CODE_OF_CONDUCT.md`
+- `SECURITY.md`
+- `docs/assets/neosync-branding-preview.png`
+- `docs/assets/neosync-branding-preview.svg`
+- `docs/assets/neosync-mark.png`
+- `docs/assets/neosync-mark.svg`
+- `docs/assets/neosync-social.png`
+- `docs/assets/neosync-social.svg`
+- `docs/neosync/branding-preview.html`
+- `docs/neosync/community-health.md`
+
+### Modified
+
+- `.github/renovate.json`
+- `.github/workflows/build-prs.yml`
+- `.github/workflows/check-local-changes.yml`
+- `.github/workflows/release.yml`
+- `.github/workflows/test-prs.yml`
+- `.gitignore`
+- `README.md`
+- `docs/CONTRIBUTING.md`
+- `docs/assets/neosync-icon-16.png`
+- `docs/assets/neosync-icon-32.png`
+- `docs/assets/neosync-icon.png`
+- `docs/assets/neosync-icon.svg`
+- `docs/assets/neosync-installer.png`
+- `docs/assets/neosync-installer.svg`
+- `docs/assets/neosync-startup.png`
+- `docs/neosync/branding.md`
+- `docs/neosync/releases.md`
+- `projects/neoforge/build.gradle`
+- `scripts/render_branding.sh`
+- `src/main/resources/neosync_logo.png`
+
+### Replaced or removed
+
+- `.github/ISSUE_TEMPLATE/feature_request.md`
+- `.github/ISSUE_TEMPLATE/issue_report.md`
+- `.github/workflows/publish-jcc.yml`
+- `.github/workflows/publish-prs.yml`

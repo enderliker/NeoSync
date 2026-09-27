@@ -1,12 +1,22 @@
 # NeoSync visual identity
 
-NeoSync uses an original geometric N with a violet body, a mint accent, and a
-dark background. The installer, launcher profile, mod list, and repository share
-this identity. The wordmark uses DejaVu Sans. Keep it flat and legible; avoid
-mascots, gradients, textures, and decorative effects.
+NeoSync uses an abstract geometric mark made from two interlocking elements.
+One element is rotated 180 degrees to form its matching counterpart, suggesting
+synchronization between client and server. The shared negative space reveals
+an N. The outer silhouette is a compact loop with two openings; the letter is
+the secondary reading. The opening stays transparent in every color application.
+The installer, launcher profile, mod list, and repository share this identity.
+The wordmark uses DejaVu Sans Bold with compact spacing.
+
+The palette is ink `#182521`, ivory `#f3f0e8`, and lime `#c6eb80`. Use lime on ink
+for launcher icons; use ink on ivory for documentation. Color supplements the
+silhouette; it is not needed to distinguish its two pieces. Keep the identity
+flat and legible; avoid mascots, gradients, textures, and decorative effects.
+The previous violet/mint mark remains part of historical release binaries.
 
 | Asset | Purpose |
 | --- | --- |
+| `docs/assets/neosync-mark.svg`, `neosync-mark.png` | Transparent, monochrome mark; SVG uses `currentColor`, PNG is 1024 × 1024. |
 | `docs/assets/neosync-icon.svg` | Editable square mark and repository header. |
 | `docs/assets/neosync-icon.png` | Installer's launcher-profile icon. |
 | `docs/assets/neosync-icon-16.png`, `neosync-icon-32.png` | Small installer window icons. |
@@ -14,12 +24,40 @@ mascots, gradients, textures, and decorative effects.
 | `docs/assets/neosync-installer.svg` | Editable wordmark and installer banner. |
 | `docs/assets/neosync-installer.png` | Installer banner. |
 | `docs/assets/neosync-social.svg`, `neosync-social.png` | Editable 1280 × 640 GitHub social preview and rendered upload. |
+| `docs/assets/neosync-branding-preview.svg`, `neosync-branding-preview.png` | Four flat color applications and small-size review. |
 | `src/main/resources/neosync_logo.png` | Mod-list banner, generated from the same wordmark. |
 
 After editing the SVGs, run `scripts/render_branding.sh` with librsvg, ImageMagick,
 and DejaVu Sans installed. Commit the generated PNGs so normal Java builds need no
 graphics tools. Inspect both the square icon and the banner at their display
 sizes before publishing.
+
+Keep at least 14% of the mark canvas clear around the shape. Do not close the
+shared opening, add outlines, or stretch either element independently. The 16 px
+and 32 px icons are rendered from the same source and must retain the opening.
+The [interactive preview](branding-preview.html) shows the mark on light, dark,
+and accent backgrounds, with downloadable files and actual-size samples.
+
+## Design references
+
+The September 2026 revision followed research through Tavily and the
+`logo-generator` skill's exploration workflow. The geometry was drawn directly
+as editable SVG; no stock symbol or generated raster was traced.
+
+- [Jacob Cass, Smashing Magazine: Vital Tips For Effective Logo Design](https://www.smashingmagazine.com/2009/08/vital-tips-for-effective-logo-design)
+  recommends a distinctive, simple silhouette, vector construction, and checking
+  single-color, reversed, and small-size applications.
+- [VistaPrint: Six key principles of logo design](https://www.vistaprint.com/hub/principles-of-logo-design)
+  discusses proportion and checking readability at favicon sizes.
+- [The Newton Agency: Why AI-Generated Logos Look Generic](https://www.thenewtonagencystudio.com/post/why-ai-generated-logos-look-generic)
+  offers a designer's critique of interchangeable visual formulas. This is
+  professional opinion, not an empirical test of originality or quality.
+
+For this project, avoiding generic styling means using the interlocking form
+and its negative space consistently, with restrained typography across assets.
+Recognizability is a design aim; it has not been measured in a user study.
+
+## Runtime packaging
 
 The mod retains the technical identifier `neoforge` and the NeoForge base version
 for dependency checks. Its visible name is NeoSync, with upstream attribution

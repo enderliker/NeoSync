@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NeoSync — Identity preview</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f3f0e8; color: #182521; font: 16px/1.6 "DejaVu Sans", sans-serif; }
+    main { max-width: 1100px; margin: auto; padding: 36px 24px 64px; }
+    h1 { margin: 0; font-size: clamp(32px, 6vw, 54px); letter-spacing: -2px; }
+    h2 { margin: 32px 0 16px; font-size: 24px; }
+    p { max-width: 720px; }
+    a { color: inherit; text-underline-offset: 4px; }
+    .stage { display: grid; place-items: center; min-height: 330px; padding: 32px; background: #182521; color: #c6eb80; }
+    .stage[data-palette="paper"] { background: #f3f0e8; color: #182521; outline: 1px solid #a8b1a7; outline-offset: -1px; }
+    .stage[data-palette="reverse"] { background: #182521; color: #f3f0e8; }
+    .stage[data-palette="accent"] { background: #c6eb80; color: #182521; }
+    .lockup { display: flex; align-items: center; gap: 18px; }
+    .mark { display: block; width: 138px; height: 138px; flex-shrink: 0; }
+    .wordmark { font-size: clamp(36px, 6vw, 64px); font-weight: bold; letter-spacing: -2.5px; }
+    fieldset { border: 0; padding: 0; margin: 20px 0; display: flex; gap: 16px; flex-wrap: wrap; }
+    legend { padding: 0; margin-bottom: 8px; }
+    label { cursor: pointer; }
+    input { accent-color: #182521; }
+    a:focus-visible, input:focus-visible { outline: 3px solid #496a20; outline-offset: 4px; }
+    .sizes { display: flex; align-items: end; gap: 36px; flex-wrap: wrap; padding: 24px 0; }
+    figure { margin: 0; }
+    figcaption { margin-top: 12px; font-size: 13px; }
+    .sizes img { display: block; image-rendering: auto; }
+    .downloads { display: flex; flex-wrap: wrap; gap: 14px 28px; }
+    .banner { display: block; width: min(100%, 480px); height: auto; }
+    footer { border-top: 1px solid #a8b1a7; margin-top: 40px; padding-top: 20px; font-size: 14px; }
+    @media (max-width: 540px) {
+      main { padding: 24px 16px 40px; }
+      .stage { min-height: 260px; padding: 20px; }
+      .lockup { gap: 8px; }
+      .mark { width: 80px; height: 80px; }
+      .wordmark { font-size: clamp(26px, 8vw, 36px); letter-spacing: -1.5px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <h1>NeoSync identity</h1>
+  <p>Two matching elements interlock to suggest synchronization. Their shared opening
+    reveals an N in the negative space. The symbol works in a single color.</p>
+  <fieldset id="palettes">
+    <legend>Preview background and mark</legend>
+    <label><input type="radio" name="palette" value="default" checked> Ink / lime</label>
+    <label><input type="radio" name="palette" value="paper"> Ivory / ink</label>
+    <label><input type="radio" name="palette" value="reverse"> Ink / ivory</label>
+    <label><input type="radio" name="palette" value="accent"> Lime / ink</label>
+  </fieldset>
+  <div class="stage" id="stage" data-palette="default">
+    <div class="lockup">
+      <svg class="mark" viewBox="0 0 100 100" aria-label="NeoSync interlocking mark" role="img">
+        <g fill="currentColor">
+          <path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z"/>
+          <path d="M28 14H58V50L42 30H30V86H28A14 14 0 0 1 14 72V28A14 14 0 0 1 28 14Z" transform="rotate(180 50 50)"/>
+        </g>
+      </svg>
+      <span class="wordmark">NeoSync</span>
+    </div>
+  </div>
+  <h2>Actual-size launcher icons</h2>
+  <div class="sizes">
+    <figure><img src="../assets/neosync-icon-16.png" width="16" height="16" alt="NeoSync icon at 16 pixels"><figcaption>16 px</figcaption></figure>
+    <figure><img src="../assets/neosync-icon-32.png" width="32" height="32" alt="NeoSync icon at 32 pixels"><figcaption>32 px</figcaption></figure>
+    <figure><img src="../assets/neosync-icon.png" width="64" height="64" alt="NeoSync icon at 64 pixels"><figcaption>64 px</figcaption></figure>
+    <figure><img src="../assets/neosync-icon.png" width="128" height="128" alt="NeoSync icon at 128 pixels"><figcaption>128 px</figcaption></figure>
+  </div>
+  <h2>Installer banner</h2>
+  <img class="banner" src="../assets/neosync-installer.png" width="480" height="120" alt="NeoSync — Review. Prepare. Join.">
+  <h2>Files</h2>
+  <div class="downloads">
+    <a href="../assets/neosync-mark.svg" download>Editable SVG mark</a>
+    <a href="../assets/neosync-mark.png" download>Transparent PNG · 1024 px</a>
+    <a href="../assets/neosync-social.png" download>Social preview · 1280 × 640</a>
+    <a href="../assets/neosync-branding-preview.png" download>Four color applications</a>
+  </div>
+  <footer>
+    <a href="branding.md">Construction, sources, and usage rules</a> ·
+    <a href="../../README.md">Project README</a>
+    <p>These assets apply to subsequent builds. Previously published installers retain their original graphics.</p>
+  </footer>
+</main>
+<script>
+  document.getElementById('palettes').addEventListener('change', (event) => {
+    if (event.target.name === 'palette') {
+      document.getElementById('stage').dataset.palette = event.target.value;
+    }
+  });
+</script>
+</body>
+</html>

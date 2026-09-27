@@ -21,6 +21,10 @@ installing. Published artifacts and tags remain immutable.
 - Added Windows CI for assembly, formatting, unit tests, and the installed
   dedicated-server self-test using Java 21 and the Windows Gradle wrapper.
 - Corrected the historical alpha.4 release link and narrowed Python ignore rules.
+- Replaced the violet/mint mark with two interlocking geometric elements that
+  reveal an N in negative space, using an ink, ivory,
+  and lime palette across icons, installer graphics, and documentation. Added
+  transparent exports and an interactive preview; published assets are unchanged.
 
 ### Fixed
 
