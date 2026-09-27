@@ -17,9 +17,12 @@ evaluationDependsOn(":neoforge-coremods")
 
 gradleutils.setupSigning(project: project, signAllPublications: true)
 
-changelog {
-    from '21.0'
-    disableAutomaticPublicationRegistration()
+// The curated fork changelog does not depend on upstream version tags.
+final neoSyncChangelogFile = layout.buildDirectory.file('neosync-changelog/changelog.txt')
+final prepareNeoSyncChangelog = tasks.register('prepareNeoSyncChangelog', Sync) {
+    from rootProject.layout.projectDirectory.file('CHANGELOG.md')
+    into layout.buildDirectory.dir('neosync-changelog')
+    rename { 'changelog.txt' }
 }
 
 sourceSets {
@@ -343,8 +346,8 @@ processResources {
     installerJar(installerJar) {
             setClassifier("installer")
         }
-        changelog(createChangelog.outputFile) {
-            builtBy(createChangelog)
+        changelog(neoSyncChangelogFile) {
+            builtBy(prepareNeoSyncChangelog)
             setClassifier("changelog")
             setExtension("txt")
         }
