@@ -19,6 +19,8 @@ installing. Published artifacts and tags remain immutable.
 
 ### Fixed
 
+- The profile marker redirection test now edits JSON fields directly, so Windows
+  path escaping does not leave the supposedly modified fixture unchanged.
 - Imported NeoForge [#3469](https://github.com/neoforged/NeoForge/pull/3469),
   commit [`61045a61fca76876999281676a9e794688390a9e`](https://github.com/neoforged/NeoForge/commit/61045a61fca76876999281676a9e794688390a9e),
   by sciwhiz12 and Shadows_of_Fire: `StackCopySlot` accepts the underlying slot

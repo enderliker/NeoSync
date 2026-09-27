@@ -171,9 +171,13 @@ class ProfileStoreTest {
         var prepared = prepare(store, plan, jar);
         Path marker = prepared.gameDirectory().resolve("neosync-profile.json");
         String text = Files.readString(marker);
-        Files.writeString(marker, text.replace(store.root().toString(), outside.toString()));
+        var redirected = JsonParser.parseString(text).getAsJsonObject();
+        redirected.addProperty("storageRoot", outside.toString());
+        Files.writeString(marker, redirected.toString());
         assertThrows(IOException.class, () -> ProfileStore.open(prepared.gameDirectory()));
-        Files.writeString(marker, text.replace(prepared.revisionId(), "../../escape"));
+        var escaped = JsonParser.parseString(text).getAsJsonObject();
+        escaped.addProperty("revisionId", "../../escape");
+        Files.writeString(marker, escaped.toString());
         assertThrows(IOException.class, () -> ProfileStore.open(prepared.gameDirectory()));
         Files.delete(marker);
         assertThrows(IOException.class, () -> ProfileStore.open(prepared.gameDirectory()));
