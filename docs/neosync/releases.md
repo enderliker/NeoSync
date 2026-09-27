@@ -207,7 +207,7 @@ change its binaries.
 
 ### Alpha.4 source-resolution prerelease
 
-[NeoSync-0.1.0-beta.1-neoforge-21.1.251](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.1-neoforge-21.1.251)
+[NeoSync-0.1.0-alpha.4-neoforge-21.1.251](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.4-neoforge-21.1.251)
 was published as a prerelease on September 23, 2026 for Minecraft 1.21.1 and
 Java 21. Its immutable annotated tag points to source commit
 `49a54defc3dc6d2c074b89cd0f987abccfa077db`, matching the uploaded

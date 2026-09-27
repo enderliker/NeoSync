@@ -13,6 +13,7 @@ mascots, gradients, textures, and decorative effects.
 | `docs/assets/neosync-startup.png` | Static N repeated across FML's 28-frame startup texture. |
 | `docs/assets/neosync-installer.svg` | Editable wordmark and installer banner. |
 | `docs/assets/neosync-installer.png` | Installer banner. |
+| `docs/assets/neosync-social.svg`, `neosync-social.png` | Editable 1280 × 640 GitHub social preview and rendered upload. |
 | `src/main/resources/neosync_logo.png` | Mod-list banner, generated from the same wordmark. |
 
 After editing the SVGs, run `scripts/render_branding.sh` with librsvg, ImageMagick,

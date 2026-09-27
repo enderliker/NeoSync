@@ -1,0 +1,29 @@
+name: Feature request
+description: Propose an improvement to NeoSync.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Explain what you are trying to do and how the current behavior gets in the way.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: textarea
+    id: impact
+    attributes:
+      label: Consent, security, compatibility, and launcher effects
+      description: Describe relevant effects or questions; a complete technical design is not required.
+  - type: input
+    id: phase
+    attributes:
+      label: Related roadmap phase or issue, if known

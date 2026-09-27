@@ -1,0 +1,59 @@
+name: Bug report
+description: Report a reproducible NeoSync problem.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For vulnerabilities, use [SECURITY.md](https://github.com/enderliker/NeoSync/blob/1.21.1/SECURITY.md).
+        Remove credentials and private information from logs. Search existing issues before submitting.
+  - type: input
+    id: version
+    attributes:
+      label: NeoSync release or commit
+      description: Include the exact build, not just "latest".
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Minecraft and NeoForge versions
+      description: Include the Minecraft version and the base NeoForge version if known.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Operating system, Java version, and launcher
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Client/server setup and relevant mods
+      description: Describe the setup and exact mod versions needed to reproduce the issue.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Include what you clicked or ran and whether a clean profile reproduces the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs or crash report
+      description: Attach sanitized logs or paste a short relevant excerpt. Never include passwords, tokens, or private keys.

@@ -23,10 +23,9 @@ issue or draft pull request before expanding the implementation. Small fixes and
 documentation improvements can go directly to a pull request. Keep upstream
 NeoForge bugs distinguishable from behavior introduced by this fork.
 
-For sensitive security reports, use this repository's private vulnerability
-reporting feature if enabled. If it is unavailable, request a private reporting
-channel in an issue without disclosing exploit details or credentials. Do not
-send NeoSync security reports to an unrelated upstream support channel.
+For sensitive security reports, follow [SECURITY.md](../SECURITY.md) and contact
+the maintainer privately. Follow the [Code of Conduct](../CODE_OF_CONDUCT.md)
+in issues, pull requests, and other project spaces.
 
 ## Development setup
 
@@ -36,7 +35,8 @@ send NeoSync security reports to an unrelated upstream support channel.
 2. Clone this repository or your contribution fork and create a branch for the
    change. NeoSync has an independent Git history. Its platform build version is
    set by `neoforge_base_version` in `gradle.properties`; upstream history and
-   tags are not required to build it.
+   tags are not required to build it. The build packages the curated root
+   `CHANGELOG.md` instead of generating release notes from upstream tags.
 3. Run `./gradlew setup` from the repository root to prepare Minecraft sources and
    apply the existing patches. On Windows, use `gradlew.bat`.
 4. Import or reload the Gradle project in your IDE.

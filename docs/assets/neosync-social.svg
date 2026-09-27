@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+  <title>NeoSync — Review the mods. Prepare a profile. Join the server.</title>
+  <desc>NeoSync for Minecraft Java Edition 1.21.1. Modrinth downloads, isolated profiles, and Prism restart.</desc>
+  <rect width="1280" height="640" fill="#171b2b"/>
+  <g transform="translate(96 84) scale(1.75)">
+    <path d="M0 64V0h16l32 40V0h16v64H48L16 24v40Z" fill="#9b8afb"/>
+    <path d="M48 0h16v24H48Z" fill="#72dfb0"/>
+  </g>
+  <g font-family="DejaVu Sans, sans-serif">
+    <text x="250" y="178" font-size="92" font-weight="bold" fill="#f5f4ff">NeoSync</text>
+    <text x="96" y="302" font-size="42" fill="#f5f4ff">Review the mods. Prepare a profile.</text>
+    <text x="96" y="360" font-size="42" fill="#f5f4ff">Join the server.</text>
+    <text x="96" y="458" font-size="26" fill="#c1c6dc">Modrinth downloads · Isolated profiles · Prism restart</text>
+    <text x="96" y="552" font-size="24" fill="#72dfb0">Minecraft Java Edition 1.21.1 · Based on NeoForge · Beta</text>
+  </g>
+</svg>

@@ -34,10 +34,7 @@ tests/src/generated/resources/.cache/
 
 # FML changelog
 changelog.txt
-*.py
-!scripts/configure_prism.py
-!tests/neosync/acceptance/prepare_fixture.py
-!scripts/prepare_release.py
+*.py[cod]
 __pycache__/
 *.7z
 /logs/
@@ -50,5 +47,11 @@ build
 
 **/out/
 
-# Generated provider credentials belong only in explicitly approved runtime binaries.
+# Never commit legacy provider credentials or local environment secrets.
 **/provider-access.bin
+
+.env
+.env.*
+!.env.example
+.venv/
+**/neosync-admin/

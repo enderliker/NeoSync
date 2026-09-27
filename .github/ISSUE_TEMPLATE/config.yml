@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a security vulnerability privately
+    url: https://github.com/enderliker/NeoSync/blob/1.21.1/SECURITY.md
+    about: Use the maintainer's private reporting channel instead of a public issue.
+  - name: Installation and launcher guidance
+    url: https://github.com/enderliker/NeoSync/blob/1.21.1/docs/neosync/launchers.md
+    about: Check the supported launcher routes and their validation limits.
