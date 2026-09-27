@@ -225,7 +225,27 @@ public final class NeoSyncClient {
         void prepared(ProfileStore.Prepared prepared) {
             screen.show(List.of("Profile prepared for " + prepared.manifest().displayName() + ".",
                     "Restart Minecraft using the prepared game directory to apply these mods. Closing and reopening your original installation will not activate them.",
-                    prepared.gameDirectory().toString()), "Later", "Restart instructions", () -> screen.show(activationInstructions(prepared), "Later", "", null));
+                    prepared.gameDirectory().toString()), "Later", "Restart instructions", () -> activation(prepared));
+        }
+
+        void activation(ProfileStore.Prepared prepared) {
+            if (net.neoforged.neoforge.neosync.launcher.PrismIntegration.available()) {
+                screen.menu(activationInstructions(prepared), List.of(new DiscoveryScreen.Choice("Prepare Prism instance", () -> {
+                    screen.show(List.of("Verifying the profile and preparing its Prism instance..."), "Cancel", "", null);
+                    run(token -> net.neoforged.neoforge.neosync.launcher.PrismIntegration.prepare(prepared, FMLLoader.versionInfo().fmlVersion(), token), launch -> {
+                        screen.show(List.of("The verified profile is ready in Prism Launcher.", "Close Minecraft and launch this server profile? Your account stays in Prism.",
+                                "Prism instance: " + launch.instance().getFileName(), "If you postpone, select this instance in Prism later."),
+                                "Later", "Close and launch", () -> {
+                                    try {
+                                        net.neoforged.neoforge.neosync.launcher.PrismIntegration.restart(launch);
+                                        minecraft.stop();
+                                    } catch (IOException e) {
+                                        error(e, false);
+                                    }
+                                });
+                    }, false, 15);
+                })));
+            } else screen.show(activationInstructions(prepared), "Later", "", null);
         }
 
         private <T> void run(Work<T> work, Consumer<T> success, boolean ordinaryFallback) {
@@ -278,6 +298,8 @@ public final class NeoSyncClient {
         return List.of("Close Minecraft, then create or edit an installation in your launcher.",
                 "Select the installed NeoSync " + prepared.manifest().loaderVersion() + " build with NeoForge " + prepared.manifest().neoForgeVersion() + " for Minecraft " + prepared.manifest().minecraftVersion() + ".",
                 "Set Game Directory to this exact path:", prepared.gameDirectory().toString(),
+                "Minecraft Launcher: Installations > New installation > Game Directory. SKlauncher: Installations Manager > New Installation > Game Directory. Select the installed NeoSync version in either launcher.",
+                "Prism Launcher: use a NeoSync instance created with the project's Prism setup tool. Its restart option prepares a separate instance for this directory. Installing ordinary NeoForge in Prism does not install NeoSync.",
                 "Launch that installation. NeoSync will verify the selected profile and offer to review and reconnect to the server.",
                 "Keep your account and authentication settings in the launcher. The profile does not include your personal worlds or settings.",
                 "A separate directory organizes your mods; it does not restrict the permissions of installed mod code.");

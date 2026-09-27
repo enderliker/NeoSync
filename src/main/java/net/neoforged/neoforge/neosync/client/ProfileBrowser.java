@@ -90,9 +90,24 @@ final class ProfileBrowser {
             revision.manifest().files().forEach(file -> lines.add(file.fileName() + " · " + file.size() + " bytes"));
             return () -> screen.show(lines, "No, cancel", "Verify and select", () -> run(() -> {
                 store.restore(revision, expected, FMLLoader.versionInfo().fmlVersion(), token);
-                return () -> screen.show(NeoSyncClient.activationInstructions(revision), "Later", "", null);
+                return () -> activation(revision);
             }));
         });
+    }
+
+    private void activation(ProfileStore.Prepared revision) {
+        if (!net.neoforged.neoforge.neosync.launcher.PrismIntegration.available()) {
+            screen.show(NeoSyncClient.activationInstructions(revision), "Later", "", null);
+            return;
+        }
+        screen.menu(NeoSyncClient.activationInstructions(revision), List.of(new DiscoveryScreen.Choice("Prepare Prism instance", () -> run(() -> {
+            var launch = net.neoforged.neoforge.neosync.launcher.PrismIntegration.prepare(revision, FMLLoader.versionInfo().fmlVersion(), token);
+            return () -> screen.show(List.of("The verified profile is ready in Prism.", "Close Minecraft and launch instance " + launch.instance().getFileName() + "?"),
+                    "Later", "Close and launch", () -> run(() -> {
+                        net.neoforged.neoforge.neosync.launcher.PrismIntegration.restart(launch);
+                        return minecraft::stop;
+                    }));
+        }))));
     }
 
     private void run(Work operation) {

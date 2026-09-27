@@ -35,6 +35,7 @@ tests/src/generated/resources/.cache/
 # FML changelog
 changelog.txt
 *.py
+!scripts/configure_prism.py
 !tests/neosync/acceptance/prepare_fixture.py
 !scripts/prepare_release.py
 __pycache__/
