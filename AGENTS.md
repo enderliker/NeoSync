@@ -145,6 +145,17 @@ outages. Serve only eligible files included in the manifest through controlled
 identifiers; never allow access to arbitrary filesystem paths. Clients must see
 the server as the source and explicitly accept the default-negative warning.
 
+### Administrator panel
+
+The dedicated server starts an HTTPS panel on IPv4 port 6742. A generated
+256-bit password and TLS identity are stored in `config/neosync-admin` with
+owner-only permissions. Never log credentials or expose them through HTTP.
+The panel edits the selected loaded inventory transactionally; the next server
+start validates and publishes it. Require session authentication, CSRF protection,
+bounded requests and explicit byte-bound hosting declarations. See
+[administration](docs/neosync/administration.md) for certificate enrollment and
+operational limits. A saved selection is not proof of successful discovery.
+
 ### Isolated profiles
 
 Maintain a separate game directory and mod set for each server. Define how a

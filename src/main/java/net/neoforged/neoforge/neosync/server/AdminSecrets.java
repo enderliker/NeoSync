@@ -66,6 +66,14 @@ public final class AdminSecrets {
             context.init(keys.getKeyManagers(), null, null);
             var certificate = store.getCertificate("neosync-admin");
             if (certificate == null) throw new IOException("The administrator TLS certificate is missing.");
+            Path publicCertificate = directory.resolve("certificate.pem");
+            String pem = "-----BEGIN CERTIFICATE-----\n" + Base64.getMimeEncoder(64, new byte[] { '\n' }).encodeToString(certificate.getEncoded()) + "\n-----END CERTIFICATE-----\n";
+            if (!Files.exists(publicCertificate, LinkOption.NOFOLLOW_LINKS)) {
+                Files.writeString(publicCertificate, pem, StandardCharsets.US_ASCII, StandardOpenOption.CREATE_NEW);
+            }
+            requireFile(publicCertificate, 16384);
+            if (!Files.readString(publicCertificate, StandardCharsets.US_ASCII).equals(pem))
+                throw new IOException("The public certificate does not match the TLS identity. Remove certificate.pem while the server is stopped to regenerate it.");
             return new AdminSecrets(password, context, SyncManifest.sha256(certificate.getEncoded()));
         } finally {
             java.util.Arrays.fill(chars, '\0');

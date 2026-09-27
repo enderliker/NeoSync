@@ -51,6 +51,8 @@ public final class NeoSyncServer {
     private static final Logger LOGGER = LogUtils.getLogger();
     @Nullable
     private static volatile State state;
+    @Nullable
+    private static AdminService admin;
 
     private NeoSyncServer() {}
 
@@ -89,6 +91,22 @@ public final class NeoSyncServer {
         if (!event.getServer().isDedicatedServer()) return;
         stopService();
         Path configPath = FMLPaths.CONFIGDIR.get().resolve("neosync-server.json");
+        AdminSecrets secrets = null;
+        try {
+            secrets = AdminSecrets.open(FMLPaths.CONFIGDIR.get().resolve("neosync-admin"));
+            Path mods = FMLPaths.MODSDIR.get().toAbsolutePath().normalize();
+            var candidates = ModList.get().getModFiles().stream()
+                    .filter(info -> info.getFile().getFilePath().getFileSystem() == java.nio.file.FileSystems.getDefault())
+                    .filter(info -> mods.equals(info.getFile().getFilePath().toAbsolutePath().normalize().getParent()))
+                    .map(info -> new AdminSelection.Candidate(info.getFile().getFilePath(), info.getMods().stream()
+                            .map(mod -> mod.getDisplayName() + " " + mod.getVersion()).collect(java.util.stream.Collectors.joining(", "))))
+                    .sorted(java.util.Comparator.comparing(candidate -> candidate.path().getFileName().toString())).toList();
+            admin = new AdminService(new InetSocketAddress("0.0.0.0", 6742), secrets, new AdminSelection(configPath, candidates, event.getServer().getPort()));
+            LOGGER.info("NeoSync administrator panel: https://<machine-IP>:6742. Password: config/neosync-admin/password.txt (server account only).");
+            LOGGER.info("NeoSync administrator certificate SHA-256: {}", secrets.fingerprint());
+        } catch (Exception e) {
+            LOGGER.error("NeoSync administrator panel could not start: {}", e.getMessage());
+        }
         if (!Files.exists(configPath, LinkOption.NOFOLLOW_LINKS)) return;
         HostedInventory inventory = null;
         try {
@@ -108,8 +126,12 @@ public final class NeoSyncServer {
             if (httpsPort != 443 && httpsPort != 8443) throw new IOException("The advertised HTTPS port must be 443 or 8443.");
             SSLContext tls = switch (mode) {
                 case "https" -> serverTls(config);
+                case "managed-https" -> {
+                    if (secrets == null) throw new IOException("The managed TLS identity is unavailable.");
+                    yield secrets.tls();
+                }
                 case "reverse-proxy" -> null;
-                default -> throw new IOException("The manifest service mode must be https or reverse-proxy.");
+                default -> throw new IOException("The manifest service mode must be https, managed-https, or reverse-proxy.");
             };
             var policy = HostingPolicy.parse(config.get("hosting"));
             if (policy.enabled()) inventory = new HostedInventory(FMLPaths.CONFIGDIR.get().resolve("neosync-hosting"), policy.maxBytes());
@@ -141,6 +163,10 @@ public final class NeoSyncServer {
     }
 
     private static void stopService() {
+        if (admin != null) {
+            admin.close();
+            admin = null;
+        }
         State previous = state;
         state = null;
         if (previous != null) {

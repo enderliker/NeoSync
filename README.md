@@ -97,6 +97,7 @@ You can postpone activation and leave the profile prepared for later.
 
 | Capability | Current behavior |
 | --- | --- |
+| Administration | HTTPS panel at `https://MACHINE-IP:6742`, generated private password, explicit client-file selection and restart-to-apply configuration. See [setup](docs/neosync/administration.md). |
 | Discovery | Retrieves a bounded HTTPS manifest before gameplay login and reports missing or incompatible requirements. |
 | Consent | Binds acceptance to the exact reviewed files and sources. Unverified-source warnings default to **No, cancel**. |
 | Downloads | Uses configured direct HTTPS URLs or restricted server hosting, with destination restrictions, transfer limits, and SHA-256 verification. |

@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NeoSync server administration</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<body><main>
+<header><img src="/icon.svg" alt="NeoSync" width="48" height="48"><div><h1>NeoSync</h1><p>Server administration</p></div><button id="logout" hidden>Sign out</button></header>
+<p id="status" role="status" aria-live="polite"></p>
+<section id="login"><h2>Sign in to your server</h2><p>Use the generated password in <code>config/neosync-admin/password.txt</code> on the server.</p><form id="login-form"><label>Password <input id="password" type="password" required autocomplete="current-password" maxlength="128"></label><button>Sign in</button></form></section>
+<section id="panel" hidden><h2>Choose the mods players receive</h2><p>Select client requirements from the loaded server inventory. Include required dependencies. Leave server-only mods unselected.</p>
+<form id="selection"><div class="settings"><label><input id="enabled" type="checkbox"> Enable synchronization</label><label>Server name <input id="display-name" maxlength="128" required></label></div>
+<p id="pending"></p><p id="missing"></p><label>Filter mods <input id="filter" type="search" placeholder="Name or file"></label><div id="files"></div><p id="totals"></p>
+<p>Saving affects the next server start. Restart the server to validate dependencies, resolve exact Modrinth files and publish the new selection. Lookup failure never switches a file to server hosting.</p><p>Players must review and accept the new set. Previously prepared profiles remain recoverable.</p><button id="save">Save selection</button><button id="reload" type="button">Reload selection</button></form></section>
+<footer>Minecraft 1.21.1 · Modrinth and restricted server hosting</footer>
+</main></body></html>

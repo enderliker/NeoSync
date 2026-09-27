@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <title>NeoSync</title>
+  <rect width="128" height="128" rx="28" fill="#171b2b"/>
+  <path d="M32 96V32h16l32 40V32h16v64H80L48 56v40Z" fill="#9b8afb"/>
+  <path d="M80 32h16v24H80Z" fill="#72dfb0"/>
+</svg>
