@@ -183,29 +183,20 @@ public final class InstallationPlan {
             lines.add(file.artifact().fileName() + " — " + file.artifact().size() + " bytes — " + (file.available() ? "available for verified copying" : "download required"));
             file.artifact().mods().forEach(mod -> lines.add(mod.displayName() + " (" + mod.id() + ") " + mod.version()));
             lines.add("Source: " + sourceDescription(file));
-            if (!file.available() && file.provider() != null && file.provider().manual())
-                lines.add("The server reports that the author disabled automatic downloads — your browser will open the exact file page.");
             lines.add("SHA-256: " + file.artifact().sha256());
         }
         return List.copyOf(lines);
-    }
-
-    public boolean hasManualDownloads() {
-        return files.stream().anyMatch(file -> !file.available() && file.provider() != null && file.provider().manual());
     }
 
     public List<String> warningLines() {
         var lines = new ArrayList<String>();
         lines.add("These files come from unverified sources. Installed mods can execute code with Minecraft's permissions. A matching hash does not prove that a mod is trustworthy.");
         for (var file : files) lines.add(file.artifact().fileName() + " — " + sourceDescription(file));
-        if (hasManualDownloads()) lines.add("Accepting opens the reviewed CurseForge file pages and imports only matching downloads. You may need to finish the download in your browser.");
         lines.add("Accept only if you want to install this exact set from these sources.");
         return List.copyOf(lines);
     }
 
     private String sourceDescription(File file) {
-        if (file.provider() != null && file.provider().identity().id().equals("curseforge")) return "CurseForge — " + file.source()
-                + " (unverified source; the server reports this provider identity and download permission; exact bytes will be checked against the approved SHA-256 and server-reported SHA-1; not a safety guarantee)";
         if (file.provider() != null) return file.provider().identity().id() + " — " + file.source()
                 + " (unverified source; provider metadata matched; exact bytes will be checked against the approved SHA-256 and provider hash; not a safety guarantee)";
         return file.providedByServer() ? "Provided by the server " + manifest.displayName() + " (" + identity.host() + ":" + identity.gamePort()

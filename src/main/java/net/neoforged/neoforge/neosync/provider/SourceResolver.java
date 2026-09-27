@@ -19,9 +19,6 @@ public final class SourceResolver {
     }
 
     public Map<String, ProviderArtifact> resolve(SyncManifest manifest, DiscoveryCancellation token) throws IOException {
-        if (manifest.files().stream().flatMap(file -> file.sources().stream())
-                .anyMatch(source -> source.provider() != null && source.provider().id().equals("curseforge")))
-            throw new IOException(AutomaticSources.CURSEFORGE_DISABLED);
         var hints = manifest.files().stream().flatMap(file -> file.sources().stream()).map(SyncManifest.Source::provider)
                 .filter(hint -> hint != null && hint.id().equals("modrinth")).distinct().toList();
         var versions = modrinth.versions(hints, token);

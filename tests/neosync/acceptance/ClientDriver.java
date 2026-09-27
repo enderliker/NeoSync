@@ -30,7 +30,6 @@ public final class ClientDriver {
     private static boolean connecting;
     private static int attempt;
     private static int step;
-    private static boolean selectedManualFile;
     private static Object parent;
     private static String lastScreen = "";
 
@@ -118,8 +117,6 @@ public final class ClientDriver {
                 if (attempt > 0) {
                     Path game = ((java.io.File) field(minecraft, "gameDirectory")).toPath();
                     require(!Files.exists(game.resolve("neosync")), "Declined consent created no store or artifact staging area");
-                    if (!settings.getProperty("manualFixture", "").isEmpty())
-                        require(!Files.exists(Path.of(settings.getProperty("manualFixture"), "browser-report.txt")), "Declined manual consent opened no browser");
                 }
                 connect();
             }
@@ -167,19 +164,8 @@ public final class ClientDriver {
                 attempt++;
             } else {
                 screenshot("neosync-warning.png");
-                click(screen, hasButton(screen, "Yes, open and import files") ? "Yes, open and import files" : "Yes, download these files");
+                click(screen, "Yes, download these files");
                 evidence.add("Explicitly accepted the displayed source and files.");
-            }
-        } else if (text.contains("Waiting for approved browser downloads") && !selectedManualFile && (settings.containsKey("manualSelection") || Boolean.parseBoolean(settings.getProperty("manualChooser", "false")))) {
-            selectedManualFile = true;
-            if (Boolean.parseBoolean(settings.getProperty("manualChooser", "false"))) {
-                click(screen, "Choose downloaded file...");
-                evidence.add("The product's native downloaded-file chooser returned.");
-            } else {
-                call(field(screen, "pathInput"), "setValue", settings.getProperty("manualSelection"));
-                screenshot("neosync-manual-selection.png");
-                click(screen, "Use path");
-                evidence.add("Selected an explicit local browser download through the product screen.");
             }
         } else if (hasButton(screen, "Restart instructions")) {
             String game = paragraphs.stream().filter(line -> line.startsWith("/")).findFirst().orElseThrow();
@@ -197,11 +183,6 @@ public final class ClientDriver {
     }
 
     private static void connect() throws Exception {
-        if (!settings.getProperty("manualFixture", "").isEmpty()) {
-            manualReview();
-            connecting = true;
-            return;
-        }
         String address = settings.getProperty("server", "127.0.0.1:25575");
         Object parsed = call(type("net.minecraft.client.multiplayer.resolver.ServerAddress"), "parseString", address);
         Class<?> kind = type("net.minecraft.client.multiplayer.ServerData$Type");
@@ -209,44 +190,6 @@ public final class ClientDriver {
         Object data = type("net.minecraft.client.multiplayer.ServerData").getConstructor(String.class, String.class, kind).newInstance("NeoSync acceptance", address, other);
         call(type("net.minecraft.client.gui.screens.ConnectScreen"), "startConnecting", parent, minecraft, parsed, data, false, null);
         connecting = true;
-    }
-
-    private static void manualReview() throws Exception {
-        Path fixture = Path.of(settings.getProperty("manualFixture"));
-        require(System.getenv("PATH").split(java.io.File.pathSeparator)[0].equals(fixture.resolve("browser-bin").toString()), "Controlled browser executable is first on the client PATH");
-        require(fixture.resolve("xdg-config").toString().equals(System.getenv("XDG_CONFIG_HOME")), "Client uses the relocated XDG Downloads fixture");
-        Object token = type("net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation").getConstructor().newInstance();
-        Object capability = call(call(type("net.neoforged.neoforge.neosync.protocol.StatusQuery"), "query", new java.net.InetSocketAddress("127.0.0.1", 25575), "127.0.0.1", 25575, 767, token), "orElseThrow");
-        Object endpoint = call(type("net.neoforged.neoforge.neosync.protocol.SyncEndpoint"), "create", "127.0.0.1", 25575, capability);
-        byte[] bytes = (byte[]) call(type("net.neoforged.neoforge.neosync.protocol.ManifestHttpClient"), "fetch", endpoint, java.net.InetAddress.getByName("127.0.0.1"), javax.net.ssl.SSLContext.getDefault(), token);
-        Object manifest = call(type("net.neoforged.neoforge.neosync.protocol.SyncManifest"), "parse", bytes);
-        Class<?> transportType = type("net.neoforged.neoforge.neosync.provider.ProviderTransport");
-        Object transport = java.lang.reflect.Proxy.newProxyInstance(gameLoader, new Class<?>[] { transportType }, (proxy, method, arguments) -> {
-            throw new IllegalStateException("A client must not request CurseForge metadata or use the administrator's key.");
-        });
-        Object resolver = type("net.neoforged.neoforge.neosync.provider.SourceResolver").getConstructor(transportType).newInstance(transport);
-        Object sources = call(resolver, "resolve", manifest, token);
-        String loader = (String) call(manifest, "loaderVersion");
-        String base = (String) call(manifest, "neoForgeVersion");
-        Object plan = call(type("net.neoforged.neoforge.neosync.protocol.InstallationPlan"), "create", endpoint, bytes, Set.of(), null, loader, base, null, sources);
-        Object report = call(type("net.neoforged.neoforge.neosync.protocol.RequirementReport"), "compare", manifest, Set.of(), Map.of(), loader, base);
-        Object store = call(type("net.neoforged.neoforge.neosync.protocol.ProfileStore"), "open", ((java.io.File) field(minecraft, "gameDirectory")).toPath());
-        Class<?> attemptType = type("net.neoforged.neoforge.neosync.client.NeoSyncClient$Attempt");
-        Class<?> reviewType = type("net.neoforged.neoforge.neosync.client.NeoSyncClient$Review");
-        open(attemptType);
-        open(reviewType);
-        var attemptConstructor = attemptType.getDeclaredConstructors()[0];
-        attemptConstructor.setAccessible(true);
-        Object address = call(type("net.minecraft.client.multiplayer.resolver.ServerAddress"), "parseString", "127.0.0.1:25575");
-        Object attemptObject = attemptConstructor.newInstance(minecraft, parent, address, (Runnable) () -> {});
-        var reviewConstructor = reviewType.getDeclaredConstructors()[0];
-        reviewConstructor.setAccessible(true);
-        Object review = reviewConstructor.newInstance(report, false, store, plan, Map.of(), null, null);
-        call(minecraft, "setScreen", field(attemptObject, "screen"));
-        var reviewMethod = attemptType.getDeclaredMethod("review", reviewType);
-        reviewMethod.setAccessible(true);
-        reviewMethod.invoke(attemptObject, review);
-        evidence.add("Manual branch uses synthetic server-reported CurseForge metadata and a controlled browser launcher; this is not live CurseForge acceptance.");
     }
 
     private static boolean initialized(Class<?> type) throws Exception {

@@ -121,42 +121,17 @@ never as automatic authorization to download. Allow sources explicitly configure
 by the administrator and respect provider and mod download and redistribution
 restrictions.
 
-The planned source preference for each exact required artifact is:
+Modrinth is the only supported provider. Resolve the exact approved artifact by
+SHA-512 and independently check its provider identity on the client. Configured
+direct HTTPS sources remain available as explicitly reviewed unverified sources.
+Restricted local hosting remains available only under the eligibility rules below.
+Never silently substitute a source when Modrinth lookup fails.
 
-| Priority | Source | Planned acquisition |
-| --- | --- | --- |
-| 1 | Modrinth | Automatic download through the provider when the exact file is available and downloads are permitted. |
-| 2 | CurseForge with third-party downloads enabled | Automatic download through the provider for the exact file. |
-| 3 | CurseForge with third-party downloads disabled | Open the exact file page in the browser after a clear notice and consent, then detect and verify the local download. |
-| 4 | Server hosting | Only a mod written by the administrator for that server and not published or distributed anywhere else. |
-
-This is a source-selection policy, not permission to silently switch sources
-after consent. Automatic acquisition still follows installation review and
-acceptance; it means no additional browser step. Match the exact approved bytes,
-not just a project name or version label. Phase 5 implementation now includes
-exact Modrinth resolution and a CurseForge/manual-import adapter. Modrinth has
-passed a new installed flow. Live, in-memory CurseForge metadata probes passed
-with an administrator-owned key, but full installed CurseForge acceptance remains
-blocked on an applicable provider agreement for retained metadata. The key stays
-on the server in the published alpha.4 build; clients treat its reported
-CurseForge metadata as unverified. Current development builds reject new
-CurseForge provider hints and make no CurseForge API requests until this retention
-issue is resolved. An administrator-owned key does not remove that restriction.
-Configured direct HTTPS
-downloads and restricted server sources remain available. See
-[Phase 5](docs/neosync/phase-5.md) for current evidence and limits.
-
-When a mod author disables third-party automatic downloads, the planned fallback
-is a browser download from the exact CurseForge project/file page, followed by
-local verification and import. Do not use server hosting to work around that
-choice. Explain the manual step during review before opening the browser; retain
-**No, cancel** as the default for unverified sources. Watch the user's actual
-Downloads directory on Linux or Windows, verify the approved size and SHA-256,
-and copy into the new isolated revision through normal transactional preparation.
-The import flow is implemented, with installed Linux fixture validation; real
-restricted CurseForge downloads and Windows runtime acceptance remain pending.
-See the [manual download contract](docs/neosync/manual-downloads.md) for consent, platform
-handling, verification, and acceptance requirements.
+CurseForge integration and browser import were removed at the user's request on
+September 27, 2026. Historical alpha.4 evidence is retained in Phase 5; it does not
+describe the current implementation. Old profiles with removed provider hints are
+rejected without changing their files. Modrinth and direct-source profiles remain
+readable.
 
 ### Server hosting
 
@@ -289,25 +264,13 @@ public hosting does not inherit Minecraft login restrictions or prove authorship
 Integrate providers, identify exact files, and handle download restrictions. Do
 not confuse a project page with a direct file link.
 
-Include the [browser-assisted manual download flow](docs/neosync/manual-downloads.md)
-for author restrictions. Keep those restrictions visible and preserve explicit
-consent; this subset cannot promise a zero-click installation.
+**Exit criterion:** reduce manual configuration with exact Modrinth resolution
+without substituting versions or hiding changes in source.
 
-**Exit criterion:** reduce manual configuration without substituting different
-file versions or hiding changes in source.
-
-**Implementation status:** in progress in the published alpha.4 prerelease.
-Modrinth passed installed lookup/review/download/restart/join acceptance.
-Installed Linux browser-import fixtures using synthetic CurseForge metadata passed
-preparation/restart/join, including watcher, explicit-path and native KDialog
-selection. The published alpha.4 lookup uses the server administrator's own
-environment key and reports a missing key to that administrator. A real
-administrator-owned key passed in-memory permitted
-and restricted file metadata probes. No provider agreement for retained metadata
-or installed CurseForge download/browser acceptance is recorded. Do not mark
-Phase 5 complete from metadata probes or fixture tests. Current development
-builds disable CurseForge API lookup and new CurseForge provider plans.
-See [Phase 5](docs/neosync/phase-5.md).
+**Implementation status:** exact Modrinth lookup, client review, verified download,
+restart and join passed with the alpha.4 installer on Linux. The current removal
+of the second provider requires a fresh installed-build regression run. See
+[Phase 5](docs/neosync/phase-5.md).
 
 ### Phase 6 — Restart and updates
 

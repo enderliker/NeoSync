@@ -56,14 +56,7 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
     /** A server-provided lookup hint, not independent evidence of file identity or trust. */
     public record ProviderHint(String id, String projectId, String fileId) {}
 
-    /** CurseForge metadata reported by the server; it is not independently authenticated by the client. */
-    public record ProviderEvidence(String sha1, boolean manual) {}
-
-    public record Source(String type, @Nullable URI url, @Nullable ProviderHint provider, @Nullable ProviderEvidence evidence) {
-        public Source(String type, @Nullable URI url, @Nullable ProviderHint provider) {
-            this(type, url, provider, null);
-        }
-    }
+    public record Source(String type, @Nullable URI url, @Nullable ProviderHint provider) {}
 
     public static SyncManifest parse(byte[] bytes) throws IOException {
         var root = SyncJson.object(SyncJson.parse(bytes, MAX_BYTES), Set.of("schemaVersion", "serverId", "revision", "displayName", "minecraftVersion", "loader", "files"), Set.of());
@@ -134,20 +127,14 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
                     }
                     if (url.getPort() != -1 && url.getPort() != 443 && url.getPort() != 8443) throw new IOException("Unsupported external HTTPS port.");
                     ProviderHint hint = null;
-                    ProviderEvidence evidence = null;
                     if (source.has("provider")) {
-                        var provider = SyncJson.object(source.get("provider"), Set.of("id", "projectId", "fileId"), Set.of("sha1", "manual"));
+                        var provider = SyncJson.object(source.get("provider"), Set.of("id", "projectId", "fileId"), Set.of());
                         String id = SyncJson.string(provider.get("id"), 32);
-                        if (!Set.of("modrinth", "curseforge").contains(id)) throw new IOException("Unknown provider hint.");
+                        if (!id.equals("modrinth")) throw new IOException("Only Modrinth provider hints are supported.");
                         hint = new ProviderHint(id, SyncJson.matching(provider.get("projectId"), 128, "[A-Za-z0-9_-]+"),
                                 SyncJson.matching(provider.get("fileId"), 128, "[A-Za-z0-9_-]+"));
-                        if (provider.has("sha1") != provider.has("manual") || provider.has("sha1") && !id.equals("curseforge"))
-                            throw new IOException("Invalid provider evidence in manifest.");
-                        if (provider.has("sha1")) {
-                            evidence = new ProviderEvidence(SyncJson.matching(provider.get("sha1"), 40, "[0-9a-f]{40}"), SyncJson.bool(provider.get("manual")));
-                        }
                     }
-                    result.add(new Source(type, url, hint, evidence));
+                    result.add(new Source(type, url, hint));
                 } catch (URISyntaxException e) {
                     throw new IOException("Invalid source URL.", e);
                 }

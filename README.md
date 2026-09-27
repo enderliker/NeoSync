@@ -100,8 +100,7 @@ You can postpone activation and leave the profile prepared for later.
 | Discovery | Retrieves a bounded HTTPS manifest before gameplay login and reports missing or incompatible requirements. |
 | Consent | Binds acceptance to the exact reviewed files and sources. Unverified-source warnings default to **No, cancel**. |
 | Downloads | Uses configured direct HTTPS URLs or restricted server hosting, with destination restrictions, transfer limits, and SHA-256 verification. |
-| Provider resolution | Resolves exact Modrinth files before review and checks both provider and manifest hashes. Current development builds reject CurseForge provider hints because the API data flow would retain metadata. |
-| Manual import | The importer verifies a watched or selected local file in synthetic tests. New CurseForge provider plans are disabled pending terms resolution; real CurseForge and Windows acceptance remain pending. |
+| Provider resolution | Resolves exact Modrinth files before review and checks both provider and manifest hashes. Modrinth is the only provider. |
 | Server hosting | Alpha.3 serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
 | Preparation | Inspects JAR metadata without executing it and prepares a new revision while preserving existing profiles. |
 | Manual activation | Shows the exact game directory to select in the launcher; checks the selected profile and offers reconnection after restart. |
@@ -157,44 +156,18 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 
 ## Provider source handling
 
-The alpha.4 prerelease adds exact Modrinth resolution, with an installed
-review/download/restart/join result. Manual import has installed Linux fixture
-coverage with synthetic CurseForge metadata; **Phase 5 remains incomplete**.
-An administrator-owned key has passed live metadata-only probes. Full CurseForge
-acceptance still needs an applicable agreement for retained API data and an
-installed download/browser run. Windows runtime acceptance is pending.
-Current development builds disable CurseForge API lookup and reject new
-CurseForge provider hints. The published alpha.4 binary retains its original
-behavior and is not changed by this source guard.
-See [Phase 5](docs/neosync/phase-5.md) for implementation status and evidence.
-The provider preference for each exact required file is:
+Modrinth is the only supported provider. Use `resolveProviders: true` for exact
+SHA-512 lookup of a selected server JAR. Clients independently review its identity
+and verify both provider and manifest hashes. Configured direct HTTPS downloads
+and restricted hosting of administrator-authored mods remain available.
 
-| Priority | Source | Acquisition policy |
-| --- | --- | --- |
-| 1 | Modrinth | Automatic download when the exact file is available and permitted. |
-| 2 | CurseForge with third-party downloads enabled | Automatic download through the provider. |
-| 3 | CurseForge with third-party downloads disabled | A clear notice, the exact browser download page, and detection and verification of the user's download. |
-| 4 | Server hosting | Only unpublished mods written by the administrator for that server and unavailable elsewhere. |
+CurseForge and browser imports have been removed from current development. Old
+profiles using that provider are rejected and left intact; prepare a new revision
+with a supported source. Published alpha.4 binaries and historical validation
+records are unchanged. See [Phase 5](docs/neosync/phase-5.md).
 
-Automatic downloads still require review and consent. A provider outage or author
-restriction never authorizes rehosting a third-party mod. The published alpha.4
-CurseForge integration uses the administrator's own
-`NEOSYNC_CURSEFORGE_API_KEY` on the server; the key does not authorize retaining
-API metadata. Current development builds do not read this key or request
-CurseForge metadata. A selected file without an exact Modrinth match needs a
-permitted direct HTTPS source. A browser may require additional user interaction
-when that flow is supported again.
-
-After consent, the manual flow opens
-`https://www.curseforge.com/minecraft/mc-mods/<slug>/download/<fileId>`.
-NeoSync then verifies the downloaded file before importing it into the isolated
-profile. The website or browser may still require a click; automatic completion
-is not guaranteed.
-
-See the [manual download contract](docs/neosync/manual-downloads.md) and
-[source policy](AGENTS.md#source-resolution). Reliable launcher integration,
-update recovery, and broader compatibility testing remain on the
-[roadmap](AGENTS.md#roadmap-and-exit-criteria).
+Automatic downloads still require review and consent. A provider failure never
+authorizes rehosting third-party mods or silently changing the approved source.
 
 ## Trust and isolation
 

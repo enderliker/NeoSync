@@ -153,7 +153,7 @@ public final class ProfileStore {
                     token.check();
                     var artifact = file.artifact();
                     Path output = mods.resolve(artifact.sha256() + ".jar");
-                    if (file.available() || file.provider() != null && file.provider().manual()) {
+                    if (file.available()) {
                         Path source = available.get(artifact.sha256());
                         if (source == null || !matches(source, artifact, token)) throw new IOException("An available file changed. Review the installation again.");
                         progress.update("Copying " + artifact.fileName(), complete, plan.totalBytes());

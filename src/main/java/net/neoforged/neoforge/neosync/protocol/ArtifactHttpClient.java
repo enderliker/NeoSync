@@ -62,7 +62,6 @@ public final class ArtifactHttpClient {
         cancellation.check();
         if (file.provider() == null && file.artifact().sources().stream().anyMatch(source -> source.provider() != null))
             throw new IOException("Provider metadata must be resolved and reviewed before downloading this file.");
-        if (file.provider() != null && file.provider().manual()) throw new IOException("This reviewed file requires a browser download and local import.");
         if (!STREAMS.tryAcquire()) throw new IOException("NeoSync downloads are busy. Try again shortly.");
         try {
             URI current = file.source();

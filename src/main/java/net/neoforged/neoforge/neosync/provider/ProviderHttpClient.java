@@ -62,8 +62,7 @@ public final class ProviderHttpClient implements ProviderTransport {
     private static final ModrinthMetadataCache MODRINTH_CACHE = new ModrinthMetadataCache();
 
     public enum Service {
-        MODRINTH("api.modrinth.com"),
-        CURSEFORGE("api.curseforge.com");
+        MODRINTH("api.modrinth.com");
 
         private final String host;
 
@@ -88,8 +87,7 @@ public final class ProviderHttpClient implements ProviderTransport {
     @Override
     public byte[] request(Service service, String path, String body, DiscoveryCancellation token) throws IOException {
         token.check();
-        if (!available(service)) throw new IOException(AutomaticSources.CURSEFORGE_DISABLED);
-        if (!path.startsWith(service == Service.MODRINTH ? "/v2/" : "/v1/") || path.length() > 8192
+        if (!path.startsWith("/v2/") || path.length() > 8192
                 || !path.matches("/[A-Za-z0-9_/?=&%.,-]+") || body.length() > 65536)
             throw new IOException("Invalid provider request.");
         byte[] cached = MODRINTH_CACHE.get(service, path, body);
@@ -162,18 +160,17 @@ public final class ProviderHttpClient implements ProviderTransport {
             if (COOLDOWNS.getOrDefault(request.service, Instant.MIN).isAfter(Instant.now()))
                 throw new ProviderFailure("The provider requested a pause. Retry later; no alternate source was selected.");
         }
-        String credential = "";
         var addresses = InetAddress.getAllByName(request.service.host);
         token.check();
         if (addresses.length == 0) throw new IOException();
         for (var address : addresses) if (!SyncEndpoint.isPublic(address)) throw new IOException();
         return fetchPinned(request.service, URI.create("https://" + request.service.host + request.path), request.body,
-                credential, new InetSocketAddress(addresses[0], 443), SSLContext.getDefault(), token);
+                new InetSocketAddress(addresses[0], 443), SSLContext.getDefault(), token);
     }
 
     /** Internal transport primitive. The caller must validate the pinned address; API origin and TLS identity are still enforced here. */
     @org.jetbrains.annotations.ApiStatus.Internal
-    public static byte[] fetchPinned(Service service, URI uri, String body, String credential, InetSocketAddress address,
+    public static byte[] fetchPinned(Service service, URI uri, String body, InetSocketAddress address,
             SSLContext tls, DiscoveryCancellation token) throws Exception {
         var result = new CompletableFuture<byte[]>();
         var bootstrap = new Bootstrap().group(NETWORK).channel(NioSocketChannel.class).option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
@@ -207,7 +204,6 @@ public final class ProviderHttpClient implements ProviderTransport {
                                 message.headers().set(HttpHeaderNames.ACCEPT, "application/json");
                                 message.headers().set(HttpHeaderNames.ACCEPT_ENCODING, "identity");
                                 message.headers().set(HttpHeaderNames.CONNECTION, "close");
-                                if (service == Service.CURSEFORGE) message.headers().set("x-api-key", credential);
                                 if (!body.isEmpty()) {
                                     message.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json");
                                     message.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, bytes.length);

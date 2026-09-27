@@ -1,51 +1,35 @@
-# Phase 5 — Exact provider files and browser imports
+# Phase 5 — Exact Modrinth source resolution
 
-Status: implementation in progress in the published alpha.4 prerelease;
-alpha.3 remains the published Phase 4 milestone. Phase 5 acceptance is
-**not complete**. Automatic restart is
-still deferred to Phase 6. Recorded Phase 3/4 runs do not validate these changes.
-Current development builds disable CurseForge API lookup and reject new
-CurseForge provider hints before review because their manifest and audit data
-flow conflicts with the published prohibition on saving API data. The published
-alpha.4 binary has not changed.
+Current development uses Modrinth as its only provider. On September 27, 2026,
+CurseForge and its browser importer were removed at the user's request, including
+the adapter, API origin, UI, and acceptance fixtures. Unsupported provider hints
+are rejected without modifying existing profiles. Direct HTTPS and eligible local
+hosting remain available. Published alpha.4 binaries are unchanged.
 
 ## Provider identity and protocol compatibility
 
-Protocol and manifest schema remain v1. Provider identifiers already accepted on
-external sources are retained as immutable **server hints**, never trust claims.
-The server can select `{"fileName":"example.jar","resolveProviders":true}`
-in `neosync-server.json` instead of supplying `sources`. It hashes that existing,
-explicitly selected server file and emits a normal v1 external source with exact
-provider IDs. Automatic resolution cannot be combined with hosting declarations
-or configured sources. Lookup failure cannot make a third-party mod eligible for
-hosting. Configured direct HTTPS sources remain supported.
+Set `{"fileName":"example.jar","resolveProviders":true}` in the server file
+selection. The server hashes the selected loaded JAR and resolves that exact file
+through Modrinth SHA-512 lookup. Clients independently match the version, project,
+URL, size, Minecraft version and loader before review. Downloads must match both
+the server's SHA-256 and provider SHA-512. A provider identity is not a safety
+guarantee. Consent remains specific and default-negative.
 
-Modrinth uses SHA-512 lookup of existing server bytes, batched in groups of 32.
-Clients batch exact version IDs and require the project, exact file URL, size,
-Minecraft version and loader to match. A version label or the first/primary file
-is never a substitute for the selected file. The client has no independent
-SHA-256 binding before download: the server's SHA-256 and provider's SHA-512 are
-both checked on the approved bytes before publication. Review keeps the
-unverified-source warning and states this limitation. Provider identification is
-not a malware-safety guarantee.
+Protocol v1 retains external sources and Modrinth hints. Direct-source and
+Modrinth profiles remain readable, including earlier audit formats. Profiles
+containing the removed provider fail validation and are left intact; prepare a
+new revision using a supported source. No migration changes their approved URLs.
 
-Provider evidence is immutable within the installation plan; consent is tied to
-that plan object. Provider URLs and hashes are included in the local audit, which
-is validated against the manifest's provider hint and exact Modrinth URL when
-reopening a revision.
-Existing v1 profile records remain readable. Audit records never authorize new
-requests. Redirects from provider artifact URLs are rejected. Active files and
-previous revisions retain the existing transactional guarantees.
+Requests use a fixed HTTPS API origin, public address checks, bounded responses,
+queues and deadlines, no redirects, and a bounded ten-minute in-memory cache.
+Failure does not choose another source. Configured direct HTTPS sources and
+restricted administrator-authored hosting are independent explicit choices.
 
-New provider audits use local consent schema 2; schema 1 records, including the
-first Modrinth increment, remain readable. Startup rechecks retained provider
-hashes against installed bytes as well as the manifest SHA-256.
+## Historical alpha.4 implementation and evidence
 
-New manifests require NeoSync alpha.4. The existing exact loader-version check
-prevents alpha.3 installation of an alpha.4 manifest, including future manual
-page sources. No unknown v1 fields or source types are introduced. The new client
-resolves hinted sources before review; legacy direct URLs without hints retain
-their unverified classification.
+The sections below describe the immutable alpha.4 release and previous audit
+work, including functionality removed from current development. They are retained
+as an execution record, not current setup instructions or compatibility claims.
 
 ## Official documentation checked on September 22, 2026
 

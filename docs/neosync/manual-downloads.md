@@ -1,5 +1,9 @@
 # Manual downloads for restricted mods
 
+> Historical alpha.4 contract. Browser imports were removed on September 27,
+> 2026 when Modrinth became the only supported provider. This document is not
+> current setup guidance. See [Phase 5](phase-5.md).
+
 Status: implemented in the Phase 5 alpha.4 development tree, with installed Linux
 fixtures for watching, explicit paths and native KDialog selection, each followed
 by a verified restart and real-server join. **Live restricted CurseForge downloads

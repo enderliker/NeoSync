@@ -84,7 +84,7 @@ class ModrinthProviderTest {
     }
 
     @Test
-    void resolvesModrinthWithCurseForgeDisabledOnBothSides(@TempDir Path directory) throws Exception {
+    void resolvesModrinthOnBothSides(@TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
         byte[] content = Files.readAllBytes(jar);
         String sha512 = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-512").digest(content));
@@ -97,28 +97,6 @@ class ModrinthProviderTest {
         var client = new SourceResolver(modrinthOnly("[" + version(content.length, sha512) + "]", ""))
                 .resolve(SyncManifest.parse(root.toString().getBytes(StandardCharsets.UTF_8)), new DiscoveryCancellation());
         assertEquals(HINT, client.get(fingerprint.sha256()).identity());
-    }
-
-    @Test
-    void disablesCurseForgeRegardlessOfProviderAccess(@TempDir Path directory) throws Exception {
-        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
-        var fingerprint = ArtifactFiles.fingerprint(jar, new DiscoveryCancellation());
-        var transport = modrinthOnly("[]", "{}");
-        var client = new SourceResolver(transport);
-        var manifest = SyncManifest.parse(CurseForgeProviderTest.manifest(jar));
-        var error = assertThrows(IOException.class, () -> client.resolve(manifest, new DiscoveryCancellation()));
-        assertTrue(error.getMessage().contains("disabled"));
-        var configured = SyncManifest.parse(CurseForgeProviderTest.manifest(jar, true));
-        var configuredError = assertThrows(IOException.class, () -> AutomaticSources.requireConfiguredAccess(
-                configured.files().getFirst().sources()));
-        assertTrue(configuredError.getMessage().contains("disabled"));
-        var serverError = assertThrows(IOException.class, () -> AutomaticSources.resolve(Map.of(jar, fingerprint),
-                Map.of(jar, CurseForgeProviderTest.HINT), transport, new DiscoveryCancellation()));
-        assertTrue(serverError.getMessage().contains("disabled"));
-        var available = new ProviderHttpClient();
-        assertFalse(available.available(ProviderHttpClient.Service.CURSEFORGE));
-        assertTrue(assertThrows(IOException.class, () -> available.request(ProviderHttpClient.Service.CURSEFORGE,
-                "/v1/mods", "{}", new DiscoveryCancellation())).getMessage().contains("disabled"));
     }
 
     @Test
@@ -206,6 +184,6 @@ class ModrinthProviderTest {
         assertEquals(now.plusSeconds(60), ProviderHttpClient.retryAfter("malformed", null, now));
         var client = new ProviderHttpClient();
         assertThrows(IOException.class, () -> client.request(ProviderHttpClient.Service.MODRINTH, "https://attacker.example", "", new DiscoveryCancellation()));
-        assertThrows(IOException.class, () -> client.request(ProviderHttpClient.Service.CURSEFORGE, "/v1/mods/123", "", new DiscoveryCancellation()));
+        assertThrows(IOException.class, () -> client.request(ProviderHttpClient.Service.MODRINTH, "/v1/mods/123", "", new DiscoveryCancellation()));
     }
 }

@@ -42,7 +42,7 @@ class ProviderHttpClientTest {
         Path path = directory.resolve("fixture.p12");
         String keytool = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "keytool.exe" : "keytool").toString();
         var process = new ProcessBuilder(keytool, "-genkeypair", "-alias", "fixture", "-keyalg", "RSA", "-validity", "1",
-                "-dname", "CN=api.modrinth.com", "-ext", "SAN=dns:api.modrinth.com,dns:api.curseforge.com", "-storetype", "PKCS12",
+                "-dname", "CN=api.modrinth.com", "-ext", "SAN=dns:api.modrinth.com", "-storetype", "PKCS12",
                 "-keystore", path.toString(), "-storepass", "fixture-password", "-noprompt")
                         .redirectErrorStream(true).redirectOutput(directory.resolve("keytool.log").toFile()).start();
         assertTrue(process.waitFor(15, TimeUnit.SECONDS));
@@ -62,14 +62,14 @@ class ProviderHttpClientTest {
     }
 
     @Test
-    void confinesCredentialHeadersToCurseForgeAndIdentifiesNeoSync() throws Exception {
+    void sendsNoCredentialHeadersAndIdentifiesNeoSync() throws Exception {
         for (var service : ProviderHttpClient.Service.values()) {
             try (var fixture = new Fixture("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}")) {
                 byte[] bytes = fetch(service, fixture, clientTls, new DiscoveryCancellation());
                 assertEquals("{}", new String(bytes, StandardCharsets.UTF_8));
                 String request = fixture.request.get(5, TimeUnit.SECONDS);
                 assertTrue(request.contains("enderliker/NeoSync/"));
-                assertEquals(service == ProviderHttpClient.Service.CURSEFORGE, request.contains("x-api-key: " + FAKE_KEY));
+                assertFalse(request.contains("x-api-key"));
                 assertFalse(request.lines().findFirst().orElseThrow().contains(FAKE_KEY));
             }
         }
@@ -78,10 +78,10 @@ class ProviderHttpClientTest {
     @Test
     void rejectsRedirectsAndDoesNotEchoErrorBodiesOrKeys() throws Exception {
         try (var fixture = new Fixture("HTTP/1.1 302 Found\r\nLocation: https://attacker.example/\r\nContent-Length: " + FAKE_KEY.length() + "\r\n\r\n" + FAKE_KEY)) {
-            Exception failure = assertThrows(Exception.class, () -> fetch(ProviderHttpClient.Service.CURSEFORGE, fixture, clientTls, new DiscoveryCancellation()));
+            Exception failure = assertThrows(Exception.class, () -> fetch(ProviderHttpClient.Service.MODRINTH, fixture, clientTls, new DiscoveryCancellation()));
             assertFalse(failure.toString().contains(FAKE_KEY));
             assertTrue(failure.getMessage().contains("302"));
-            assertTrue(fixture.request.get(5, TimeUnit.SECONDS).toLowerCase(java.util.Locale.ROOT).contains("host: api.curseforge.com"));
+            assertTrue(fixture.request.get(5, TimeUnit.SECONDS).toLowerCase(java.util.Locale.ROOT).contains("host: api.modrinth.com"));
         }
     }
 
@@ -110,8 +110,8 @@ class ProviderHttpClientTest {
     }
 
     private static byte[] fetch(ProviderHttpClient.Service service, Fixture fixture, SSLContext tls, DiscoveryCancellation token) throws Exception {
-        URI uri = URI.create(service == ProviderHttpClient.Service.MODRINTH ? "https://api.modrinth.com/v2/versions" : "https://api.curseforge.com/v1/mods");
-        return ProviderHttpClient.fetchPinned(service, uri, "", FAKE_KEY, new InetSocketAddress(InetAddress.getLoopbackAddress(), fixture.listener.getLocalPort()), tls, token);
+        URI uri = URI.create("https://api.modrinth.com/v2/versions");
+        return ProviderHttpClient.fetchPinned(service, uri, "", new InetSocketAddress(InetAddress.getLoopbackAddress(), fixture.listener.getLocalPort()), tls, token);
     }
 
     private static final class Fixture implements AutoCloseable {

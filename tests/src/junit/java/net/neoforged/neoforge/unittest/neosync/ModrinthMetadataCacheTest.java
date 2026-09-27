@@ -19,8 +19,6 @@ class ModrinthMetadataCacheTest {
         var now = new AtomicLong();
         var cache = new ModrinthMetadataCache(now::get);
         byte[] response = { 1, 2, 3 };
-        cache.put(ProviderHttpClient.Service.CURSEFORGE, "/v1/mods", "{}", response);
-        assertNull(cache.get(ProviderHttpClient.Service.CURSEFORGE, "/v1/mods", "{}"));
 
         cache.put(ProviderHttpClient.Service.MODRINTH, "/v2/version_files", "first", response);
         response[0] = 9;
@@ -30,7 +28,6 @@ class ModrinthMetadataCacheTest {
         assertArrayEquals(new byte[] { 1, 2, 3 }, cache.get(ProviderHttpClient.Service.MODRINTH, "/v2/version_files", "first"));
         assertNull(cache.get(ProviderHttpClient.Service.MODRINTH, "/v2/version_files", "second"));
         assertNull(cache.get(ProviderHttpClient.Service.MODRINTH, "/v2/versions", "first"));
-        assertNull(cache.get(ProviderHttpClient.Service.CURSEFORGE, "/v2/version_files", "first"));
 
         now.set(ModrinthMetadataCache.LIFETIME.toNanos());
         assertNull(cache.get(ProviderHttpClient.Service.MODRINTH, "/v2/version_files", "first"));

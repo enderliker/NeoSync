@@ -31,19 +31,6 @@ public record ProviderArtifact(SyncManifest.ProviderHint identity, URI source, l
                 throw new IOException("Invalid Modrinth file identity.");
             requireHost(source, Set.of("cdn.modrinth.com"));
             if (!source.getRawPath().startsWith("/data/" + identity.projectId() + "/versions/")) throw new IOException("Modrinth file URL does not match its project.");
-        } else if (provider.equals("curseforge")) {
-            if (!identity.projectId().matches("[1-9][0-9]{0,9}") || !identity.fileId().matches("[1-9][0-9]{0,9}")
-                    || !algorithm.equals("SHA-1") || !hash.matches("[0-9a-f]{40}"))
-                throw new IOException("Invalid CurseForge file identity.");
-            if (manual) {
-                requireHost(source, Set.of("www.curseforge.com"));
-                // Earlier prepared profiles retain the exact file-details page in their local audit.
-                if (!source.getRawPath().matches("/minecraft/mc-mods/[a-z0-9][a-z0-9-]{0,127}/(?:download|files)/" + identity.fileId()))
-                    throw new IOException("Invalid exact CurseForge file page.");
-            } else {
-                requireHost(source, Set.of("edge.forgecdn.net", "mediafilez.forgecdn.net"));
-                if (!source.getRawPath().startsWith("/files/")) throw new IOException("Invalid CurseForge download path.");
-            }
         } else throw new IOException("Unsupported provider identity.");
         if (size < 1 || size > SyncManifest.MAX_FILE_BYTES) throw new IOException("Provider file size exceeds the limit.");
     }
@@ -62,11 +49,6 @@ public record ProviderArtifact(SyncManifest.ProviderHint identity, URI source, l
             throw new IOException("The provider result does not match the reviewed artifact hint.");
         if (identity.id().equals("modrinth") && artifact.sources().stream().noneMatch(s -> identity.equals(s.provider()) && source.equals(s.url())))
             throw new IOException("The Modrinth source does not match the reviewed URL.");
-        for (var source : artifact.sources()) {
-            if (!identity.equals(source.provider()) || source.evidence() == null) continue;
-            if (!source.url().equals(this.source) || !hash.equals(source.evidence().sha1()) || manual != source.evidence().manual())
-                throw new IOException("The provider audit does not match the server's reviewed evidence.");
-        }
     }
 
     public void verify(Path path, SyncManifest.Artifact artifact, DiscoveryCancellation token) throws IOException {

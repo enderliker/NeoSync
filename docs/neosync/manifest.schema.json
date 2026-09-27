@@ -94,7 +94,7 @@
       "additionalProperties": false,
       "required": ["id", "projectId", "fileId"],
       "properties": {
-        "id": {"enum": ["modrinth", "curseforge"]},
+        "id": {"enum": ["modrinth"]},
         "projectId": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$", "minLength": 1, "maxLength": 128},
         "fileId": {"type": "string", "pattern": "^[A-Za-z0-9_-]+$", "minLength": 1, "maxLength": 128}
       }

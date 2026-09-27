@@ -181,12 +181,9 @@ Each source is one of:
 
 - `external`: an HTTPS URL, optionally with a `provider` hint containing a supported
   provider ID, project ID, and file ID. A hint is a server claim. Modrinth identity
-  is checked through the client's own provider lookup before review. For CurseForge,
-  the server may add `sha1` and `manual` metadata after using its administrator's
-  API key. These fields remain server claims from the client's perspective; the
-  client does not receive the key or claim independent provider verification.
-  SHA-256 and the reported provider hash must both match downloaded bytes;
-  the client retains the unverified-source warning.
+  is checked through the client's own provider lookup before review. Only
+  `modrinth` is supported; other providers and extra evidence fields are rejected.
+  Both manifest SHA-256 and Modrinth SHA-512 must match the approved bytes.
 - `server`: no supplied URL. Derive the artifact URL from the already approved
   manifest origin and the artifact hash. Always require the additional warning.
 
@@ -195,28 +192,11 @@ Do not execute metadata, fetch arbitrary project/update pages, or treat a mod's
 metadata never authorizes a JAR download. Provider resolution, where available,
 occurs before the download review.
 
-The planned preference is Modrinth automatic acquisition, then CurseForge
-automatic acquisition when permitted, then a CurseForge browser handoff for
-restricted downloads. Hosting is reserved for eligible administrator-authored
-mods unavailable elsewhere. Every route must match the exact required bytes and
-be covered by consent; this order never authorizes a silent source change or a
-different build. See [Phase 5](phase-5.md) for implementation and runtime status.
-
-In the published alpha.4 build, for author-disabled third-party downloads, the
-server resolves the exact CurseForge browser download page using its own key and
-reports the result. The client requires
-explicit browser handoff and verified local import. Hosting is never a fallback.
-See the [manual download contract](manual-downloads.md). V1 continues to carry an
-external URL and provider hint: alpha.4 clients must resolve hinted sources before
-acquisition, and a manual page is never passed to the artifact HTTP downloader.
-Alpha.4 manifests require that exact NeoSync version, so alpha.3 cannot accept an
-installation that uses the new semantics. A bare HTML page without the resolved
-provider identity is not a supported direct artifact source. Live CurseForge
-acceptance still requires an administrator-owned key and applicable agreement.
-Current development builds reject new CurseForge provider hints before review
-because the alpha.4 data flow retains API-derived metadata. The published
-alpha.4 binary and existing local profile records retain their historical
-behavior; this source guard does not revise protocol version 1.
+Modrinth is the only provider. Configured direct HTTPS sources and restricted
+hosting remain explicit administrator choices. Every route requires exact bytes
+and specific consent; lookup failures never authorize source substitution. The
+removed browser importer is not part of the current protocol implementation.
+See [Phase 5](phase-5.md) for current and historical evidence.
 
 ## Validation beyond JSON Schema
 

@@ -1,5 +1,9 @@
 # Installed Phase 3 acceptance driver
 
+Current development supports the Modrinth and restricted-hosting fixtures.
+The former CurseForge/manual-import fixture was removed on September 27, 2026.
+Any browser-import execution records below describe historical alpha.4 only.
+
 This Linux harness uses a disposable production server, a real graphical client,
 and Clumps 19.0.0.1 (MIT, Modrinth project `Wnxd13zP`, version `jo7lDoK4`). The
 artifact stays outside Git. The Java agent drives the actual client screens and

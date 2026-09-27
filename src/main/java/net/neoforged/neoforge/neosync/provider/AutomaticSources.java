@@ -13,31 +13,15 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.HexFormat;
-import java.util.List;
 import java.util.Map;
 import net.neoforged.neoforge.neosync.protocol.ArtifactFiles;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
 import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 
 public final class AutomaticSources {
-    static final String CURSEFORGE_DISABLED = "CurseForge integration is disabled because current API terms prohibit retaining its metadata in manifests and profile audits. Configure an exact permitted HTTPS source instead; server hosting is only for eligible administrator-authored mods.";
-
     private AutomaticSources() {}
 
-    public static void requireConfiguredAccess(List<SyncManifest.Source> sources) throws IOException {
-        for (var source : sources) {
-            if (source.provider() == null || !source.provider().id().equals("curseforge")) continue;
-            throw new IOException(CURSEFORGE_DISABLED);
-        }
-    }
-
     public static Map<Path, ProviderArtifact> resolve(Map<Path, ArtifactFiles.Fingerprint> files, ProviderTransport transport, DiscoveryCancellation token) throws IOException {
-        return resolve(files, Map.of(), transport, token);
-    }
-
-    public static Map<Path, ProviderArtifact> resolve(Map<Path, ArtifactFiles.Fingerprint> files, Map<Path, SyncManifest.ProviderHint> curseHints,
-            ProviderTransport transport, DiscoveryCancellation token) throws IOException {
-        if (!curseHints.isEmpty()) throw new IOException(CURSEFORGE_DISABLED);
         var hashes = new HashMap<Path, String>();
         long total = 0;
         for (var entry : files.entrySet()) {
@@ -79,10 +63,6 @@ public final class AutomaticSources {
         hint.addProperty("id", artifact.identity().id());
         hint.addProperty("projectId", artifact.identity().projectId());
         hint.addProperty("fileId", artifact.identity().fileId());
-        if (artifact.identity().id().equals("curseforge")) {
-            hint.addProperty("sha1", artifact.hash());
-            hint.addProperty("manual", artifact.manual());
-        }
         var source = new JsonObject();
         source.addProperty("type", "external");
         source.addProperty("url", artifact.source().toASCIIString());

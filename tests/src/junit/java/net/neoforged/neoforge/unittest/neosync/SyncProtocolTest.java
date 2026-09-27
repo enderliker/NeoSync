@@ -150,7 +150,7 @@ class SyncProtocolTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = { "modrinth", "curseforge" })
+    @ValueSource(strings = { "modrinth" })
     void retainsProviderHintsWithoutUpgradingTrustOrChangingAcquisition(String provider) throws Exception {
         var root = editableManifest();
         var source = root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("sources").get(0).getAsJsonObject();
@@ -178,7 +178,7 @@ class SyncProtocolTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = { "null", "{}", "{\"id\":\"unknown\",\"projectId\":\"a\",\"fileId\":\"b\"}",
+    @ValueSource(strings = { "null", "{}", "{\"id\":\"curseforge\",\"projectId\":\"123\",\"fileId\":\"456\"}", "{\"id\":\"unknown\",\"projectId\":\"a\",\"fileId\":\"b\"}",
             "{\"id\":\"modrinth\",\"projectId\":\"../a\",\"fileId\":\"b\"}", "{\"id\":\"curseforge\",\"projectId\":\"a\",\"fileId\":1}",
             "{\"id\":\"modrinth\",\"projectId\":\"a\",\"fileId\":\"b\",\"verified\":true}" })
     void rejectsMalformedProviderHints(String hint) {
