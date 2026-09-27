@@ -78,6 +78,10 @@ class LauncherBridgeTest {
         assertTrue(Files.readString(launch.instance().resolve("instance.cfg")).contains("PreLaunchCommand="));
         assertTrue(Files.readString(launch.instance().resolve("instance.cfg")).contains("ConfigVersion=1.3"));
         assertTrue(Files.readString(launch.instance().resolve("patches/org.neosync.json")).contains(launch.instance().resolve("libraries/bootstrap.jar").toString().replace('\\', '/')));
+        var components = JsonParser.parseString(Files.readString(launch.instance().resolve("mmc-pack.json"))).getAsJsonObject().getAsJsonArray("components");
+        assertEquals("org.lwjgl3", components.get(0).getAsJsonObject().get("uid").getAsString());
+        assertEquals("net.minecraft", components.get(1).getAsJsonObject().get("uid").getAsString());
+        assertEquals("org.neosync", components.get(2).getAsJsonObject().get("uid").getAsString());
         LauncherBridge.Verifier.verify(launch.verification());
         assertEquals(launch, PrismIntegration.prepare(config, prepared, "4.0.44", new DiscoveryCancellation()));
         Path injected = Files.writeString(prepared.gameDirectory().resolve("mods/extra.jar"), "unreviewed");

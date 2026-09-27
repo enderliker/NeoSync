@@ -68,7 +68,11 @@ public final class PrismIntegration {
             var component = config.getAsJsonObject("component").deepCopy();
             String gameArguments = SyncJson.string(component.get("minecraftArguments"), 16384);
             if (!gameArguments.contains("--gameDir ${game_directory}")) throw new IOException("The Prism component has no supported game directory argument.");
-            component.addProperty("minecraftArguments", gameArguments.replace("--gameDir ${game_directory}", "--gameDir " + quote(prepared.gameDirectory().toString())));
+            String relativeGame = target.resolve(".minecraft").relativize(prepared.gameDirectory()).toString().replace('\\', '/');
+            if (relativeGame.contains("${") || relativeGame.chars().anyMatch(c -> Character.isWhitespace(c) || c == '"'))
+                throw new IOException("This profile path cannot be passed through Prism's argument format. Use manual restart instructions.");
+            // Prism splits arguments on spaces before expanding variables; shell quoting becomes a literal path character.
+            component.addProperty("minecraftArguments", gameArguments.replace("--gameDir ${game_directory}", "--gameDir ${game_directory}/" + relativeGame));
             if (component.has("+jvmArgs")) {
                 var args = component.getAsJsonArray("+jvmArgs");
                 for (int i = 0; i < args.size(); i++) {
@@ -95,7 +99,7 @@ public final class PrismIntegration {
             var pack = new JsonObject();
             pack.addProperty("formatVersion", 1);
             var components = new JsonArray();
-            for (var entry : Map.of("org.lwjgl3", "3.3.3", "net.minecraft", "1.21.1", "org.neosync", prepared.manifest().loaderVersion()).entrySet()) {
+            for (var entry : java.util.List.of(Map.entry("org.lwjgl3", "3.3.3"), Map.entry("net.minecraft", "1.21.1"), Map.entry("org.neosync", prepared.manifest().loaderVersion()))) {
                 var item = new JsonObject();
                 item.addProperty("uid", entry.getKey());
                 item.addProperty("version", entry.getValue());
