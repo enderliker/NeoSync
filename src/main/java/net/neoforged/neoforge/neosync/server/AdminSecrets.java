@@ -123,8 +123,9 @@ public final class AdminSecrets {
         }
         var acl = Files.getFileAttributeView(path, AclFileAttributeView.class, LinkOption.NOFOLLOW_LINKS);
         if (acl == null) throw new IOException("The administrator secret directory requires owner-only POSIX permissions or a Windows ACL.");
-        acl.setAcl(List.of(AclEntry.newBuilder().setType(AclEntryType.ALLOW).setPrincipal(acl.getOwner())
-                .setPermissions(EnumSet.allOf(AclEntryPermission.class)).build()));
+        var entry = AclEntry.newBuilder().setType(AclEntryType.ALLOW).setPrincipal(acl.getOwner()).setPermissions(EnumSet.allOf(AclEntryPermission.class));
+        if (directory) entry.setFlags(java.nio.file.attribute.AclEntryFlag.DIRECTORY_INHERIT, java.nio.file.attribute.AclEntryFlag.FILE_INHERIT);
+        acl.setAcl(List.of(entry.build()));
     }
 
     private static void generateCertificate(Path directory, Path target, String password) throws Exception {
