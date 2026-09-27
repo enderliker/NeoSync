@@ -67,13 +67,22 @@ Gradle invocations to respect the source-generation workflow.
 - JUnit: 236 tests in 27 suites; zero failures, errors, or skipped tests.
 - Actionlint 1.7.12 passed for all workflows.
 - `bash -n scripts/render_branding.sh` and `git diff --check` passed.
-- Checked 63 local documentation links, README navigation anchors, six matched
+- Checked 65 local documentation links, README navigation anchors, six matched
   details blocks, and preservation of all nine original README body sections.
 - The prepared social preview is a valid 1280 × 640 PNG.
 
+All five README badge URLs returned valid SVG responses after publication.
+The first remote build could not start: GitHub reported, "The job was not
+started because your account is locked due to a billing issue."
+[Run 36324234062](https://github.com/enderliker/NeoSync/actions/runs/36324234062)
+therefore shows a failing status without executing any build step. The badge
+reports this actual status; local success does not replace a remote result.
+
+A separate Windows workflow uses PowerShell and `gradlew.bat` for assembly,
+formatting, unit tests, and the installed dedicated-server self-test. Its syntax
+has been checked; Windows execution remains pending the GitHub account fix.
 These checks do not constitute a new installed gameplay acceptance run. Published
-beta evidence remains in [Phase 7](phase-7.md). Remote CI and badge availability
-must be checked after the updated workflow reaches GitHub.
+beta evidence remains in [Phase 7](phase-7.md).
 
 ## Manual GitHub settings
 
@@ -87,6 +96,7 @@ These are suggested values; this review does not change repository settings.
 | Social preview | Upload [`docs/assets/neosync-social.png`](../assets/neosync-social.png), 1280 × 640, in Settings → General → Social preview. |
 | Discussions | Enable Q&A and Ideas for support and proposals; retain issues for actionable bugs. |
 | Private vulnerability reporting | Enable in Settings → Security. It was disabled during review; `SECURITY.md` provides the approved email channel. Update the policy if this setting changes. |
+| Actions account access | Resolve the GitHub billing lock, then rerun Linux and Windows workflows. |
 
 The current About description still describes synchronization as planned, topics
 are empty, and no website is configured. These settings should be updated by the

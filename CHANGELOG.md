@@ -18,6 +18,8 @@ installing. Published artifacts and tags remain immutable.
   actions, and removed inherited upstream PR publishing integrations.
 - Added community conduct and security policies, structured issue forms, and a
   pull request checklist.
+- Added Windows CI for assembly, formatting, unit tests, and the installed
+  dedicated-server self-test using Java 21 and the Windows Gradle wrapper.
 - Corrected the historical alpha.4 release link and narrowed Python ignore rules.
 
 ### Fixed

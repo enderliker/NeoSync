@@ -29,6 +29,11 @@ in issues, pull requests, and other project spaces.
 
 ## Development setup
 
+GitHub Actions defines Linux build/unit checks and a separate Windows workflow
+using `gradlew.bat`, including the installed dedicated-server self-test. A passing
+build does not establish graphical client or launcher compatibility; retain the
+installed acceptance evidence and limits for those flows.
+
 1. Install a JDK 21 and select it for both Gradle and your IDE. The repository uses
    Gradle 8.13 through the wrapper; a newer installed JDK is not automatically a
    compatible Gradle runtime.
