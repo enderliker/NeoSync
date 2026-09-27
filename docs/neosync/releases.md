@@ -7,9 +7,10 @@ NeoSync-<neosync-version>-neoforge-<base-version>
 NeoSync-0.1.0-beta.1-neoforge-21.1.251
 ```
 
-The current source builds a local **0.1.0-beta.1 candidate** for Minecraft Java
-Edition 1.21.1 and Java 21. Published alpha.4 remains unchanged. The [Phase 3 validation](phase-3.md) establishes the tested
-one-mod flow; it does not certify every modpack or external launcher.
+The current prerelease is **0.1.0-beta.1** for Minecraft Java Edition 1.21.1
+and Java 21. See the [release notes](release-notes/0.1.0-beta.1.md) and
+[Phase 7 validation](phase-7.md) for tested flows and launcher limitations.
+Published alpha.4 remains unchanged.
 
 ## Download selection
 

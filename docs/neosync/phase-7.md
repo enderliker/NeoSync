@@ -3,7 +3,8 @@
 NeoSync 0.1.0-beta.1 targets Minecraft 1.21.1, NeoForge 21.1.251, protocol 1 and
 Java 21. Modrinth is the only provider. The beta adds server administration,
 verified recovery and Prism integration while retaining manual activation.
-This is a local candidate; the published alpha.4 release has not been replaced.
+The beta prerelease uses the validated local candidate's exact JARs. Published
+alpha.4 remains unchanged.
 
 ## Environment and identity
 
@@ -15,7 +16,7 @@ installations and offline test identities, not a public production server.
 
 The runtime implementation is recorded at commit `34d788c`; later acceptance,
 documentation and packaging commits preserve that runtime source. The exported
-candidate's `release-manifest.json` identifies the complete source commit and
+release's `release-manifest.json` identifies the complete source commit and
 all artifact hashes. Packaging-only changes preserve every runtime class and
 resource byte used by the update, recovery and hosting acceptance runs; the
 manifest order and archive timestamps were made deterministic. Keep the matching

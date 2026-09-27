@@ -310,8 +310,8 @@ coverage before release.
 
 **Validation:** the source builds NeoSync 0.1.0-beta.1. The
 [Phase 7 matrix](docs/neosync/phase-7.md) records exact installer checks,
-installed flows, failure tests, supported scope and concrete limits. Local beta
-artifacts are separate from the immutable published alpha.4 release.
+installed flows, failure tests, supported scope and concrete limits. The beta
+prerelease preserves the validated candidate JARs and does not alter alpha.4.
 
 ## Code comments
 

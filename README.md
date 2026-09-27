@@ -44,8 +44,8 @@ before installation.
 | --- | --- | --- |
 | Minecraft Java Edition | **1.21.1** | The Minecraft version targeted by this branch. |
 | NeoForge base build | **21.1.251** | The platform build used by NeoSync; mods must be compatible with this NeoForge/Minecraft combination. |
-| NeoSync development identifier | **0.1.0-beta.1** | Current source tree; local beta candidate, not a published release. |
-| Published NeoSync release | **0.1.0-alpha.4** | Current alpha prerelease with exact Modrinth resolution and browser-assisted import. |
+| NeoSync development identifier | **0.1.0-beta.1** | Current source tree. |
+| Published NeoSync release | **0.1.0-beta.1** | Beta prerelease with Modrinth resolution, administrator panel, Prism restart and profile recovery. |
 | Synchronization protocol | **1** | The version used for server discovery and manifests. |
 | Java | **21** | Required for running and developing this build; use a JDK for development. |
 | Gradle wrapper | **8.13** | Included in the repository; no separate Gradle installation is needed. |
@@ -63,9 +63,9 @@ these versions. Published releases are pinned to a specific source commit.
 
 ## Downloads
 
-Get the alpha installer from [GitHub Releases](https://github.com/enderliker/NeoSync/releases).
+Get the beta installer from [GitHub Releases](https://github.com/enderliker/NeoSync/releases).
 Release names include both versions, for example
-**`NeoSync-0.1.0-alpha.4-neoforge-21.1.251`**.
+**`NeoSync-0.1.0-beta.1-neoforge-21.1.251`**.
 
 Download the **`-installer.jar`** for either a client or a dedicated server. The
 same installer supports both; a separate universal JAR is not a standalone game
@@ -74,9 +74,9 @@ information. Follow the [client and server installation guide](docs/neosync/rele
 
 These are experimental prereleases. Use separate test directories and read the
 release notes for the actual validation results and remaining limitations.
-The [alpha.4 prerelease](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-alpha.4-neoforge-21.1.251)
-adds exact Modrinth resolution and browser-assisted import. Restricted hosting
-remains available for eligible administrator-authored mods.
+The [beta.1 prerelease](https://github.com/enderliker/NeoSync/releases/tag/NeoSync-0.1.0-beta.1-neoforge-21.1.251)
+adds the administrator panel, Prism restart and profile recovery, and removes
+CurseForge. Restricted hosting remains available for eligible administrator-authored mods.
 
 ## How it works
 
