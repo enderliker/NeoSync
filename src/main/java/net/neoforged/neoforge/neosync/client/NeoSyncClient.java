@@ -122,7 +122,13 @@ public final class NeoSyncClient {
                 if (!local.isEmpty()) return new Destination(local.getFirst(), true);
                 throw new IOException("The manifest address is blocked by the network destination policy.");
             }, destination -> {
-                if (destination.local) {
+                if (endpoint.insecure()) {
+                    screen.show(List.of("This server uses unencrypted HTTP: " + endpoint.host() + ":" + endpoint.httpsPort(),
+                            "Its identity cannot be authenticated. Someone on the network could change the mod list or server-hosted downloads. Matching hashes do not protect against a changed manifest.",
+                            destination.local ? "This also allows access to this endpoint on your local network." : "Continue only if you accept this unencrypted connection.",
+                            "You will still review files and sources before installation."),
+                            "No, cancel", "Allow HTTP this time", () -> fetch(endpoint, destination.address));
+                } else if (destination.local) {
                     screen.show(List.of("The manifest service for " + endpoint.host() + ":" + endpoint.httpsPort() + " is on your local network.",
                             "Allow HTTPS access to this server endpoint? Certificate verification remains required. Mods provided by this server will require a separate installation review and confirmation."),
                             "No, cancel", "Allow this endpoint", () -> fetch(endpoint, destination.address));

@@ -2,6 +2,8 @@
 'use strict';
 const byId = id => document.getElementById(id);
 let snapshot, csrf = '', rows = [];
+byId('connection').textContent = location.protocol === 'https:' ? 'HTTPS' : 'HTTP';
+byId('insecure-panel').hidden = location.protocol === 'https:';
 const status = text => { byId('status').textContent = text; };
 async function api(path, body) {
   const response = await fetch(path, {method: body === undefined ? 'GET' : 'POST', credentials: 'same-origin',
@@ -22,6 +24,7 @@ async function reload() {
   const data = await api('/api/state'); snapshot = data; csrf = data.csrf;
   byId('login').hidden = true; byId('panel').hidden = false; byId('logout').hidden = false;
   byId('enabled').checked = data.enabled; byId('display-name').value = data.displayName;
+  byId('transport').value = data.transport; byId('admin-transport').value = data.adminTransport; transportNotice();
   byId('pending').textContent = data.restartRequired ? 'Saved changes are pending. Restart the server to apply them.' : 'Showing the saved selection. Check the server log for discovery startup results.';
   byId('missing').textContent = data.missingSelections.length ? 'These saved files are no longer loaded and will be removed from the selection when you save: ' + data.missingSelections.join(', ') : '';
   byId('files').replaceChildren(); rows = [];
@@ -46,7 +49,17 @@ async function reload() {
   }
   totals(); filter();
 }
-function filter() { const query = byId('filter').value.toLowerCase(); rows.forEach(row => { row.card.hidden = !(row.file.description + ' ' + row.file.fileName).toLowerCase().includes(query); }); }
+function filter() { const query = byId('filter').value.toLowerCase(); rows.forEach(row => { row.card.hidden = !(row.file.description + ' ' + row.file.fileName).toLowerCase().includes(query); }); byId('empty').hidden = rows.some(row => !row.card.hidden); }
+function transportNotice() {
+  const http = byId('transport').value === 'http';
+  byId('http-warning').hidden = !http;
+  byId('admin-http-warning').hidden = byId('admin-transport').value !== 'http';
+  const port = snapshot && snapshot.transport === byId('transport').value ? snapshot.manifestPort : (http ? 8080 : 8443);
+  byId('transport-detail').textContent = (http ? 'HTTP' : 'HTTPS') + ' on port ' + port + ' after restart.' + (http ? '' : ' Clients must trust the server certificate.');
+  byId('panel-address').textContent = 'Panel after restart: ' + byId('admin-transport').value + '://' + location.host;
+}
+byId('transport').addEventListener('change', transportNotice);
+byId('admin-transport').addEventListener('change', transportNotice);
 byId('filter').addEventListener('input', filter);
 byId('login-form').addEventListener('submit', async event => {
   event.preventDefault(); const button = event.submitter; button.disabled = true;
@@ -65,7 +78,7 @@ byId('selection').addEventListener('submit', async event => {
       }
       return file;
     });
-    await api('/api/selection', {revision: snapshot.revision, enabled: byId('enabled').checked, displayName: byId('display-name').value, files});
+    await api('/api/selection', {revision: snapshot.revision, enabled: byId('enabled').checked, displayName: byId('display-name').value, files, transport: byId('transport').value, adminTransport: byId('admin-transport').value});
     await reload(); status('Selection saved. Restart the server to apply it.');
   } catch (error) { status(error.message); } finally { byId('save').disabled = false; }
 });

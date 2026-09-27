@@ -74,7 +74,7 @@ public final class InstallationPlan {
         if (!manifest.loaderVersion().equals(loaderVersion) || !manifest.neoForgeVersion().equals(neoForgeVersion)) {
             throw new IOException("Select NeoSync " + manifest.loaderVersion() + " with NeoForge " + manifest.neoForgeVersion() + " in your launcher before installing these mods.");
         }
-        var checkedEndpoint = SyncEndpoint.create(endpoint.host(), endpoint.gamePort(), new SyncCapability(endpoint.httpsPort(), endpoint.digest()));
+        var checkedEndpoint = SyncEndpoint.create(endpoint.host(), endpoint.gamePort(), new SyncCapability(endpoint.httpsPort(), endpoint.digest(), endpoint.transport()));
         var identity = new Identity(checkedEndpoint.host(), checkedEndpoint.gamePort(), origin(checkedEndpoint.manifestUri()), manifest.serverId());
         var files = new ArrayList<File>();
         for (var artifact : manifest.files()) {
@@ -130,9 +130,11 @@ public final class InstallationPlan {
 
     public static URI origin(URI url) throws IOException {
         try {
-            return new URI("https", null, SyncEndpoint.normalizeHost(url.getHost()), url.getPort() == -1 ? 443 : url.getPort(), null, null, null);
+            int port = url.getPort() == -1 ? ("http".equals(url.getScheme()) ? 80 : 443) : url.getPort();
+            SyncEndpoint.validateTransport(url.getScheme(), port);
+            return new URI(url.getScheme(), null, SyncEndpoint.normalizeHost(url.getHost()), port, null, null, null);
         } catch (URISyntaxException e) {
-            throw new IOException("Invalid HTTPS origin.", e);
+            throw new IOException("Invalid server origin.", e);
         }
     }
 
@@ -172,6 +174,8 @@ public final class InstallationPlan {
         var lines = new ArrayList<String>();
         lines.add(manifest.displayName() + " — " + identity.host() + ":" + identity.gamePort());
         lines.add("Manifest service: " + identity.origin() + "; server identity: " + identity.serverId());
+        if (identity.origin().getScheme().equals("http"))
+            lines.add("Unencrypted HTTP: the server identity is not authenticated. The manifest and server-hosted files can be changed in transit; matching hashes do not prevent this.");
         int mods = files.stream().mapToInt(file -> file.artifact().mods().size()).sum();
         long available = files.stream().filter(File::available).count();
         lines.add(count(mods, "mod") + " in " + count(files.size(), "file") + "; " + count(available, "file") + " available; "

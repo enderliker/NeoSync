@@ -147,9 +147,14 @@ the server as the source and explicitly accept the default-negative warning.
 
 ### Administrator panel
 
-The dedicated server starts an HTTPS panel on IPv4 port 6742. A generated
+The dedicated server starts an HTTPS panel by default on IPv4 port 6742.
+Administrators can explicitly select HTTP for the panel and/or player synchronization;
+see [transport settings](docs/neosync/administration.md#http-and-https-settings).
+HTTP does not provide encryption or server authentication. Clients must explicitly
+accept HTTP discovery before retrieval; it never replaces a failed HTTPS request. A generated
 256-bit password and TLS identity are stored in `config/neosync-admin` with
-owner-only permissions. Never log credentials or expose them through HTTP.
+owner-only permissions. Never log credentials. Selecting HTTP for the panel
+exposes login credentials and sessions to network observers.
 The panel edits the selected loaded inventory transactionally; the next server
 start validates and publishes it. Require session authentication, CSRF protection,
 bounded requests and explicit byte-bound hosting declarations. See
@@ -188,7 +193,11 @@ diagnostics.
   Previous trust in a server does not grant unlimited permission for future
   installations. Switching to an unverified source requires the corresponding
   confirmation; never make that switch silently.
-- **Transport and integrity:** use HTTPS for external sources, enforce time and
+- **Transport and integrity:** use HTTPS for external sources. Administrator-selected
+  HTTP is allowed only for the server manifest and restricted hosted artifacts,
+  with explicit client transport consent; external/provider sources remain HTTPS.
+  HTTP administrator sessions retain authentication and CSRF checks but provide no
+  transport confidentiality. Enforce time and
   size limits, and verify hashes before activating files. Also define and verify
   transport protection and server identity for files hosted directly by a server.
 - **Untrusted URLs:** restrict schemes, ports, destinations, and redirects;
@@ -308,7 +317,9 @@ Also verify declined consent and profile recovery.
 validation. Security checks must accompany every phase; this phase expands
 coverage before release.
 
-**Validation:** the source builds NeoSync 0.1.0-beta.3 on NeoForge 21.1.252 after
+**Validation:** the source builds unreleased NeoSync 0.1.0-beta.4 on NeoForge 21.1.252.
+Configurable transports and the administrator panel update are documented in
+[administration](docs/neosync/administration.md). Published beta.3 was built after
 importing upstream [#3469](https://github.com/neoforged/NeoForge/pull/3469).
 The [beta.3 notes](docs/neosync/release-notes/0.1.0-beta.3.md) describe validation
 and the Linux/Windows publication gate. Published beta.2 uses NeoForge 21.1.251;

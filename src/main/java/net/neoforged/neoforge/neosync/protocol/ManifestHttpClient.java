@@ -31,7 +31,7 @@ import javax.net.ssl.SSLContext;
 
 public final class ManifestHttpClient {
     private static final NioEventLoopGroup NETWORK = new NioEventLoopGroup(1, runnable -> {
-        var thread = new Thread(runnable, "NeoSync HTTPS");
+        var thread = new Thread(runnable, "NeoSync manifest transport");
         thread.setDaemon(true);
         return thread;
     });
@@ -48,14 +48,17 @@ public final class ManifestHttpClient {
                 .handler(new ChannelInitializer<SocketChannel>() {
                     @Override
                     protected void initChannel(SocketChannel channel) {
-                        var engine = tls.createSSLEngine(endpoint.host(), endpoint.httpsPort());
-                        engine.setUseClientMode(true);
-                        var parameters = engine.getSSLParameters();
-                        parameters.setEndpointIdentificationAlgorithm("HTTPS");
-                        engine.setSSLParameters(parameters);
-                        var ssl = new SslHandler(engine);
-                        ssl.setHandshakeTimeoutMillis(5000);
-                        channel.pipeline().addLast(ssl, new HttpClientCodec(), new HttpObjectAggregator(SyncManifest.MAX_BYTES),
+                        if (!endpoint.insecure()) {
+                            var engine = tls.createSSLEngine(endpoint.host(), endpoint.httpsPort());
+                            engine.setUseClientMode(true);
+                            var parameters = engine.getSSLParameters();
+                            parameters.setEndpointIdentificationAlgorithm("HTTPS");
+                            engine.setSSLParameters(parameters);
+                            var ssl = new SslHandler(engine);
+                            ssl.setHandshakeTimeoutMillis(5000);
+                            channel.pipeline().addLast(ssl);
+                        }
+                        channel.pipeline().addLast(new HttpClientCodec(), new HttpObjectAggregator(SyncManifest.MAX_BYTES),
                                 new SimpleChannelInboundHandler<FullHttpResponse>() {
                                     @Override
                                     public void channelActive(ChannelHandlerContext context) throws IOException {
@@ -85,13 +88,13 @@ public final class ManifestHttpClient {
 
                                     @Override
                                     public void exceptionCaught(ChannelHandlerContext context, Throwable cause) {
-                                        result.completeExceptionally(new IOException("The HTTPS manifest connection failed.", cause));
+                                        result.completeExceptionally(new IOException("The manifest connection failed.", cause));
                                         context.close();
                                     }
 
                                     @Override
                                     public void channelInactive(ChannelHandlerContext context) {
-                                        result.completeExceptionally(new IOException("The HTTPS manifest response was incomplete."));
+                                        result.completeExceptionally(new IOException("The manifest response was incomplete."));
                                     }
                                 });
                     }
@@ -99,7 +102,7 @@ public final class ManifestHttpClient {
         // Connect to the approved address while TLS still verifies the logical hostname.
         var connection = bootstrap.connect(new InetSocketAddress(approvedAddress, endpoint.httpsPort()));
         connection.addListener(future -> {
-            if (!future.isSuccess()) result.completeExceptionally(new IOException("Could not connect to the HTTPS manifest service.", future.cause()));
+            if (!future.isSuccess()) result.completeExceptionally(new IOException("Could not connect to the manifest service.", future.cause()));
         });
         try {
             cancellation.attach(() -> {
@@ -114,7 +117,7 @@ public final class ManifestHttpClient {
             Thread.currentThread().interrupt();
             throw new IOException("Discovery was cancelled.", e);
         } catch (java.util.concurrent.ExecutionException | java.util.concurrent.TimeoutException | java.util.concurrent.CancellationException e) {
-            throw new IOException("Could not retrieve a verified HTTPS manifest.", e);
+            throw new IOException("Could not retrieve the " + endpoint.transport().toUpperCase(Locale.ROOT) + " manifest.", e);
         } finally {
             connection.channel().close();
             cancellation.detach();

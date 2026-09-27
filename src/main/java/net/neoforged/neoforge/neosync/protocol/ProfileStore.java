@@ -363,13 +363,14 @@ public final class ProfileStore {
 
     private Profile readProfile(Path directory) throws IOException {
         var object = SyncJson.object(SyncJson.parse(ManagedPaths.read(directory.resolve("profile.json"), 16384), 16384),
-                Set.of("schemaVersion", "profileId", "host", "gamePort", "httpsPort", "serverId", "prepared", "launched"), Set.of());
-        SyncJson.number(object.get("schemaVersion"), 1, 1);
+                Set.of("schemaVersion", "profileId", "host", "gamePort", "serverId", "prepared", "launched"), Set.of("httpsPort", "httpPort"));
+        boolean http = SyncJson.number(object.get("schemaVersion"), 1, 2) == 2;
+        if (http != object.has("httpPort") || http == object.has("httpsPort")) throw new IOException("Invalid profile transport.");
         String id = id(object, "profileId");
         if (!directory.getFileName().toString().equals(id)) throw new IOException("The local profile ID does not match its directory.");
         String host = SyncJson.string(object.get("host"), 253);
         var endpoint = SyncEndpoint.create(host, (int) SyncJson.number(object.get("gamePort"), 1, 65535),
-                new SyncCapability((int) SyncJson.number(object.get("httpsPort"), 1, 65535), "0".repeat(64)));
+                new SyncCapability((int) SyncJson.number(object.get(http ? "httpPort" : "httpsPort"), 1, 65535), "0".repeat(64), http ? "http" : "https"));
         if (!host.equals(endpoint.host())) throw new IOException("The local server identity is not normalized.");
         var identity = new InstallationPlan.Identity(host, endpoint.gamePort(), InstallationPlan.origin(endpoint.manifestUri()), UUID.fromString(id(object, "serverId")));
         String launched = SyncJson.string(object.get("launched"), 36);
@@ -410,7 +411,11 @@ public final class ProfileStore {
             var artifact = manifest.files().get(i);
             URI source;
             try {
-                source = InstallationPlan.externalSource(URI.create(SyncJson.string(file.get("source"), 2048)));
+                URI recorded = URI.create(SyncJson.string(file.get("source"), 2048));
+                boolean hosted = artifact.sources().stream().anyMatch(candidate -> candidate.type().equals("server"));
+                source = hosted && recorded.equals(InstallationPlan.serverSource(profile.identity(), artifact.sha256()))
+                        ? recorded
+                        : InstallationPlan.externalSource(recorded);
             } catch (IllegalArgumentException e) {
                 throw new IOException("Invalid local consent source.", e);
             }
@@ -453,7 +458,9 @@ public final class ProfileStore {
         object.addProperty("profileId", profile.id());
         object.addProperty("host", profile.identity().host());
         object.addProperty("gamePort", profile.identity().gamePort());
-        object.addProperty("httpsPort", profile.identity().origin().getPort());
+        boolean http = profile.identity().origin().getScheme().equals("http");
+        object.addProperty("schemaVersion", http ? 2 : 1);
+        object.addProperty(http ? "httpPort" : "httpsPort", profile.identity().origin().getPort());
         object.addProperty("serverId", profile.identity().serverId().toString());
         object.addProperty("prepared", profile.prepared());
         object.addProperty("launched", profile.launched());

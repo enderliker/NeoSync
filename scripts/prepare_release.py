@@ -76,6 +76,7 @@ def validate():
                 require('logoFile="neosync_logo.png"' in metadata and 'displayName="NeoSync"' in metadata, "Missing NeoSync mod identity.")
                 require(archive.read("neosync_logo.png") == (ROOT / "docs/assets/neosync-installer.png").read_bytes(), "Stale mod-list banner.")
                 require("neoforged_logo.png" not in archive.namelist(), "Obsolete mod-list logo is still bundled.")
+                require(archive.read("neosync/admin/icon.svg") == (ROOT / "docs/assets/neosync-mark.svg").read_bytes(), "Stale administrator panel logo.")
             else:
                 require(archive.read(source_path + ".java") == source, "Sources JAR is stale.")
     require(properties["fancy_mod_loader_version"] == "4.0.44", "Review startup branding against the new FML version.")

@@ -67,7 +67,9 @@ public final class ArtifactHttpClient {
             URI current = file.source();
             long deadline = System.nanoTime() + TimeUnit.MINUTES.toNanos(15);
             for (int redirects = 0;; redirects++) {
-                current = InstallationPlan.externalSource(current);
+                if (!file.providedByServer()) current = InstallationPlan.externalSource(current);
+                else if (!current.equals(InstallationPlan.serverSource(plan.identity(), file.artifact().sha256())))
+                    throw new IOException("The hosted artifact source changed after review.");
                 cancellation.check();
                 InetAddress[] addresses;
                 if (file.providedByServer() && plan.approvedAddress() != null) {
@@ -124,7 +126,8 @@ public final class ArtifactHttpClient {
             throw new IOException("Invalid artifact limits.");
         }
         var result = new CompletableFuture<URI>();
-        int port = uri.getPort() == -1 ? 443 : uri.getPort();
+        int port = uri.getPort() == -1 ? ("http".equals(uri.getScheme()) ? 80 : 443) : uri.getPort();
+        if (!"http".equals(uri.getScheme()) && !"https".equals(uri.getScheme())) throw new IOException("Unsupported download transport.");
         String host = SyncEndpoint.normalizeHost(uri.getHost());
         boolean complete = false;
         boolean created = false;
@@ -135,13 +138,16 @@ public final class ArtifactHttpClient {
                     .handler(new ChannelInitializer<SocketChannel>() {
                         @Override
                         protected void initChannel(SocketChannel channel) {
-                            var engine = tls.createSSLEngine(host, port);
-                            engine.setUseClientMode(true);
-                            var parameters = engine.getSSLParameters();
-                            parameters.setEndpointIdentificationAlgorithm("HTTPS");
-                            engine.setSSLParameters(parameters);
-                            var ssl = new SslHandler(engine);
-                            ssl.setHandshakeTimeoutMillis(5000);
+                            if ("https".equals(uri.getScheme())) {
+                                var engine = tls.createSSLEngine(host, port);
+                                engine.setUseClientMode(true);
+                                var parameters = engine.getSSLParameters();
+                                parameters.setEndpointIdentificationAlgorithm("HTTPS");
+                                engine.setSSLParameters(parameters);
+                                var ssl = new SslHandler(engine);
+                                ssl.setHandshakeTimeoutMillis(5000);
+                                channel.pipeline().addLast(ssl);
+                            }
                             var decoder = new HttpResponseDecoder() {
                                 @Override
                                 protected void handleTransferEncodingChunkedWithContentLength(HttpMessage message) {
@@ -149,7 +155,7 @@ public final class ArtifactHttpClient {
                                     throw new IllegalArgumentException("Ambiguous artifact response length.");
                                 }
                             };
-                            channel.pipeline().addLast(ssl, new ReadTimeoutHandler(30), decoder, new HttpRequestEncoder(), new SimpleChannelInboundHandler<HttpObject>() {
+                            channel.pipeline().addLast(new ReadTimeoutHandler(30), decoder, new HttpRequestEncoder(), new SimpleChannelInboundHandler<HttpObject>() {
                                 private final java.security.MessageDigest digest = SyncManifest.sha256Digest();
                                 private long received;
                                 private boolean headers;

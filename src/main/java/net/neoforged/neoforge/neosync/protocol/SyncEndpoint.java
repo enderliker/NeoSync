@@ -12,12 +12,26 @@ import java.net.InetAddress;
 import java.net.URI;
 import java.net.URISyntaxException;
 
-public record SyncEndpoint(String host, int gamePort, int httpsPort, String digest) {
+public record SyncEndpoint(String host, int gamePort, int httpsPort, String digest, String transport) {
+    public SyncEndpoint(String host, int gamePort, int httpsPort, String digest) {
+        this(host, gamePort, httpsPort, digest, "https");
+    }
+
+    public boolean insecure() {
+        return transport.equals("http");
+    }
+
     public static SyncEndpoint create(String host, int gamePort, SyncCapability capability) throws IOException {
         if (gamePort < 1 || gamePort > 65535) throw new IOException("Invalid game port.");
-        if (capability.httpsPort() != 443 && capability.httpsPort() != 8443) throw new IOException("NeoSync discovery only supports HTTPS ports 443 and 8443.");
+        validateTransport(capability.transport(), capability.httpsPort());
         if (!capability.manifestSha256().matches(SyncManifest.HASH_PATTERN)) throw new IOException("Invalid manifest hash.");
-        return new SyncEndpoint(normalizeHost(host), gamePort, capability.httpsPort(), capability.manifestSha256());
+        return new SyncEndpoint(normalizeHost(host), gamePort, capability.httpsPort(), capability.manifestSha256(), capability.transport());
+    }
+
+    public static void validateTransport(String transport, int port) throws IOException {
+        if ("https".equals(transport) && (port == 443 || port == 8443)) return;
+        if ("http".equals(transport) && (port == 80 || port == 8080)) return;
+        throw new IOException("Use HTTPS on port 443 or 8443, or explicitly selected HTTP on port 80 or 8080.");
     }
 
     public static String normalizeHost(String host) throws IOException {
@@ -35,7 +49,7 @@ public record SyncEndpoint(String host, int gamePort, int httpsPort, String dige
 
     public URI manifestUri() throws IOException {
         try {
-            return new URI("https", null, host, httpsPort, "/.well-known/neosync/v1/servers/" + gamePort + "/manifests/" + digest + ".json", null, null);
+            return new URI(transport, null, host, httpsPort, "/.well-known/neosync/v1/servers/" + gamePort + "/manifests/" + digest + ".json", null, null);
         } catch (URISyntaxException e) {
             throw new IOException("Invalid manifest endpoint.", e);
         }

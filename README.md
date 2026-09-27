@@ -182,9 +182,9 @@ the first run can take some time. On Windows, use `gradlew.bat`.
 | --- | --- | --- |
 | Minecraft Java Edition | **1.21.1** | The Minecraft version targeted by this branch. |
 | NeoForge base build | **21.1.252** | The platform build used by NeoSync; mods must be compatible with this NeoForge/Minecraft combination. |
-| NeoSync development identifier | **0.1.0-beta.3** | Current source tree. |
-| Published NeoSync release | **0.1.0-beta.3** | Beta prerelease with Modrinth resolution, administrator panel, Prism restart and profile recovery. |
-| Synchronization protocol | **1** | The version used for server discovery and manifests. |
+| NeoSync source identifier | **0.1.0-beta.4** | Configurable HTTP/HTTPS and updated administrator panel. |
+| Published NeoSync releases | **See GitHub Releases** | Beta.4 is the current release target; earlier prereleases remain available. |
+| Synchronization protocol | **1 (HTTPS), 2 (HTTP)** | Current source discovery protocols; manifest schema remains 1. Published beta.3 supports HTTPS protocol 1. |
 | Java | **21** | Required for running and developing this build; use a JDK for development. |
 | Gradle wrapper | **8.13** | Included in the repository; no separate Gradle installation is needed. |
 

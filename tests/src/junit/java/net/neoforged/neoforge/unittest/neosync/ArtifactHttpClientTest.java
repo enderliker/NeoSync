@@ -200,8 +200,9 @@ class ArtifactHttpClientTest {
         assertFalse(Files.exists(target));
     }
 
-    @Test
-    void downloadsHostedProfileOverTlsAndPreservesItOnFailedReplacement(@TempDir Path directory) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void downloadsHostedProfileAndPreservesItOnFailedReplacement(boolean secure, @TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
         var fingerprint = ArtifactFiles.fingerprint(jar, new DiscoveryCancellation());
         var root = JsonParser.parseString(new String(SyncProtocolTest.manifest(), StandardCharsets.UTF_8)).getAsJsonObject();
@@ -209,7 +210,7 @@ class ArtifactHttpClientTest {
         file.addProperty("sha256", fingerprint.sha256());
         file.addProperty("size", fingerprint.size());
         byte[] bytes = root.toString().getBytes(StandardCharsets.UTF_8);
-        var endpoint = SyncEndpoint.create("localhost", 25575, new SyncCapability(8443, SyncManifest.sha256(bytes)));
+        var endpoint = SyncEndpoint.create("localhost", 25575, new SyncCapability(secure ? 8443 : 8080, SyncManifest.sha256(bytes), secure ? "https" : "http"));
         var plan = InstallationPlan.create(endpoint, bytes, Set.of(), null, "0.1.0-dev", "21.1.251", InetAddress.getLoopbackAddress());
         var store = ProfileStore.open(Files.createDirectory(directory.resolve("game")));
         var originalTls = SSLContext.getDefault();
@@ -217,8 +218,10 @@ class ArtifactHttpClientTest {
         try (var inventory = new HostedInventory(directory.resolve("hosting"), 1024 * 1024)) {
             inventory.add(jar, fingerprint, new DiscoveryCancellation());
             var files = inventory.seal();
-            try (var service = new ManifestService(new InetSocketAddress(InetAddress.getLoopbackAddress(), 8443), serverTls, endpoint.manifestUri().getPath(), bytes,
+            try (var service = new ManifestService(new InetSocketAddress(InetAddress.getLoopbackAddress(), secure ? 8443 : 8080), secure ? serverTls : null, endpoint.manifestUri().getPath(), bytes,
                     "/.well-known/neosync/v1/servers/25575/files/", files, new HostingPolicy(true, 1024 * 1024, 8, 65536, 120))) {
+                org.junit.jupiter.api.Assertions.assertArrayEquals(bytes,
+                        net.neoforged.neoforge.neosync.protocol.ManifestHttpClient.fetch(endpoint, InetAddress.getLoopbackAddress(), clientTls, new DiscoveryCancellation()));
                 var prepared = store.prepare(plan, plan.accept(true, true), Map.of(), "4.0.44", new DiscoveryCancellation(), (action, count, total) -> {});
                 var active = ProfileStore.open(prepared.gameDirectory());
                 active.verify(prepared, "4.0.44", new DiscoveryCancellation());

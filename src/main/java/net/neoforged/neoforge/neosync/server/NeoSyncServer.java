@@ -101,8 +101,11 @@ public final class NeoSyncServer {
                     .map(info -> new AdminSelection.Candidate(info.getFile().getFilePath(), info.getMods().stream()
                             .map(mod -> mod.getDisplayName() + " " + mod.getVersion()).collect(java.util.stream.Collectors.joining(", "))))
                     .sorted(java.util.Comparator.comparing(candidate -> candidate.path().getFileName().toString())).toList();
-            admin = new AdminService(new InetSocketAddress("0.0.0.0", 6742), secrets, new AdminSelection(configPath, candidates, event.getServer().getPort()));
-            LOGGER.info("NeoSync administrator panel: https://<machine-IP>:6742. Password: config/neosync-admin/password.txt (server account only).");
+            var selection = new AdminSelection(configPath, candidates, event.getServer().getPort());
+            String adminTransport = selection.transport().adminTransport();
+            admin = new AdminService(new InetSocketAddress("0.0.0.0", 6742), secrets, selection, adminTransport.equals("https"));
+            LOGGER.info("NeoSync administrator panel: {}://<machine-IP>:6742. Password: config/neosync-admin/password.txt (server account only).", adminTransport);
+            if (adminTransport.equals("http")) LOGGER.warn("The administrator panel uses unencrypted HTTP. Passwords and sessions can be read or changed in transit.");
             LOGGER.info("NeoSync administrator certificate SHA-256: {}", secrets.fingerprint());
         } catch (Exception e) {
             LOGGER.error("NeoSync administrator panel could not start: {}", e.getMessage());
@@ -115,22 +118,21 @@ public final class NeoSyncServer {
                 configBytes = input.readNBytes(SyncManifest.MAX_BYTES + 1);
             }
             var config = SyncJson.object(SyncJson.parse(configBytes, SyncManifest.MAX_BYTES), Set.of("enabled"),
-                    Set.of("mode", "bindAddress", "port", "httpsPort", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
+                    Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
             if (!SyncJson.bool(config.get("enabled"))) return;
-            String mode = SyncJson.string(config.get("mode"), 32);
-            String bind = SyncJson.string(config.get("bindAddress"), 64);
-            if (!InetAddresses.isInetAddress(bind)) throw new IOException("The manifest bind address must be an IP literal.");
-            int port = (int) SyncJson.number(config.get("port"), 1, 65535);
-            int httpsPort = (int) SyncJson.number(config.get("httpsPort"), 1, 65535);
+            var transport = ServerTransport.parse(config);
+            String mode = transport.mode();
+            String bind = transport.bindAddress();
+            int port = transport.port();
+            int httpsPort = transport.advertisedPort();
             int gamePort = config.has("gamePort") ? (int) SyncJson.number(config.get("gamePort"), 1, 65535) : event.getServer().getPort();
-            if (httpsPort != 443 && httpsPort != 8443) throw new IOException("The advertised HTTPS port must be 443 or 8443.");
             SSLContext tls = switch (mode) {
                 case "https" -> serverTls(config);
                 case "managed-https" -> {
                     if (secrets == null) throw new IOException("The managed TLS identity is unavailable.");
                     yield secrets.tls();
                 }
-                case "reverse-proxy" -> null;
+                case "reverse-proxy", "http" -> null;
                 default -> throw new IOException("The manifest service mode must be https, managed-https, or reverse-proxy.");
             };
             var policy = HostingPolicy.parse(config.get("hosting"));
@@ -142,14 +144,15 @@ public final class NeoSyncServer {
                 var entry = hosted.get(artifact.sha256());
                 if (entry != null) JarMetadata.verify(entry.path(), artifact, FMLLoader.versionInfo().fmlVersion(), new DiscoveryCancellation());
             }
-            var capability = new SyncCapability(httpsPort, SyncManifest.sha256(manifest));
+            var capability = new SyncCapability(httpsPort, SyncManifest.sha256(manifest), transport.insecure() ? "http" : "https");
             String route = "/.well-known/neosync/v1/servers/" + gamePort + "/manifests/" + capability.manifestSha256() + ".json";
             var service = new ManifestService(new InetSocketAddress(InetAddresses.forString(bind), port), tls, route, manifest,
-                    "/.well-known/neosync/v1/servers/" + gamePort + "/files/", hosted, policy);
+                    "/.well-known/neosync/v1/servers/" + gamePort + "/files/", hosted, policy, transport.insecure());
             state = new State(service, capability, inventory);
             inventory = null;
             if (!hosted.isEmpty()) LOGGER.info("NeoSync publicly hosts {} administrator-declared exclusive artifacts. Minecraft login restrictions do not protect these downloads.", hosted.size());
-            LOGGER.info("NeoSync discovery enabled for {} client artifacts on port {}. Public HTTPS port: {}", parsed.files().size(), service.port(), httpsPort);
+            LOGGER.info("NeoSync discovery enabled for {} client artifacts on port {}. Public {} port: {}", parsed.files().size(), service.port(), capability.transport().toUpperCase(java.util.Locale.ROOT), httpsPort);
+            if (transport.insecure()) LOGGER.warn("NeoSync manifest and hosted downloads use unencrypted HTTP. Clients must explicitly accept this transport.");
         } catch (Exception e) {
             LOGGER.error("NeoSync discovery could not start. Review config/neosync-server.json: {}", e.getMessage());
         } finally {

@@ -14,7 +14,7 @@ Windows ACL). Passwords never appear in server logs or HTTP responses. Do not
 publish this directory, place it in a public web root, or include it in backups
 available to players. Protect your server account as you would the server itself.
 
-The panel uses a locally generated TLS certificate. Before accepting the browser's
+In HTTPS mode, the panel uses a locally generated TLS certificate. Before accepting the browser's
 initial certificate warning, compare its SHA-256 fingerprint with the fingerprint
 printed in the local server log. This is an explicit identity check: a warning
 alone does not establish which machine you reached. The certificate includes
@@ -58,11 +58,61 @@ or the loopback `reverse-proxy` mode from [Phase 2](phase-2.md#server-setup).
 The panel preserves that existing transport configuration when saving selections.
 The generated local certificate is not a public certificate authority.
 
+## HTTP and HTTPS settings
+
+Unreleased beta.4 adds independent transport controls under **Connections** in
+this panel. Both default to HTTPS. Choose the player and panel transports, select
+**Save changes**, then restart the dedicated server. The panel shows its address
+for the next start. A running beta.3 installation must first be updated to a build
+with this feature; editing the source tree does not update installed JARs.
+
+For local configuration, this enables HTTP for both services:
+
+```json
+{
+  "enabled": true,
+  "displayName": "Local server",
+  "mode": "http",
+  "bindAddress": "0.0.0.0",
+  "port": 8080,
+  "httpPort": 8080,
+  "adminTransport": "http",
+  "files": []
+}
+```
+
+Keep your reviewed `files` and `hosting` entries when editing an existing
+configuration. `port` is the manifest listener; `httpPort` is the port advertised
+to players. HTTP accepts advertised ports 80 or 8080. HTTPS accepts 443 or 8443,
+using `httpsPort` instead of `httpPort`. Do not specify both port fields.
+`adminTransport` is `https` by default; `http` uses the same administrator port,
+6742. These settings do not change Minecraft's game port.
+
+The panel switches player transport between `http` on 8080 and `managed-https`
+on 8443. An existing `https` or `reverse-proxy` configuration is preserved when
+HTTPS remains selected. To return from HTTP to a custom certificate or reverse
+proxy, configure that mode in the JSON file. Plaintext reverse-proxy backends
+still bind only to loopback and still advertise HTTPS to players.
+
+HTTP is unencrypted. It cannot authenticate the server or prevent someone on the
+network from replacing both a manifest and its announced hashes. Every HTTP
+connection attempt shows a default-negative client warning before fetching the
+manifest; installation and unverified-file consent remain separate. HTTP does
+not bypass destination restrictions, hash/size checks, or restricted-hosting rules.
+Modrinth and external URLs still use HTTPS, and HTTPS failures never retry as HTTP.
+HTTP and HTTPS profiles have different origins and do not share implicit trust.
+
+An HTTP panel also exposes login passwords and session cookies to the network.
+Its banner states this before sign-in. Authentication, exact-origin checks, CSRF,
+HttpOnly cookies, SameSite=Strict and request limits remain active; HTTP uses a
+separate cookie name because the HTTPS `__Host-` cookie requires Secure transport.
+The panel does not redirect or change protocol until the server restarts.
+
 ## Validation
 
 The installed Linux panel passed browser authentication, selection, injection and
 responsive-layout checks. See [Phase 7](phase-7.md) for the tested build and platform
-limits. Windows ACL handling is implemented but has not been runtime-tested.
+limits. Windows ACL handling is implemented; beta.3 CI exercised installed dedicated-server startup. Interactive Windows panel usage remains unvalidated.
 
 ## Access limits
 
@@ -77,3 +127,22 @@ The panel binds IPv4 on all interfaces at port 6742. Configure the machine's
 firewall according to who should administer the server. It does not inherit
 Minecraft's allowlist or player permissions. IPv6 panel binding and remote DNS
 names are not currently configurable.
+
+### Beta.4 development transport and panel checks
+
+The September 27, 2026 local checks passed 244 JUnit cases, including both
+transports for administrator authentication/origin/CSRF/logout and hosted
+profile download, integrity, interruption and recovery. Existing HTTPS profile
+records and external-source restrictions remain covered. New cases reject mixed
+HTTP/HTTPS advertisements and invalid transport configurations and verify
+transactional changes back to HTTPS.
+
+A separate real `AdminService` fixture was exercised in Chromium over both HTTP
+and HTTPS. Login/logout, persisted transport selections, hosting declarations,
+filtering, empty results, and transport notices passed. Desktop (1440 pixels) and
+mobile (390 pixels) screenshots were visually inspected with no horizontal overflow.
+The fixture used generated credentials and synthetic inventory, not a live server.
+Local evidence is under `build/neosync-admin-preview/` and is not a release asset.
+These are source-level service and browser results, not an installed multiplayer
+acceptance result or a newly published release. The running server and existing
+Prism instances are not updated by a source build.

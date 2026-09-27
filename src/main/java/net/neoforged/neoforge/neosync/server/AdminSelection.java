@@ -55,6 +55,7 @@ public final class AdminSelection {
         defaults.addProperty("enabled", false);
         defaults.addProperty("displayName", "NeoSync server");
         defaults.addProperty("mode", "managed-https");
+        defaults.addProperty("adminTransport", "https");
         defaults.addProperty("bindAddress", "0.0.0.0");
         defaults.addProperty("port", 8443);
         defaults.addProperty("httpsPort", 8443);
@@ -63,14 +64,22 @@ public final class AdminSelection {
         startupDigest = SyncManifest.sha256(read());
     }
 
+    public synchronized ServerTransport transport() throws IOException {
+        return ServerTransport.parse(parse(read()));
+    }
+
     public synchronized JsonObject state() throws IOException {
         byte[] bytes = read();
         var config = parse(bytes);
         var selected = selections(config);
+        var transport = ServerTransport.parse(config);
         var result = new JsonObject();
         result.addProperty("revision", SyncManifest.sha256(bytes));
         result.addProperty("restartRequired", !startupDigest.equals(SyncManifest.sha256(bytes)));
         result.addProperty("enabled", SyncJson.bool(config.get("enabled")));
+        result.addProperty("transport", transport.insecure() ? "http" : "https");
+        result.addProperty("adminTransport", transport.adminTransport());
+        result.addProperty("manifestPort", transport.advertisedPort());
         result.addProperty("displayName", config.has("displayName") ? SyncJson.string(config.get("displayName"), 128) : "NeoSync server");
         var files = new JsonArray();
         for (var entry : inventory.entrySet()) {
@@ -96,12 +105,25 @@ public final class AdminSelection {
     }
 
     public synchronized void save(byte[] request) throws IOException {
-        var input = SyncJson.object(SyncJson.parse(request, SyncManifest.MAX_BYTES), Set.of("revision", "enabled", "displayName", "files"), Set.of());
+        var input = SyncJson.object(SyncJson.parse(request, SyncManifest.MAX_BYTES), Set.of("revision", "enabled", "displayName", "files"), Set.of("transport", "adminTransport"));
         String expected = SyncJson.matching(input.get("revision"), 64, SyncManifest.HASH_PATTERN);
         byte[] original = read();
         if (!SyncManifest.sha256(original).equals(expected)) throw new IOException("The configuration changed. Reload the panel before saving.");
         var config = parse(original);
         var previous = selections(config);
+        var transport = ServerTransport.parse(config);
+        if (input.has("transport")) {
+            String requested = ServerTransport.protocol(SyncJson.string(input.get("transport"), 8));
+            if (requested.equals("http") != transport.insecure()) {
+                boolean http = requested.equals("http");
+                config.addProperty("mode", http ? "http" : "managed-https");
+                config.addProperty("port", http ? 8080 : 8443);
+                config.remove(http ? "httpsPort" : "httpPort");
+                config.addProperty(http ? "httpPort" : "httpsPort", http ? 8080 : 8443);
+            }
+        }
+        if (input.has("adminTransport"))
+            config.addProperty("adminTransport", ServerTransport.protocol(SyncJson.string(input.get("adminTransport"), 8)));
         var files = new JsonArray();
         var names = new HashSet<String>();
         boolean hosting = false;
@@ -145,7 +167,14 @@ public final class AdminSelection {
         config.add("files", files);
         config.addProperty("enabled", SyncJson.bool(input.get("enabled")));
         config.addProperty("displayName", SyncJson.string(input.get("displayName"), 128));
-        for (var entry : defaults.entrySet()) if (!config.has(entry.getKey())) config.add(entry.getKey(), entry.getValue().deepCopy());
+        for (var entry : defaults.entrySet()) {
+            if (entry.getKey().equals("httpsPort") && config.has("mode") && config.get("mode").getAsString().equals("http")) continue;
+            if (!config.has(entry.getKey())) {
+                if (entry.getKey().equals("port") && config.has("mode") && config.get("mode").getAsString().equals("http")) config.addProperty("port", 8080);
+                else config.add(entry.getKey(), entry.getValue().deepCopy());
+            }
+        }
+        ServerTransport.parse(config);
         var policy = config.has("hosting") ? config.getAsJsonObject("hosting").deepCopy() : new JsonObject();
         policy.addProperty("enabled", hosting);
         HostingPolicy.parse(policy);
@@ -182,7 +211,7 @@ public final class AdminSelection {
 
     private static JsonObject parse(byte[] bytes) throws IOException {
         return SyncJson.object(SyncJson.parse(bytes, SyncManifest.MAX_BYTES), Set.of("enabled"),
-                Set.of("mode", "bindAddress", "port", "httpsPort", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
+                Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
     }
 
     private static Map<String, JsonObject> selections(JsonObject config) throws IOException {

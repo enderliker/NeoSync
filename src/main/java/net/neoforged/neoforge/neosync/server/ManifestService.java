@@ -57,13 +57,18 @@ public final class ManifestService implements AutoCloseable {
 
     public ManifestService(InetSocketAddress address, @Nullable SSLContext tls, String path, byte[] manifest,
             String filesPrefix, Map<String, HostedInventory.Entry> inventory, HostingPolicy policy) throws IOException {
-        if (tls == null && !address.getAddress().isLoopbackAddress()) throw new IOException("A plaintext manifest backend must bind to loopback.");
+        this(address, tls, path, manifest, filesPrefix, inventory, policy, false);
+    }
+
+    public ManifestService(InetSocketAddress address, @Nullable SSLContext tls, String path, byte[] manifest,
+            String filesPrefix, Map<String, HostedInventory.Entry> inventory, HostingPolicy policy, boolean publicHttp) throws IOException {
+        if (tls == null && !publicHttp && !address.getAddress().isLoopbackAddress()) throw new IOException("A plaintext manifest backend must bind to loopback.");
         if (!policy.enabled() && !inventory.isEmpty()) throw new IOException("Server artifact hosting is disabled.");
         byte[] snapshot = manifest.clone();
         var files = Map.copyOf(inventory);
         var limits = new Limits(policy);
         ThreadFactory threads = runnable -> {
-            var thread = new Thread(runnable, "NeoSync HTTPS service");
+            var thread = new Thread(runnable, "NeoSync manifest service");
             thread.setDaemon(true);
             return thread;
         };

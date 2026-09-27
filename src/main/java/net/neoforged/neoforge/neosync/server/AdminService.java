@@ -48,7 +48,7 @@ import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 import org.jetbrains.annotations.Nullable;
 
 public final class AdminService implements AutoCloseable {
-    private final NioEventLoopGroup network = new NioEventLoopGroup(2, (java.util.concurrent.ThreadFactory) runnable -> daemon(runnable, "NeoSync admin HTTPS"));
+    private final NioEventLoopGroup network = new NioEventLoopGroup(2, (java.util.concurrent.ThreadFactory) runnable -> daemon(runnable, "NeoSync admin service"));
     private final ThreadPoolExecutor work = new ThreadPoolExecutor(1, 1, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(16),
             runnable -> daemon(runnable, "NeoSync admin selection"), new ThreadPoolExecutor.AbortPolicy());
     private final DefaultChannelGroup connections = new DefaultChannelGroup(GlobalEventExecutor.INSTANCE);
@@ -56,6 +56,7 @@ public final class AdminService implements AutoCloseable {
     private final Map<String, byte[]> assets = new HashMap<>();
     private final AdminSecrets secrets;
     private final AdminSelection selection;
+    private final boolean secure;
     private final Channel server;
     private long window = System.nanoTime();
     private int requests;
@@ -66,6 +67,11 @@ public final class AdminService implements AutoCloseable {
     private record Request(String method, String path, String host, String origin, String cookie, String csrf, String type, byte[] body) {}
 
     public AdminService(InetSocketAddress address, AdminSecrets secrets, AdminSelection selection) throws IOException {
+        this(address, secrets, selection, true);
+    }
+
+    public AdminService(InetSocketAddress address, AdminSecrets secrets, AdminSelection selection, boolean secure) throws IOException {
+        this.secure = secure;
         this.secrets = secrets;
         this.selection = selection;
         var permits = new Semaphore(32);
@@ -92,18 +98,21 @@ public final class AdminService implements AutoCloseable {
                                 permits.release();
                                 deadline.cancel(false);
                             });
-                            var engine = secrets.tls().createSSLEngine();
-                            engine.setUseClientMode(false);
-                            engine.setEnabledProtocols(new String[] { "TLSv1.3", "TLSv1.2" });
-                            var ssl = new SslHandler(engine);
-                            ssl.setHandshakeTimeoutMillis(5000);
+                            if (secure) {
+                                var engine = secrets.tls().createSSLEngine();
+                                engine.setUseClientMode(false);
+                                engine.setEnabledProtocols(new String[] { "TLSv1.3", "TLSv1.2" });
+                                var ssl = new SslHandler(engine);
+                                ssl.setHandshakeTimeoutMillis(5000);
+                                channel.pipeline().addLast(ssl);
+                            }
                             var decoder = new HttpRequestDecoder(2048, 8192, 8192) {
                                 @Override
                                 protected void handleTransferEncodingChunkedWithContentLength(HttpMessage message) {
                                     throw new IllegalArgumentException("Ambiguous administrator request length.");
                                 }
                             };
-                            channel.pipeline().addLast(ssl, decoder, new HttpResponseEncoder(), new HttpObjectAggregator(SyncManifest.MAX_BYTES), new WriteTimeoutHandler(10),
+                            channel.pipeline().addLast(decoder, new HttpResponseEncoder(), new HttpObjectAggregator(SyncManifest.MAX_BYTES), new WriteTimeoutHandler(10),
                                     new SimpleChannelInboundHandler<FullHttpRequest>() {
                                         private boolean handled;
 
@@ -143,7 +152,7 @@ public final class AdminService implements AutoCloseable {
             connections.close().awaitUninterruptibly();
             network.shutdownGracefully(0, 1, TimeUnit.SECONDS).awaitUninterruptibly();
             work.shutdownNow();
-            throw new IOException("Could not start the NeoSync administrator HTTPS panel.", e);
+            throw new IOException("Could not start the NeoSync administrator panel.", e);
         }
     }
 
@@ -168,7 +177,7 @@ public final class AdminService implements AutoCloseable {
             error(context, 405, "Use GET or POST.");
             return;
         }
-        if (post && (!request.origin().equals("https://" + request.host()) || !request.type().equals("application/json"))) {
+        if (post && (!request.origin().equals((secure ? "https://" : "http://") + request.host()) || !request.type().equals("application/json"))) {
             error(context, 403, "Use the administrator panel on this server to submit changes.");
             return;
         }
@@ -246,20 +255,21 @@ public final class AdminService implements AutoCloseable {
         }
     }
 
-    private static String sessionId(String cookie) {
+    private String sessionId(String cookie) {
         String result = "";
         for (String part : cookie.split(";")) {
             String value = part.trim();
-            if (value.startsWith("__Host-neosync=")) {
+            String prefix = secure ? "__Host-neosync=" : "neosync-http=";
+            if (value.startsWith(prefix)) {
                 if (!result.isEmpty()) return "";
-                result = value.substring("__Host-neosync=".length());
+                result = value.substring(prefix.length());
             }
         }
         return result.matches("[A-Za-z0-9_-]{43}") ? result : "";
     }
 
-    private static String cookie(String value, int age) {
-        return "__Host-neosync=" + value + "; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=" + age;
+    private String cookie(String value, int age) {
+        return (secure ? "__Host-neosync=" : "neosync-http=") + value + "; Path=/; " + (secure ? "Secure; " : "") + "HttpOnly; SameSite=Strict; Max-Age=" + age;
     }
 
     private static void error(ChannelHandlerContext context, int status, String message) {

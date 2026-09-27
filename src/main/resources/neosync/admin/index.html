@@ -1,13 +1,59 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>NeoSync server administration</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
-<body><main>
-<header><img src="/icon.svg" alt="NeoSync" width="48" height="48"><div><h1>NeoSync</h1><p>Server administration</p></div><button id="logout" hidden>Sign out</button></header>
-<p id="status" role="status" aria-live="polite"></p>
-<section id="login"><h2>Sign in to your server</h2><p>Use the generated password in <code>config/neosync-admin/password.txt</code> on the server.</p><form id="login-form"><label>Password <input id="password" type="password" required autocomplete="current-password" maxlength="128"></label><button>Sign in</button></form></section>
-<section id="panel" hidden><h2>Choose the mods players receive</h2><p>Select client requirements from the loaded server inventory. Include required dependencies. Leave server-only mods unselected.</p>
-<form id="selection"><div class="settings"><label><input id="enabled" type="checkbox"> Enable synchronization</label><label>Server name <input id="display-name" maxlength="128" required></label></div>
-<p id="pending"></p><p id="missing"></p><label>Filter mods <input id="filter" type="search" placeholder="Name or file"></label><div id="files"></div><p id="totals"></p>
-<p>Saving affects the next server start. Restart the server to validate dependencies, resolve exact Modrinth files and publish the new selection. Lookup failure never switches a file to server hosting.</p><p>Players must review and accept the new set. Previously prepared profiles remain recoverable.</p><button id="save">Save selection</button><button id="reload" type="button">Reload selection</button></form></section>
-<footer>Minecraft 1.21.1 · Modrinth and restricted server hosting</footer>
-</main></body></html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>NeoSync server administration</title>
+  <link rel="icon" href="/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/app.js" defer></script>
+</head>
+<body>
+  <main>
+    <header class="masthead">
+      <a class="brand" href="/" aria-label="NeoSync administration home"><img src="/icon.svg" alt="" width="44" height="44"><span>NeoSync</span></a>
+      <span class="page-name">Server administration</span>
+      <span id="connection" class="connection">HTTPS</span>
+      <button id="logout" class="secondary" hidden>Sign out</button>
+    </header>
+    <p id="insecure-panel" class="notice" hidden>This panel uses HTTP. Your password and session are sent without encryption. Use it only on a network you trust.</p>
+    <p id="status" role="status" aria-live="polite"></p>
+    <section id="login" class="login-layout">
+      <div class="intro"><h1>Your server.<br>Your mod set.</h1><p>Choose what players need to join. They review the files and decide what to install.</p><img class="hero-mark" src="/icon.svg" alt="" width="136" height="136"></div>
+      <div class="sign-in"><h2>Sign in to your server</h2><p>Use the generated password from this file on your server:</p><code class="password-path">config/neosync-admin/password.txt</code>
+        <form id="login-form"><label for="password">Password</label><input id="password" type="password" required autocomplete="current-password" maxlength="128"><button type="submit">Sign in</button></form>
+        <p class="muted">Access is limited to server administrators.</p>
+      </div>
+    </section>
+    <section id="panel" hidden>
+      <div class="workspace-heading"><div><h1>Prepare the next join.</h1><p>Select the client mods your players need, then save for the next server start.</p></div><p id="totals" class="selection-total"></p></div>
+      <p id="pending" class="notice"></p><p id="missing" class="notice"></p>
+      <form id="selection">
+        <div class="workspace">
+          <aside class="settings">
+            <h2>Server settings</h2>
+            <label class="toggle"><input id="enabled" type="checkbox"> Enable synchronization</label>
+            <label for="display-name">Server name</label><input id="display-name" maxlength="128" required>
+            <fieldset class="transport-settings"><legend>Connections</legend>
+              <label for="transport">Player downloads</label><select id="transport"><option value="https">HTTPS (default)</option><option value="http">HTTP (unencrypted)</option></select>
+              <p id="transport-detail" class="help"></p>
+              <p id="http-warning" class="notice" hidden>HTTP does not authenticate this server or protect the mod list and hosted files in transit. Players must accept an HTTP warning before continuing.</p>
+              <label for="admin-transport">Administrator panel</label><select id="admin-transport"><option value="https">HTTPS (default)</option><option value="http">HTTP (unencrypted)</option></select>
+              <p id="admin-http-warning" class="notice" hidden>HTTP exposes your password and session to the network. This setting takes effect after a server restart.</p>
+              <p class="help">External sources and Modrinth downloads always use HTTPS.</p>
+            </fieldset>
+          </aside>
+          <div class="inventory">
+            <div class="inventory-heading"><h2>Client requirements</h2><label for="filter">Filter mods</label><input id="filter" type="search" placeholder="Search names or files"></div>
+            <p class="help">Include required dependencies. Leave server-only mods unselected.</p>
+            <div id="files"></div><p id="empty" class="empty" hidden>No loaded mods match this view.</p>
+          </div>
+        </div>
+        <div class="save-bar"><div><strong>Apply on the next server start</strong><p>Restart to validate the files and publish this selection. Players review changes before installing.</p><p id="panel-address" class="help"></p></div><div class="save-actions"><button id="reload" class="secondary" type="button">Reload selection</button><button id="save" type="submit">Save changes</button></div></div>
+      </form>
+    </section>
+    <footer><span>NeoSync for Minecraft 1.21.1</span><span>Modrinth and restricted server hosting</span></footer>
+  </main>
+</body>
+</html>

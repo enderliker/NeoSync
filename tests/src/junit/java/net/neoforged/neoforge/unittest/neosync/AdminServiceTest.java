@@ -23,20 +23,22 @@ import javax.net.ssl.TrustManagerFactory;
 import net.neoforged.neoforge.neosync.server.AdminSecrets;
 import net.neoforged.neoforge.neosync.server.AdminSelection;
 import net.neoforged.neoforge.neosync.server.AdminService;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.Timeout;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 @Timeout(60)
 class AdminServiceTest {
-    @Test
-    void protectsInventoryAndSelectionWithTlsSessionOriginAndCsrf(@TempDir Path directory) throws Exception {
+    @ParameterizedTest
+    @ValueSource(booleans = { true, false })
+    void protectsInventoryAndSelectionWithSessionOriginAndCsrf(boolean secure, @TempDir Path directory) throws Exception {
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
         Path config = directory.resolve("config/neosync-server.json");
         var selection = new AdminSelection(config, List.of(new AdminSelection.Candidate(jar, "<script>inventory</script>")), 25565);
         var secrets = AdminSecrets.open(directory.resolve("private"));
-        var tls = trust(directory.resolve("private"));
-        try (var service = new AdminService(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), secrets, selection)) {
+        var tls = secure ? trust(directory.resolve("private")) : null;
+        try (var service = new AdminService(new InetSocketAddress(InetAddress.getByName("127.0.0.1"), 0), secrets, selection, secure)) {
             assertTrue(send(tls, service, "GET", "/api/state", "", "", "", "", "").startsWith("HTTP/1.1 401"));
             String page = send(tls, service, "GET", "/", "", "", "", "", "");
             assertTrue(page.contains("frame-ancestors 'none'"));
@@ -47,11 +49,15 @@ class AdminServiceTest {
             login.addProperty("password", password);
             assertTrue(send(tls, service, "POST", "/api/login", login.toString(), "https://attacker.example", "", "", "").startsWith("HTTP/1.1 403"));
             assertTrue(send(tls, service, "GET", "/", "", "", "", "", "attacker.example:" + service.port()).startsWith("HTTP/1.1 400"));
-            String origin = "https://127.0.0.1:" + service.port();
+            String origin = (secure ? "https" : "http") + "://127.0.0.1:" + service.port();
+            String wrongScheme = (secure ? "http" : "https") + "://127.0.0.1:" + service.port();
+            assertTrue(send(tls, service, "POST", "/api/login", login.toString(), wrongScheme, "", "", "").startsWith("HTTP/1.1 403"));
             String loggedIn = send(tls, service, "POST", "/api/login", login.toString(), origin, "", "", "");
             assertTrue(loggedIn.startsWith("HTTP/1.1 200"));
             String header = loggedIn.lines().filter(line -> line.toLowerCase(java.util.Locale.ROOT).startsWith("set-cookie:")).findFirst().orElseThrow();
-            assertTrue(header.contains("Secure; HttpOnly; SameSite=Strict"));
+            assertTrue(header.contains("HttpOnly; SameSite=Strict"));
+            org.junit.jupiter.api.Assertions.assertEquals(secure, header.contains("Secure;"));
+            assertTrue(header.contains(secure ? "__Host-neosync=" : "neosync-http="));
             String cookie = header.substring(header.indexOf(':') + 1).strip().split(";", 2)[0];
             assertFalse(loggedIn.contains(password));
             String stateResponse = send(tls, service, "GET", "/api/state", "", "", cookie, "", "");
@@ -76,7 +82,7 @@ class AdminServiceTest {
     }
 
     private static String send(SSLContext tls, AdminService service, String method, String path, String body, String origin, String cookie, String csrf, String host) throws Exception {
-        try (var socket = tls.getSocketFactory().createSocket("127.0.0.1", service.port())) {
+        try (var socket = (tls == null ? javax.net.SocketFactory.getDefault() : tls.getSocketFactory()).createSocket("127.0.0.1", service.port())) {
             socket.setSoTimeout(5000);
             String request = method + " " + path + " HTTP/1.1\r\nHost: " + (host.isEmpty() ? "127.0.0.1:" + service.port() : host)
                     + "\r\nContent-Type: application/json\r\nContent-Length: " + body.getBytes(StandardCharsets.UTF_8).length

@@ -13,6 +13,7 @@ rsvg-convert docs/assets/neosync-social.svg -o docs/assets/neosync-social.png
 rsvg-convert -w 1024 -h 1024 docs/assets/neosync-mark.svg -o docs/assets/neosync-mark.png
 rsvg-convert docs/assets/neosync-branding-preview.svg -o docs/assets/neosync-branding-preview.png
 cp docs/assets/neosync-installer.png src/main/resources/neosync_logo.png
+cp docs/assets/neosync-mark.svg src/main/resources/neosync/admin/icon.svg
 # FML 4 expects 28 vertically stacked frames and clips the right sixth of each.
 # Keep a static mark inside that area instead of imitating its mascot animation.
 rsvg-convert -w 96 -h 96 docs/assets/neosync-icon.svg | magick - -background none -gravity west -extent 128x128 -duplicate 27 -append docs/assets/neosync-startup.png

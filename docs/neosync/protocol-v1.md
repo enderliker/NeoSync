@@ -64,6 +64,40 @@ NeoSync fields strictly. A malformed NeoSync field must produce a synchronizatio
 error without crashing server-list rendering. Do not interpret malformed or
 unsupported capabilities as permission to download or as a valid empty manifest.
 
+## Explicit HTTP discovery (capability version 2)
+
+Unreleased beta.4 supports an opt-in HTTP transport using an incompatible status
+capability, so version 1 clients reject it instead of attempting an HTTPS fallback:
+
+```json
+{
+  "protocols": [2],
+  "httpPort": 8080,
+  "manifestSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+}
+```
+
+Only HTTP ports 80 and 8080 are accepted. Exactly one transport port is required;
+mixed `httpPort`/`httpsPort` fields and HTTP advertisements claiming version 1 are
+rejected. HTTPS continues to advertise `[1]` and `httpsPort` unchanged. The version
+2 capability changes transport only: manifest schema 1 and the bounded `/v1/`
+manifest/file resource paths remain the same. The host is still derived from the
+Minecraft address and all address restrictions remain in force.
+
+The client asks for HTTP consent with **No, cancel** focused before any manifest
+request, including on public hosts. A local destination is identified in that
+same review. This consent is not installation consent and is not persisted as
+permanent trust. HTTP cannot authenticate the server or protect content from
+replacement in transit; SHA-256 does not solve that when the manifest can change.
+HTTPS never downgrades automatically. Server-hosted artifacts use the reviewed
+origin and reject redirects; external/provider URLs require HTTPS.
+
+HTTP profile records use schema 2 with `httpPort`; existing HTTPS profile records
+keep schema 1 with `httpsPort`. Origins, consent records and server associations
+retain the scheme, so HTTP and HTTPS do not share profile identity. Older readers
+reject HTTP records. The [transport settings](administration.md#http-and-https-settings)
+also document the separate, administrator-selected HTTP panel mode.
+
 ## HTTPS service
 
 The service is a separate listener from Minecraft's game protocol. It may use a
