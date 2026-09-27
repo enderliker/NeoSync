@@ -237,6 +237,8 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getArchiveBaseName().set("NeoSync");
             task.getArchiveVersion().set(releaseVersion);
             task.getArchiveClassifier().set("universal");
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
 
             task.from(project.zipTree(
                     tasks.named("jar", Jar.class).flatMap(AbstractArchiveTask::getArchiveFile)));
@@ -245,26 +247,26 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.exclude("mcp/**");
 
             task.manifest(manifest -> {
-                manifest.attributes(Map.of("FML-System-Mods", "neoforge", "NeoSync-Version", neoSyncVersion.get(),
-                        "NeoForge-Base-Version", neoForgeVersion.get()));
+                manifest.attributes(new java.util.TreeMap<>(Map.of("FML-System-Mods", "neoforge", "NeoSync-Version", neoSyncVersion.get(),
+                        "NeoForge-Base-Version", neoForgeVersion.get())));
                 // These attributes are used from NeoForgeVersion.java to find the NF version without command line arguments.
                 manifest.attributes(
-                        Map.of(
+                        new java.util.TreeMap<>(Map.of(
                                 "Specification-Title", "NeoForge",
                                 "Specification-Vendor", "NeoForge",
                                 "Specification-Version", project.getVersion().toString().substring(0, project.getVersion().toString().lastIndexOf(".")),
                                 "Implementation-Title", project.getGroup(),
                                 "Implementation-Version", project.getVersion(),
-                                "Implementation-Vendor", "NeoForged"),
+                                "Implementation-Vendor", "NeoForged")),
                         "net/neoforged/neoforge/internal/versions/neoforge/");
                 manifest.attributes(
-                        Map.of(
+                        new java.util.TreeMap<>(Map.of(
                                 "Specification-Title", "Minecraft",
                                 "Specification-Vendor", "Mojang",
                                 "Specification-Version", minecraftVersion,
                                 "Implementation-Title", "MCP",
                                 "Implementation-Version", mcAndNeoFormVersion,
-                                "Implementation-Vendor", "NeoForged"),
+                                "Implementation-Vendor", "NeoForged")),
                         "net/neoforged/neoforge/versions/neoform/");
             });
         });
@@ -402,6 +404,8 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.getArchiveBaseName().set("NeoSync");
             task.getArchiveVersion().set(releaseVersion);
             task.getArchiveClassifier().set("installer");
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
             task.getArchiveExtension().set("jar");
             task.setMetadataCharset("UTF-8");
             task.getDestinationDirectory().convention(project.getExtensions().getByType(BasePluginExtension.class).getLibsDirectory());
@@ -410,10 +414,10 @@ public class NeoDevPlugin implements Plugin<Project> {
                 spec.exclude("big_logo.png", "icons/neoforged_16x16.png", "icons/neoforged_background_16x16.png",
                         "icons/neoforged_background_32x32.png", "icons/neoforged_background_128x128.png");
             });
-            Map.of("neoforged_16x16.png", "neosync-icon-16.png",
+            new java.util.TreeMap<>(Map.of("neoforged_16x16.png", "neosync-icon-16.png",
                     "neoforged_background_16x16.png", "neosync-icon-16.png",
                     "neoforged_background_32x32.png", "neosync-icon-32.png",
-                    "neoforged_background_128x128.png", "neosync-icon.png").forEach((target, source) ->
+                    "neoforged_background_128x128.png", "neosync-icon.png")).forEach((target, source) ->
                     task.from(project.getRootProject().file("docs/assets/" + source), spec -> {
                         spec.into("icons");
                         spec.rename(s -> target);
@@ -487,6 +491,8 @@ public class NeoDevPlugin implements Plugin<Project> {
         project.getExtensions().getByType(JavaPluginExtension.class).withSourcesJar();
         var sourcesJarProvider = project.getTasks().named("sourcesJar", Jar.class);
         sourcesJarProvider.configure(task -> {
+            task.setPreserveFileTimestamps(false);
+            task.setReproducibleFileOrder(true);
             task.dependsOn("brandEarlyDisplaySources");
             task.getArchiveBaseName().set("NeoSync");
             task.getArchiveVersion().set(releaseVersion);
