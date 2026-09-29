@@ -1,5 +1,13 @@
 # Launcher integration
 
+Unreleased September 29, 2026 development adds automatic discovery of supported
+NeoSync Prism runtimes and consented Minecraft Launcher installation creation.
+Its prepared screen shows the exact directory and **Later** before changing the
+launcher. Minecraft Launcher still requires selecting the created installation
+and pressing Play; SKlauncher and Lunar have no verified automatic game-launch
+adapter. See [development details and limits](development-sources-launchers.md).
+The setup and published acceptance evidence below remain the beta baseline.
+
 NeoSync requires its own installed runtime, not an ordinary NeoForge instance.
 The Minecraft version is 1.21.1 and Java 21 is required. Launcher accounts remain
 in the launcher. NeoSync never copies session tokens or reconstructs the game's

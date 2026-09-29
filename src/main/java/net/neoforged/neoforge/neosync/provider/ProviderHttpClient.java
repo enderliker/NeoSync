@@ -60,9 +60,11 @@ public final class ProviderHttpClient implements ProviderTransport {
     private static final Map<Request, Lookup> IN_FLIGHT = new HashMap<>();
     private static final Map<Service, Instant> COOLDOWNS = new HashMap<>();
     private static final ModrinthMetadataCache MODRINTH_CACHE = new ModrinthMetadataCache();
+    private static final java.util.concurrent.Semaphore CURSEFORGE_REQUESTS = new java.util.concurrent.Semaphore(2);
 
     public enum Service {
-        MODRINTH("api.modrinth.com");
+        MODRINTH("api.modrinth.com"),
+        CURSEFORGE("api.curseforge.com");
 
         private final String host;
 
@@ -81,15 +83,26 @@ public final class ProviderHttpClient implements ProviderTransport {
 
     @Override
     public boolean available(Service service) throws IOException {
-        return service == Service.MODRINTH;
+        return service == Service.MODRINTH || !ProviderAccess.curseForge().isEmpty();
     }
 
     @Override
     public byte[] request(Service service, String path, String body, DiscoveryCancellation token) throws IOException {
         token.check();
-        if (!path.startsWith("/v2/") || path.length() > 8192
+        if (!path.startsWith(service == Service.MODRINTH ? "/v2/" : "/v1/") || path.length() > 8192
                 || !path.matches("/[A-Za-z0-9_/?=&%.,-]+") || body.length() > 65536)
             throw new IOException("Invalid provider request.");
+        if (!available(service)) throw new IOException("This build has no CurseForge API access. No alternate source was selected.");
+        if (service == Service.CURSEFORGE) {
+            if (!CURSEFORGE_REQUESTS.tryAcquire()) throw new IOException("CurseForge lookups are busy. Try again shortly.");
+            try {
+                return fetch(new Request(service, path, body), token);
+            } catch (Exception failure) {
+                throw new IOException(failure instanceof ProviderFailure ? failure.getMessage() : "The provider metadata request failed. Try again later.");
+            } finally {
+                CURSEFORGE_REQUESTS.release();
+            }
+        }
         byte[] cached = MODRINTH_CACHE.get(service, path, body);
         if (cached != null) {
             token.check();
@@ -204,6 +217,12 @@ public final class ProviderHttpClient implements ProviderTransport {
                                 message.headers().set(HttpHeaderNames.ACCEPT, "application/json");
                                 message.headers().set(HttpHeaderNames.ACCEPT_ENCODING, "identity");
                                 message.headers().set(HttpHeaderNames.CONNECTION, "close");
+                                if (service == Service.CURSEFORGE) {
+                                    String access = ProviderAccess.curseForge();
+                                    if (access.isEmpty()) throw new IOException("This build has no CurseForge API access.");
+                                    message.headers().set("x-api-key", access);
+                                    message.headers().set(HttpHeaderNames.CACHE_CONTROL, "no-store");
+                                }
                                 if (!body.isEmpty()) {
                                     message.headers().set(HttpHeaderNames.CONTENT_TYPE, "application/json");
                                     message.headers().setInt(HttpHeaderNames.CONTENT_LENGTH, bytes.length);

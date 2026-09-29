@@ -31,6 +31,15 @@ public record ProviderArtifact(SyncManifest.ProviderHint identity, URI source, l
                 throw new IOException("Invalid Modrinth file identity.");
             requireHost(source, Set.of("cdn.modrinth.com"));
             if (!source.getRawPath().startsWith("/data/" + identity.projectId() + "/versions/")) throw new IOException("Modrinth file URL does not match its project.");
+        } else if (provider.equals("curseforge")) {
+            if (!identity.projectId().matches("[1-9][0-9]{0,9}") || !identity.fileId().matches("[1-9][0-9]{0,9}")
+                    || !algorithm.equals("SHA-1") || !hash.matches("[0-9a-f]{40}") || manual)
+                throw new IOException("Invalid CurseForge file identity.");
+            requireHost(source, Set.of("edge.forgecdn.net", "mediafilez.forgecdn.net"));
+            long fileId = Long.parseLong(identity.fileId());
+            if (!source.getRawPath().startsWith("/files/" + fileId / 1000 + "/" + fileId % 1000 + "/")
+                    && !source.getRawPath().startsWith("/files/" + fileId / 1000 + "/" + String.format(java.util.Locale.ROOT, "%03d", fileId % 1000) + "/"))
+                throw new IOException("CurseForge file URL does not match its file identifier.");
         } else throw new IOException("Unsupported provider identity.");
         if (size < 1 || size > SyncManifest.MAX_FILE_BYTES) throw new IOException("Provider file size exceeds the limit.");
     }
@@ -45,10 +54,23 @@ public record ProviderArtifact(SyncManifest.ProviderHint identity, URI source, l
 
     public void require(SyncManifest.Artifact artifact) throws IOException {
         validate();
+        if (identity.id().equals("curseforge")) {
+            if (size != artifact.size() || artifact.sources().stream().noneMatch(candidate -> candidate.type().equals("curseforge") && hash.equals(candidate.sha1())))
+                throw new IOException("The provider file does not match the administrator-computed hash and reviewed size.");
+            return;
+        }
         if (size != artifact.size() || artifact.sources().stream().noneMatch(s -> identity.equals(s.provider())))
             throw new IOException("The provider result does not match the reviewed artifact hint.");
-        if (identity.id().equals("modrinth") && artifact.sources().stream().noneMatch(s -> identity.equals(s.provider()) && source.equals(s.url())))
-            throw new IOException("The Modrinth source does not match the reviewed URL.");
+        if (artifact.sources().stream().noneMatch(s -> identity.equals(s.provider()) && source.equals(s.url())))
+            throw new IOException("The provider source does not match the reviewed URL.");
+    }
+
+    public URI redirect(URI destination) throws IOException {
+        validate();
+        if (!identity.id().equals("curseforge")) throw new IOException("Provider artifact endpoints must not redirect. Review a new source before downloading.");
+        requireHost(destination, Set.of("edge.forgecdn.net", "mediafilez.forgecdn.net"));
+        if (!source.getRawPath().equals(destination.getRawPath())) throw new IOException("The CurseForge CDN redirect changed the reviewed artifact path.");
+        return destination;
     }
 
     public void verify(Path path, SyncManifest.Artifact artifact, DiscoveryCancellation token) throws IOException {
@@ -83,6 +105,7 @@ public record ProviderArtifact(SyncManifest.ProviderHint identity, URI source, l
     }
 
     public JsonObject audit() {
+        if (identity.id().equals("curseforge")) throw new IllegalStateException("CurseForge metadata cannot be persisted in a provider audit.");
         var result = new JsonObject();
         result.addProperty("id", identity.id());
         result.addProperty("projectId", identity.projectId());
@@ -96,6 +119,7 @@ public record ProviderArtifact(SyncManifest.ProviderHint identity, URI source, l
     /** Reads a local audit only; it must never be used as authority for a new download. */
     public static ProviderArtifact readAudit(JsonObject value, URI source, SyncManifest.Artifact artifact) throws IOException {
         var record = SyncJson.object(value, Set.of("id", "projectId", "fileId", "algorithm", "hash", "manual"), Set.of());
+        if (!SyncJson.string(record.get("id"), 32).equals("modrinth")) throw new IOException("Persisted CurseForge API metadata is not supported. Its profile was left intact.");
         var result = new ProviderArtifact(new SyncManifest.ProviderHint(SyncJson.string(record.get("id"), 32),
                 SyncJson.string(record.get("projectId"), 128), SyncJson.string(record.get("fileId"), 128)), source, artifact.size(),
                 SyncJson.string(record.get("algorithm"), 16), SyncJson.string(record.get("hash"), 128), SyncJson.bool(record.get("manual")));

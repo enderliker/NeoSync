@@ -63,15 +63,13 @@ class ProviderHttpClientTest {
 
     @Test
     void sendsNoCredentialHeadersAndIdentifiesNeoSync() throws Exception {
-        for (var service : ProviderHttpClient.Service.values()) {
-            try (var fixture = new Fixture("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}")) {
-                byte[] bytes = fetch(service, fixture, clientTls, new DiscoveryCancellation());
-                assertEquals("{}", new String(bytes, StandardCharsets.UTF_8));
-                String request = fixture.request.get(5, TimeUnit.SECONDS);
-                assertTrue(request.contains("enderliker/NeoSync/"));
-                assertFalse(request.contains("x-api-key"));
-                assertFalse(request.lines().findFirst().orElseThrow().contains(FAKE_KEY));
-            }
+        try (var fixture = new Fixture("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}")) {
+            byte[] bytes = fetch(ProviderHttpClient.Service.MODRINTH, fixture, clientTls, new DiscoveryCancellation());
+            assertEquals("{}", new String(bytes, StandardCharsets.UTF_8));
+            String request = fixture.request.get(5, TimeUnit.SECONDS);
+            assertTrue(request.contains("enderliker/NeoSync/"));
+            assertFalse(request.contains("x-api-key"));
+            assertFalse(request.lines().findFirst().orElseThrow().contains(FAKE_KEY));
         }
     }
 

@@ -33,10 +33,10 @@ async function reload() {
     const selected = check(card, ' ' + file.description); selected.checked = file.selected;
     element('p', file.fileName + ' · ' + file.size.toLocaleString() + ' bytes', card);
     const label = element('label', 'Download source ', card); const source = element('select', '', label);
-    for (const [value, text] of [['modrinth', 'Modrinth — exact file'], ['server', 'Provided by this server'], ...(file.source === 'configured' ? [['configured', 'Keep configured external source']] : [])]) {
+    for (const [value, text] of [['automatic', 'Modrinth → CurseForge — exact file'], ['server', 'Providers, then eligible server hosting'], ...(file.source === 'configured' ? [['configured', 'Keep configured external source']] : [])]) {
       const option = element('option', text, source); option.value = value;
     }
-    source.value = file.source;
+    source.value = file.source === 'modrinth' ? 'automatic' : file.source;
     const declarations = element('fieldset', '', card); element('legend', 'Hosting eligibility — confirm for these exact bytes', declarations);
     element('p', 'Hosting is only for mods you wrote for this server and have not published or distributed elsewhere. Third-party mods and provider outages do not qualify.', declarations);
     const authoredByAdministrator = check(declarations, ' I wrote this mod.');

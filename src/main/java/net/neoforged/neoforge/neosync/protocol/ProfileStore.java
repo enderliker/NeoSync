@@ -409,6 +409,12 @@ public final class ProfileStore {
         for (int i = 0; i < files.size(); i++) {
             var file = SyncJson.object(files.get(i), Set.of("sha256", "source"), Set.of("provider"));
             var artifact = manifest.files().get(i);
+            if (SyncJson.string(file.get("source"), 2048).equals("curseforge")) {
+                if (file.has("provider") || artifact.sources().stream().noneMatch(candidate -> candidate.type().equals("curseforge"))
+                        || !SyncJson.string(file.get("sha256"), 64).equals(artifact.sha256()))
+                    throw new IOException("Invalid local CurseForge consent record.");
+                continue;
+            }
             URI source;
             try {
                 URI recorded = URI.create(SyncJson.string(file.get("source"), 2048));
@@ -419,7 +425,7 @@ public final class ProfileStore {
             } catch (IllegalArgumentException e) {
                 throw new IOException("Invalid local consent source.", e);
             }
-            if (consentVersion == 2 && artifact.sources().stream().anyMatch(candidate -> candidate.provider() != null) && !file.has("provider"))
+            if (consentVersion == 2 && artifact.sources().stream().anyMatch(candidate -> candidate.provider() != null && candidate.provider().id().equals("modrinth")) && !file.has("provider"))
                 throw new IOException("The local provider evidence is missing.");
             if (file.has("provider")) {
                 var provider = net.neoforged.neoforge.neosync.provider.ProviderArtifact.readAudit(
@@ -481,8 +487,8 @@ public final class ProfileStore {
         for (var file : plan.files()) {
             var entry = new JsonObject();
             entry.addProperty("sha256", file.artifact().sha256());
-            entry.addProperty("source", file.source().toString());
-            if (file.provider() != null) entry.add("provider", file.provider().audit());
+            entry.addProperty("source", file.provider() != null && file.provider().identity().id().equals("curseforge") ? "curseforge" : file.source().toString());
+            if (file.provider() != null && file.provider().identity().id().equals("modrinth")) entry.add("provider", file.provider().audit());
             files.add(entry);
         }
         object.add("files", files);

@@ -26,7 +26,7 @@ import org.jetbrains.annotations.Nullable;
 public record SyncManifest(UUID serverId, String revision, String displayName, String minecraftVersion,
         String loaderVersion, String neoForgeVersion, List<Artifact> files) {
 
-    public static final String NEOSYNC_VERSION = "0.1.0-beta.6";
+    public static final String NEOSYNC_VERSION = "0.1.0-beta.7";
     public static final int MAX_BYTES = 1024 * 1024;
     public static final long MAX_FILE_BYTES = 512L * 1024 * 1024;
     public static final long MAX_TOTAL_BYTES = 4L * 1024 * 1024 * 1024;
@@ -56,7 +56,11 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
     /** A server-provided lookup hint, not independent evidence of file identity or trust. */
     public record ProviderHint(String id, String projectId, String fileId) {}
 
-    public record Source(String type, @Nullable URI url, @Nullable ProviderHint provider) {}
+    public record Source(String type, @Nullable URI url, @Nullable ProviderHint provider, @Nullable Long fingerprint, @Nullable String sha1) {
+        public Source(String type, @Nullable URI url, @Nullable ProviderHint provider) {
+            this(type, url, provider, null, null);
+        }
+    }
 
     public static SyncManifest parse(byte[] bytes) throws IOException {
         var root = SyncJson.object(SyncJson.parse(bytes, MAX_BYTES), Set.of("schemaVersion", "serverId", "revision", "displayName", "minecraftVersion", "loader", "files"), Set.of());
@@ -113,11 +117,15 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
     public static List<Source> parseSources(JsonElement value) throws IOException {
         var result = new ArrayList<Source>();
         for (var entry : SyncJson.array(value, 1, 8)) {
-            var source = SyncJson.object(entry, Set.of("type"), Set.of("url", "provider"));
+            var source = SyncJson.object(entry, Set.of("type"), Set.of("url", "provider", "fingerprint", "sha1"));
             String type = SyncJson.string(source.get("type"), 16);
             if (type.equals("server")) {
                 SyncJson.object(source, Set.of("type"), Set.of());
                 result.add(new Source(type, null, null));
+            } else if (type.equals("curseforge")) {
+                SyncJson.object(source, Set.of("type", "fingerprint", "sha1"), Set.of());
+                result.add(new Source(type, null, null, SyncJson.number(source.get("fingerprint"), 0, 0xffffffffL),
+                        SyncJson.matching(source.get("sha1"), 40, "[0-9a-f]{40}")));
             } else if (type.equals("external")) {
                 SyncJson.object(source, Set.of("type", "url"), Set.of("provider"));
                 try {
@@ -130,7 +138,7 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
                     if (source.has("provider")) {
                         var provider = SyncJson.object(source.get("provider"), Set.of("id", "projectId", "fileId"), Set.of());
                         String id = SyncJson.string(provider.get("id"), 32);
-                        if (!id.equals("modrinth")) throw new IOException("Only Modrinth provider hints are supported.");
+                        if (!id.equals("modrinth")) throw new IOException("Only Modrinth accepts persisted provider identifiers. CurseForge requires locally computed lookup hashes.");
                         hint = new ProviderHint(id, SyncJson.matching(provider.get("projectId"), 128, "[A-Za-z0-9_-]+"),
                                 SyncJson.matching(provider.get("fileId"), 128, "[A-Za-z0-9_-]+"));
                     }

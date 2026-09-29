@@ -41,12 +41,18 @@ For NeoForge JarJar dependencies declared inside a selected JAR, beta.6 includes
 the bundled mod identities in that file's manifest entry. Select a separate file
 only when the dependency is actually distributed as a separate JAR.
 
-- **Modrinth:** resolve the exact existing JAR by SHA-512 at the next server start.
-  The client independently verifies provider metadata and both hashes.
-- **Provided by this server:** only for your own unpublished server-specific mod.
+- **Modrinth → CurseForge:** development resolves the exact existing JAR through
+  Modrinth SHA-512, then fresh CurseForge fingerprints, SHA-1 and size. Both server
+  and client need a credential-bearing build for CurseForge. Published betas
+  retain Modrinth-only resolution. Clients independently verify the live provider
+  identity and both provider and manifest hashes.
+- **Providers, then eligible server hosting:** only for your own unpublished server-specific mod.
   Check all three authorship, exclusive-distribution and distribution-rights
   declarations for its displayed hash each time you save it. Third-party mods do
-  not qualify. A lookup failure does not enable hosting.
+  not qualify. Both providers must return successful exact misses before this
+  development fallback can host. An outage, missing credential or denied download
+  blocks resolution instead. Existing explicit hosting configurations retain
+  their byte-bound eligibility checks.
 - **Keep configured external source:** preserves an existing explicitly configured
   HTTPS source; the panel does not accept arbitrary download URLs.
 
@@ -55,7 +61,7 @@ it. Until restart, clients continue to see the current published manifest. A sta
 browser view or a changed JAR is rejected without replacing the configuration.
 The startup process validates dependencies, sources and snapshots before
 advertising discovery. Check the server log for success; saving alone does not
-prove that Modrinth has the selected files or that the set is compatible.
+prove that providers have the selected files or that the set is compatible.
 Before inviting a client, confirm the log says `NeoSync discovery enabled` and
 that the advertised manifest port accepts connections from the client network.
 If the log says `NeoSync discovery could not start`, fix the reported inventory or
@@ -114,7 +120,7 @@ network from replacing both a manifest and its announced hashes. Every HTTP
 connection attempt shows a default-negative client warning before fetching the
 manifest; installation and unverified-file consent remain separate. HTTP does
 not bypass destination restrictions, hash/size checks, or restricted-hosting rules.
-Modrinth and external URLs still use HTTPS, and HTTPS failures never retry as HTTP.
+Modrinth, CurseForge and external URLs still use HTTPS, and HTTPS failures never retry as HTTP.
 HTTP and HTTPS profiles have different origins and do not share implicit trust.
 
 An HTTP panel also exposes login passwords and session cookies to the network.

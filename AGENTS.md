@@ -121,17 +121,26 @@ never as automatic authorization to download. Allow sources explicitly configure
 by the administrator and respect provider and mod download and redistribution
 restrictions.
 
-Modrinth is the only supported provider. Resolve the exact approved artifact by
-SHA-512 and independently check its provider identity on the client. Configured
-direct HTTPS sources remain available as explicitly reviewed unverified sources.
-Restricted local hosting remains available only under the eligibility rules below.
-Never silently substitute a source when Modrinth lookup fails.
+Current development resolves exact artifacts in this order: Modrinth, CurseForge,
+then explicitly eligible local hosting. Modrinth uses SHA-512. CurseForge uses a
+locally computed whitespace-normalized MurmurHash2 fingerprint, SHA-1 and size;
+clients resolve fresh provider metadata before review and check both provider
+and manifest hashes. No fuzzy match, replacement version, fabricated download URL,
+author restriction or provider outage authorizes hosting. Configured direct HTTPS
+sources remain explicitly reviewed unverified choices.
 
-CurseForge integration and browser import were removed at the user's request on
-September 27, 2026. Historical alpha.4 evidence is retained in Phase 5; it does not
-describe the current implementation. Old profiles with removed provider hints are
-rejected without changing their files. Modrinth and direct-source profiles remain
-readable.
+CurseForge was removed on September 27, 2026 and requested again on September 29,
+2026. Browser import remains removed. Do not cache CurseForge responses or retain
+API-derived URLs, IDs or hashes in manifests, profiles, consent records or logs.
+Persist only lookup hashes independently computed from administrator-selected JARs
+and the fact that the user accepted the live CurseForge source. Legacy persisted
+CurseForge hints remain rejected without modifying their files.
+
+Builds may inject access from `NEOSYNC_CURSEFORGE_KEY_FILE`; never put its value
+in source, arguments, logs, sources JARs or build caches. Embedded credential
+obfuscation is not secrecy or authorization to distribute a provider key. Verify
+applicable provider permission before publishing a credential-bearing build.
+Published beta.6 and earlier beta releases remain unchanged and Modrinth-only.
 
 ### Server hosting
 
@@ -289,8 +298,10 @@ not confuse a project page with a direct file link.
 **Exit criterion:** reduce manual configuration with exact Modrinth resolution
 without substituting versions or hiding changes in source.
 
-**Implementation:** Modrinth is the only provider. Exact lookup, review, verified
-download and real-server join are implemented. The current beta validation is
+**Implementation:** Published beta builds use Modrinth only. Current development
+adds non-cached exact CurseForge lookup after Modrinth; see
+[development source and launcher notes](docs/neosync/development-sources-launchers.md).
+Exact Modrinth lookup, review, verified download and real-server join are implemented. The current beta validation is
 recorded in [Phase 7](docs/neosync/phase-7.md); historical provider evidence
 remains in [Phase 5](docs/neosync/phase-5.md).
 
@@ -304,9 +315,13 @@ retain manual restart when automatic restart is unsupported.
 
 **Implementation:** isolated revisions preserve removed and replaced files in the
 previous set. The title-screen profile browser verifies and selects older
-revisions. Prism instances support pre-launch verification and restart handoff;
-SKlauncher and Minecraft Launcher retain the installed-version/manual-directory
-route. See [Phase 6](docs/neosync/phase-6.md) and [launcher guidance](docs/neosync/launchers.md).
+revisions. Prism instances support pre-launch verification and restart handoff.
+Current development discovers supported local NeoSync Prism runtimes and offers
+consented Minecraft Launcher installation creation without manual directory edits.
+Minecraft Launcher still requires selecting and launching the installation;
+SKlauncher and unsupported launchers retain manual activation. Do not label opening
+a launcher as automatically launching Minecraft. See [Phase 6](docs/neosync/phase-6.md)
+and [launcher guidance](docs/neosync/launchers.md).
 
 ### Phase 7 — Hardening and beta
 

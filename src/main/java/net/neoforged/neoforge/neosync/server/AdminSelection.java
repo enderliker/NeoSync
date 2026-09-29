@@ -104,7 +104,7 @@ public final class AdminSelection {
             file.addProperty("size", entry.getValue().fingerprint().size());
             var selection = selected.remove(entry.getKey());
             file.addProperty("selected", selection != null);
-            String source = "modrinth";
+            String source = "automatic";
             if (selection != null && selection.has("sources")) {
                 source = SyncManifest.parseSources(selection.get("sources")).stream().anyMatch(s -> s.type().equals("server")) ? "server" : "configured";
             }
@@ -153,7 +153,7 @@ public final class AdminSelection {
             var selection = new JsonObject();
             selection.addProperty("fileName", name);
             switch (source) {
-                case "modrinth" -> selection.addProperty("resolveProviders", true);
+                case "modrinth", "automatic" -> selection.addProperty("resolveProviders", true);
                 case "server" -> {
                     var sources = new JsonArray();
                     var provided = new JsonObject();
@@ -166,6 +166,7 @@ public final class AdminSelection {
                     declaration.addProperty("sha256", hash);
                     selection.add("hosting", declaration);
                     new HostingPolicy(true, SyncManifest.MAX_TOTAL_BYTES, 8, 8 * 1024 * 1024, 120).validateSelection(selection, hash);
+                    selection.addProperty("resolveProviders", true);
                     hosting = true;
                 }
                 case "configured" -> {
@@ -174,7 +175,7 @@ public final class AdminSelection {
                         throw new IOException("No existing external source is configured for that file.");
                     selection.add("sources", existing.get("sources").deepCopy());
                 }
-                default -> throw new IOException("Select Modrinth, an existing external source, or eligible server hosting.");
+                default -> throw new IOException("Select automatic providers, an existing external source, or eligible server hosting.");
             }
             files.add(selection);
         }

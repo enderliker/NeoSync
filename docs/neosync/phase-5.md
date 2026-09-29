@@ -1,6 +1,16 @@
-# Phase 5 — Exact Modrinth source resolution
+# Phase 5 — Exact source resolution
 
-Current development uses Modrinth as its only provider. On September 27, 2026,
+## Unreleased September 29, 2026 development
+
+Current source restores exact CurseForge resolution after Modrinth, without
+metadata caching or persisted API-derived IDs, URLs or hashes. Browser import is
+not restored. See [development notes](development-sources-launchers.md) for the
+local hash-only protocol, credential injection and actual validation scope.
+This does not change any published beta or historical alpha.4 artifact.
+
+## Published Modrinth-only baseline
+
+The published beta baseline uses Modrinth as its only provider. On September 27, 2026,
 CurseForge and its browser importer were removed at the user's request, including
 the adapter, API origin, UI, and acceptance fixtures. Unsupported provider hints
 are rejected without modifying existing profiles. Direct HTTPS and eligible local

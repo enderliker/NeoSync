@@ -11,6 +11,19 @@ installing. Published artifacts and tags remain immutable.
 
 ## Unreleased
 
+- Reserve 0.1.0-beta.7 for development; no release or published artifact is replaced.
+- Restore exact CurseForge resolution after Modrinth without metadata caching or
+  persisted API-derived provider metadata; retain explicit eligible-only hosting.
+- Inject optional provider access at build time without source literals; exclude
+  it from source archives and credential-bearing Gradle output caches.
+- Show the future game directory and Later before launcher changes; discover
+  supported local NeoSync Prism runtimes and create official-launcher installations
+  with the directory filled automatically after consent.
+- Preserve manual activation for launchers without a verified runtime adapter.
+  Opening a launcher is not claimed as automatically launching Minecraft.
+
+See [development validation and limits](docs/neosync/development-sources-launchers.md).
+
 ## [0.1.0-beta.6] — 2026-09-27
 
 ### Fixed

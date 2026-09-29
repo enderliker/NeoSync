@@ -178,7 +178,8 @@ public final class ClientDriver {
             require(label(call(screen, "getFocused")).equals("No, cancel"), "Installation review defaults to No");
             require(text.contains(settings.getProperty("expectedName", "Clumps")) && text.contains(settings.getProperty("expectedSource", "cdn.modrinth.com")) && text.contains("unverified"), "Review names the exact file and unverified source");
             if (Boolean.parseBoolean(settings.getProperty("expectProvider", "false")))
-                require(text.contains("modrinth") && text.contains("provider metadata matched") && text.contains("approved SHA-256 and provider hash"), "Review identifies Modrinth and explains the pending independent byte checks");
+                require(text.toLowerCase(java.util.Locale.ROOT).contains(settings.getProperty("expectedProvider", "modrinth").toLowerCase(java.util.Locale.ROOT))
+                        && text.contains("provider metadata matched") && text.contains("approved SHA-256 and provider hash"), "Review identifies the provider and explains the pending independent byte checks");
             for (String change : settings.getProperty("expectedChanges", "").split(";")) if (!change.isBlank())
                 require(text.contains(change), "Review reports change: " + change);
             if (mode.equals("changed")) {
@@ -207,6 +208,20 @@ public final class ClientDriver {
                 click(screen, "Yes, download these files");
                 evidence.add("Explicitly accepted the displayed source and files.");
             }
+        } else if (text.contains("Profile prepared for") && hasButton(screen, "Later")) {
+            String game = paragraphs.stream().filter(line -> line.startsWith("/")).findFirst().orElseThrow();
+            Files.writeString(Path.of(settings.getProperty("prepared")), game);
+            require(label(call(screen, "getFocused")).equals("Later"), "Prepared profile activation defaults to Later");
+            evidence.add("Prepared verified isolated game directory: " + game);
+            if (mode.equals("update")) {
+                for (var entry : originalFiles.entrySet()) if (entry.getKey().getFileName().toString().endsWith(".jar"))
+                    require(hash(entry.getKey()).equals(entry.getValue()), "Update preserved the previous revision's mod bytes");
+            }
+            screenshot("neosync-activation.png");
+            if (Boolean.parseBoolean(settings.getProperty("prismRestart", "false"))) {
+                click(screen, "Prepare in Prism Launcher");
+                step = 2;
+            } else finish();
         } else if (hasButton(screen, "Restart instructions")) {
             String game = paragraphs.stream().filter(line -> line.startsWith("/")).findFirst().orElseThrow();
             Files.writeString(Path.of(settings.getProperty("prepared")), game);

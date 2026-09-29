@@ -224,25 +224,40 @@ public final class NeoSyncServer {
         long total = 0;
         var selections = SyncJson.array(config.get("files"), 0, 2048);
         var automatic = new HashMap<Path, ArtifactFiles.Fingerprint>();
+        var eligibleHosting = new HashSet<Path>();
         var providerTransport = new net.neoforged.neoforge.neosync.provider.ProviderHttpClient();
         for (var entry : selections) {
             var selection = SyncJson.object(entry, Set.of("fileName"), Set.of("sources", "hosting", "resolveProviders"));
             if (selection.has("resolveProviders")) {
-                if (!SyncJson.bool(selection.get("resolveProviders")) || selection.has("sources") || selection.has("hosting"))
-                    throw new IOException("Automatic provider resolution cannot be combined with configured or hosted sources.");
+                if (!SyncJson.bool(selection.get("resolveProviders"))) throw new IOException("Invalid automatic provider selection.");
                 Path path = modsDirectory.resolve(SyncJson.matching(selection.get("fileName"), 128, SyncManifest.FILE_PATTERN));
                 if (!loadedFiles.containsKey(path)) throw new IOException("A selected provider file is not in the loaded server inventory.");
-                automatic.put(path, ArtifactFiles.fingerprint(path, cancellation));
+                var fingerprint = ArtifactFiles.fingerprint(path, cancellation);
+                if (selection.has("sources") || selection.has("hosting")) {
+                    if (!selection.has("sources") || !selection.has("hosting")
+                            || SyncManifest.parseSources(selection.get("sources")).stream().anyMatch(source -> !source.type().equals("server")))
+                        throw new IOException("Automatic providers can only fall back to explicitly eligible server hosting.");
+                    policy.validateSelection(selection, fingerprint.sha256());
+                    eligibleHosting.add(path);
+                }
+                automatic.put(path, fingerprint);
             } else {
                 SyncManifest.parseSources(selection.get("sources"));
             }
         }
-        var resolved = net.neoforged.neoforge.neosync.provider.AutomaticSources.resolve(automatic, providerTransport, cancellation);
+        var resolved = net.neoforged.neoforge.neosync.provider.AutomaticSources.resolve(automatic, providerTransport, cancellation, eligibleHosting);
         for (var entry : selections) {
             var selection = entry.getAsJsonObject().deepCopy();
             if (selection.has("resolveProviders")) {
                 selection.remove("resolveProviders");
-                selection.add("sources", net.neoforged.neoforge.neosync.provider.AutomaticSources.sources(resolved.get(modsDirectory.resolve(selection.get("fileName").getAsString()))));
+                var provider = resolved.get(modsDirectory.resolve(selection.get("fileName").getAsString()));
+                if (provider != null) {
+                    Path selectedPath = modsDirectory.resolve(selection.get("fileName").getAsString());
+                    selection.add("sources", provider.identity().id().equals("curseforge")
+                            ? net.neoforged.neoforge.neosync.provider.CurseForgeProvider.sources(selectedPath, automatic.get(selectedPath), cancellation)
+                            : net.neoforged.neoforge.neosync.provider.AutomaticSources.sources(provider));
+                    selection.remove("hosting");
+                }
             }
             String fileName = SyncJson.matching(selection.get("fileName"), 128, SyncManifest.FILE_PATTERN);
             if (!names.add(fileName)) throw new IOException("Duplicate selected client file.");

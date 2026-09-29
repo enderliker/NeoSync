@@ -216,8 +216,17 @@ Each source is one of:
 - `external`: an HTTPS URL, optionally with a `provider` hint containing a supported
   provider ID, project ID, and file ID. A hint is a server claim. Modrinth identity
   is checked through the client's own provider lookup before review. Only
-  `modrinth` is supported; other providers and extra evidence fields are rejected.
+  `modrinth` uses this persisted hint; other providers and extra evidence fields are rejected.
   Both manifest SHA-256 and Modrinth SHA-512 must match the approved bytes.
+- `curseforge` (unreleased development): no URL or provider ID. Contains only
+  `fingerprint` (unsigned 32-bit MurmurHash2, seed 1, excluding bytes 9/10/13/32)
+  and `sha1`, both independently computed from the selected local JAR. The client
+  requests fresh exact Minecraft fingerprint matches and requires SHA-1, size,
+  Minecraft 1.21.1, NeoForge and an authorized direct CDN URL before review.
+  Both provider SHA-1 and server SHA-256 must match the installed bytes. No API
+  response data is stored in the manifest or persisted in the consent record;
+  the latter records `source: "curseforge"` and the approved local SHA-256 only.
+  Earlier clients reject this new source rather than treating it as unverified HTTPS.
 - `server`: no supplied URL. Derive the artifact URL from the already approved
   manifest origin and the artifact hash. Always require the additional warning.
 
@@ -226,9 +235,10 @@ Do not execute metadata, fetch arbitrary project/update pages, or treat a mod's
 metadata never authorizes a JAR download. Provider resolution, where available,
 occurs before the download review.
 
-Modrinth is the only provider. Configured direct HTTPS sources and restricted
-hosting remain explicit administrator choices. Every route requires exact bytes
-and specific consent; lookup failures never authorize source substitution. The
+Published betas use Modrinth only. Development resolves Modrinth before CurseForge,
+then explicitly eligible hosting only after both return successful misses.
+Configured direct HTTPS remains an explicit administrator choice. Every route requires exact bytes
+and specific consent; errors and restrictions never authorize source substitution. The
 removed browser importer is not part of the current protocol implementation.
 See [Phase 5](phase-5.md) for current and historical evidence.
 

@@ -13,9 +13,11 @@ import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 
 public final class SourceResolver {
     private final ModrinthProvider modrinth;
+    private final CurseForgeProvider curseForge;
 
     public SourceResolver(ProviderTransport transport) {
         modrinth = new ModrinthProvider(transport);
+        curseForge = new CurseForgeProvider(transport);
     }
 
     public Map<String, ProviderArtifact> resolve(SyncManifest manifest, DiscoveryCancellation token) throws IOException {
@@ -35,9 +37,21 @@ public final class SourceResolver {
                 result.putIfAbsent(artifact.sha256(), matching.getFirst());
             }
         }
+        var curseLookups = manifest.files().stream().filter(artifact -> !result.containsKey(artifact.sha256())).flatMap(artifact -> artifact.sources().stream()
+                .filter(source -> source.type().equals("curseforge"))
+                .map(source -> new CurseForgeProvider.Lookup(source.fingerprint(), source.sha1(), artifact.size()))).distinct().toList();
+        var curseFiles = curseForge.findFingerprints(curseLookups, token);
         for (var artifact : manifest.files()) {
             token.check();
-            if (!result.containsKey(artifact.sha256()) && artifact.sources().stream().anyMatch(source -> source.provider() != null))
+            for (var source : artifact.sources()) {
+                if (!source.type().equals("curseforge") || result.containsKey(artifact.sha256())) continue;
+                var file = curseFiles.get(new CurseForgeProvider.Lookup(source.fingerprint(), source.sha1(), artifact.size()));
+                if (file == null) throw new IOException("CurseForge has no exact authorized match. No alternate source was selected.");
+                file.require(artifact);
+                result.put(artifact.sha256(), file);
+                break;
+            }
+            if (!result.containsKey(artifact.sha256()) && artifact.sources().stream().anyMatch(source -> source.provider() != null || source.type().equals("curseforge")))
                 throw new IOException("No exact provider file was found. No unverified alternative was selected.");
         }
         return Map.copyOf(result);

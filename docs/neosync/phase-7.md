@@ -1,5 +1,9 @@
 # Phase 7 — Beta validation and compatibility
 
+The matrix below records published beta evidence, not unreleased September 29,
+2026 source and launcher changes. See
+[development validation](development-sources-launchers.md) for those changes.
+
 NeoSync 0.1.0-beta.1 targets Minecraft 1.21.1, NeoForge 21.1.251, protocol 1 and
 Java 21. Modrinth is the only provider. The beta adds server administration,
 verified recovery and Prism integration while retaining manual activation.

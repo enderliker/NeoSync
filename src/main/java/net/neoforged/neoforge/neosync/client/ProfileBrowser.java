@@ -96,11 +96,21 @@ final class ProfileBrowser {
     }
 
     private void activation(ProfileStore.Prepared revision) {
+        var detected = net.neoforged.neoforge.neosync.launcher.LauncherIntegration.detect(minecraft.gameDirectory.toPath());
+        if (detected.canCreateInstallation()) {
+            screen.menu(NeoSyncClient.activationReview(revision, detected), "Later", List.of(new DiscoveryScreen.Choice("Create Minecraft installation", () -> run(() -> {
+                net.neoforged.neoforge.neosync.launcher.LauncherIntegration.createInstallation(detected.installation(), revision, FMLLoader.versionInfo().fmlVersion(), token);
+                return () -> screen.show(List.of("The verified installation is ready in Minecraft Launcher. No path changes are needed.",
+                        "Close Minecraft, open the launcher and select NeoSync " + revision.manifest().displayName() + " / " + revision.manifest().revision() + "."),
+                        "Later", "Close Minecraft", minecraft::stop);
+            }))));
+            return;
+        }
         if (!net.neoforged.neoforge.neosync.launcher.PrismIntegration.available()) {
             screen.show(NeoSyncClient.activationInstructions(revision), "Later", "", null);
             return;
         }
-        screen.menu(NeoSyncClient.activationInstructions(revision), List.of(new DiscoveryScreen.Choice("Prepare Prism instance", () -> run(() -> {
+        screen.menu(NeoSyncClient.activationReview(revision, detected), "Later", List.of(new DiscoveryScreen.Choice("Prepare in Prism Launcher", () -> run(() -> {
             var launch = net.neoforged.neoforge.neosync.launcher.PrismIntegration.prepare(revision, FMLLoader.versionInfo().fmlVersion(), token);
             return () -> screen.show(List.of("The verified profile is ready in Prism.", "Close Minecraft and launch instance " + launch.instance().getFileName() + "?"),
                     "Later", "Close and launch", () -> run(() -> {

@@ -17,6 +17,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.UUID;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
 import net.neoforged.neoforge.neosync.protocol.ManagedPaths;
 import net.neoforged.neoforge.neosync.protocol.ProfileStore;
@@ -25,18 +27,135 @@ import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 
 /** Uses only a locally installed launcher descriptor; a server manifest cannot choose commands or arguments. */
 public final class PrismIntegration {
+    @org.jetbrains.annotations.Nullable
+    private static Path detectedInstance;
+    @org.jetbrains.annotations.Nullable
+    private static Path detectedExecutable;
+
     private PrismIntegration() {}
 
     public record Launch(Path javaBinary, Path executable, Path root, Path instance, Path bridge, Path verification) {}
 
     public static boolean available() {
-        return System.getProperty("neosync.launcher.config") != null;
+        return descriptor() != null || detectedInstance != null && detectedExecutable != null;
+    }
+
+    public static void discover(Path gameDirectory) {
+        if (System.getProperty("neosync.launcher.config") != null) return;
+        Path game = gameDirectory.toAbsolutePath().normalize();
+        for (Path current = game; current != null; current = current.getParent()) {
+            Path candidate = current.resolve("neosync-launcher.json");
+            if (Files.isRegularFile(candidate, LinkOption.NOFOLLOW_LINKS) && Files.isRegularFile(current.resolve("instance.cfg"), LinkOption.NOFOLLOW_LINKS)) {
+                System.setProperty("neosync.launcher.config", candidate.toString());
+                return;
+            }
+            if (Files.isRegularFile(current.resolve("instance.cfg"), LinkOption.NOFOLLOW_LINKS)
+                    && Files.isRegularFile(current.resolve("patches/org.neosync.json"), LinkOption.NOFOLLOW_LINKS)
+                    && current.getParent() != null && current.getParent().getFileName().toString().equals("instances")) {
+                detectedInstance = current;
+                var parent = ProcessHandle.current().parent();
+                for (int depth = 0; depth < 8 && parent.isPresent(); depth++) {
+                    var command = parent.get().info().command();
+                    if (command.isPresent()) {
+                        Path executable = Path.of(command.get()).toAbsolutePath().normalize();
+                        if (executable.getFileName().toString().matches("(?i)prismlauncher(?:\\.exe)?") && Files.isRegularFile(executable, LinkOption.NOFOLLOW_LINKS)) {
+                            detectedExecutable = executable;
+                            return;
+                        }
+                    }
+                    parent = parent.get().parent();
+                }
+            }
+        }
+    }
+
+    private static Path descriptor() {
+        String configured = System.getProperty("neosync.launcher.config");
+        return configured == null ? null : Path.of(configured);
     }
 
     public static Launch prepare(ProfileStore.Prepared prepared, String fmlVersion, DiscoveryCancellation token) throws IOException {
-        String configured = System.getProperty("neosync.launcher.config");
-        if (configured == null) throw new IOException("Configure a NeoSync Prism instance first, or use manual restart instructions.");
-        return prepare(Path.of(configured), prepared, fmlVersion, token);
+        Path configured = descriptor();
+        if (configured == null && detectedInstance != null && detectedExecutable != null) {
+            ProfileStore.open(prepared.gameDirectory()).verify(prepared, fmlVersion, token);
+            configured = configureDetected(detectedInstance, detectedExecutable, prepared, token);
+        }
+        if (configured == null) throw new IOException("This Prism instance has no verified NeoSync runtime descriptor.");
+        return prepare(configured, prepared, fmlVersion, token);
+    }
+
+    private static Path configureDetected(Path base, Path executable, ProfileStore.Prepared prepared, DiscoveryCancellation token) throws IOException {
+        ManagedPaths.directory(base, false);
+        var parsed = SyncJson.parse(read(base.resolve("patches/org.neosync.json"), SyncManifest.MAX_BYTES), SyncManifest.MAX_BYTES);
+        if (!parsed.isJsonObject()) throw new IOException("Invalid local NeoSync Prism component.");
+        var component = parsed.getAsJsonObject();
+        if (!SyncJson.string(component.get("uid"), 64).equals("org.neosync")
+                || !SyncJson.string(component.get("version"), 128).equals(prepared.manifest().loaderVersion())
+                || !SyncJson.string(component.get("mainClass"), 128).equals("cpw.mods.bootstraplauncher.BootstrapLauncher"))
+            throw new IOException("This Prism instance does not contain the matching NeoSync runtime.");
+        var libraries = new JsonObject();
+        long total = 0;
+        for (var library : SyncJson.array(component.get("libraries"), 1, 256)) {
+            if (!library.isJsonObject() || !library.getAsJsonObject().has("MMC-hint")
+                    || !SyncJson.string(library.getAsJsonObject().get("MMC-hint"), 16).equals("local"))
+                throw new IOException("Automatic Prism setup requires locally installed NeoSync runtime libraries.");
+        }
+        try (var entries = Files.newDirectoryStream(ManagedPaths.directory(base.resolve("libraries"), false))) {
+            for (var entry : entries) {
+                token.check();
+                if (libraries.size() >= 256 || !entry.getFileName().toString().matches(SyncManifest.FILE_PATTERN))
+                    throw new IOException("Unsupported local Prism library inventory.");
+                byte[] bytes = read(entry, 64 * 1024 * 1024);
+                total += bytes.length;
+                if (total > 512L * 1024 * 1024) throw new IOException("Local Prism runtime exceeds the copy limit.");
+                libraries.addProperty(entry.getFileName().toString(), SyncManifest.sha256(bytes));
+            }
+        }
+        Path bridge = base.resolve("neosync-launcher-bridge.jar");
+        if (!Files.exists(bridge, LinkOption.NOFOLLOW_LINKS)) {
+            Path temporary = base.resolve(".neosync-bridge-" + UUID.randomUUID() + ".tmp");
+            try {
+                try (var archive = new JarOutputStream(Files.newOutputStream(temporary, java.nio.file.StandardOpenOption.CREATE_NEW))) {
+                    for (String name : java.util.List.of("LauncherBridge", "LauncherBridge$Verifier")) {
+                        String resource = "net/neoforged/neoforge/neosync/launcher/" + name + ".class";
+                        try (var input = LauncherBridge.class.getClassLoader().getResourceAsStream(resource)) {
+                            if (input == null) throw new IOException("The installed launcher bridge is missing.");
+                            archive.putNextEntry(new JarEntry(resource));
+                            archive.write(input.readNBytes(1024 * 1024));
+                            archive.closeEntry();
+                        }
+                    }
+                }
+                token.check();
+                Files.move(temporary, bridge, StandardCopyOption.ATOMIC_MOVE);
+            } finally {
+                Files.deleteIfExists(temporary);
+            }
+        }
+        var config = new JsonObject();
+        config.addProperty("schemaVersion", 1);
+        config.addProperty("kind", "prism");
+        config.addProperty("version", prepared.manifest().loaderVersion());
+        config.addProperty("neoForgeVersion", prepared.manifest().neoForgeVersion());
+        config.addProperty("root", base.getParent().getParent().toString());
+        config.addProperty("instance", base.toString());
+        config.addProperty("executable", executable.toString());
+        config.addProperty("java", Path.of(System.getProperty("java.home")).resolve("bin").resolve(System.getProperty("os.name").startsWith("Windows") ? "java.exe" : "java").toRealPath().toString());
+        config.addProperty("bridgeSha256", SyncManifest.sha256(read(bridge, 1024 * 1024)));
+        config.add("libraries", libraries);
+        config.add("component", component);
+        Path descriptor = base.resolve("neosync-launcher.json");
+        token.check();
+        Files.writeString(descriptor, config.toString(), StandardCharsets.UTF_8, java.nio.file.StandardOpenOption.CREATE_NEW, LinkOption.NOFOLLOW_LINKS);
+        System.setProperty("neosync.launcher.config", descriptor.toString());
+        return descriptor;
+    }
+
+    @org.jetbrains.annotations.ApiStatus.Internal
+    public static Launch prepareDetected(Path base, Path executable, ProfileStore.Prepared prepared, String fmlVersion, DiscoveryCancellation token) throws IOException {
+        ProfileStore.open(prepared.gameDirectory()).verify(prepared, fmlVersion, token);
+        Path configuration = configureDetected(base, executable, prepared, token);
+        return prepare(configuration, prepared, fmlVersion, token);
     }
 
     public static Launch prepare(Path descriptor, ProfileStore.Prepared prepared, String fmlVersion, DiscoveryCancellation token) throws IOException {
@@ -67,16 +186,19 @@ public final class PrismIntegration {
         try {
             var component = config.getAsJsonObject("component").deepCopy();
             String gameArguments = SyncJson.string(component.get("minecraftArguments"), 16384);
-            if (!gameArguments.contains("--gameDir ${game_directory}")) throw new IOException("The Prism component has no supported game directory argument.");
+            var gameDirectoryArgument = java.util.regex.Pattern.compile("--gameDir \\$\\{game_directory\\}(?:/[^\\s]*)?(?=\\s|$)").matcher(gameArguments);
+            if (!gameDirectoryArgument.find() || gameDirectoryArgument.find()) throw new IOException("The Prism component must contain one supported game directory argument.");
             String relativeGame = target.resolve(".minecraft").relativize(prepared.gameDirectory()).toString().replace('\\', '/');
             if (relativeGame.contains("${") || relativeGame.chars().anyMatch(c -> Character.isWhitespace(c) || c == '"'))
                 throw new IOException("This profile path cannot be passed through Prism's argument format. Use manual restart instructions.");
             // Prism splits arguments on spaces before expanding variables; shell quoting becomes a literal path character.
-            component.addProperty("minecraftArguments", gameArguments.replace("--gameDir ${game_directory}", "--gameDir ${game_directory}/" + relativeGame));
+            component.addProperty("minecraftArguments", gameDirectoryArgument.replaceFirst(java.util.regex.Matcher.quoteReplacement("--gameDir ${game_directory}/" + relativeGame)));
             if (component.has("+jvmArgs")) {
                 var args = component.getAsJsonArray("+jvmArgs");
                 for (int i = 0; i < args.size(); i++) {
-                    args.set(i, new com.google.gson.JsonPrimitive(args.get(i).getAsString().replace(base.resolve("libraries").toString().replace('\\', '/'), target.resolve("libraries").toString().replace('\\', '/'))));
+                    args.set(i, new com.google.gson.JsonPrimitive(args.get(i).getAsString()
+                            .replace(base.resolve("libraries").toString().replace('\\', '/'), target.resolve("libraries").toString().replace('\\', '/'))
+                            .replace(base.resolve("neosync-launcher.json").toString().replace('\\', '/'), target.resolve("neosync-launcher.json").toString().replace('\\', '/'))));
                 }
             }
             Path libraryTarget = ManagedPaths.directory(stage.resolve("libraries"), true);
@@ -115,18 +237,27 @@ public final class PrismIntegration {
             record.setProperty("consent", SyncManifest.sha256(read(prepared.gameDirectory().getParent().resolve("consent.json"), SyncManifest.MAX_BYTES)));
             record.setProperty("count", Integer.toString(prepared.manifest().files().size()));
             for (int i = 0; i < prepared.manifest().files().size(); i++) record.setProperty("file." + i, prepared.manifest().files().get(i).sha256());
-            try (var writer = Files.newBufferedWriter(stage.resolve("neosync-verification.properties"), StandardCharsets.UTF_8)) {
-                record.store(writer, "NeoSync pre-launch verification; contains no account data");
-            }
-            String preflight = quote(javaBinary.toString()) + " -cp " + quote(bridge.toString()) + " " + LauncherBridge.class.getName() + " verify " + quote(verification.toString());
+            String preflight = quote(javaBinary.toString()) + " -cp " + quote(target.resolve("neosync-launcher-bridge.jar").toString()) + " " + LauncherBridge.class.getName() + " verify " + quote(verification.toString());
             String settings = "[General]\nConfigVersion=1.3\nInstanceType=OneSix\nname=" + quote("NeoSync " + prepared.manifest().revision()) + "\niconKey=default\nOverrideJavaLocation=true\nJavaPath=" + quote(javaBinary.toString().replace('\\', '/'))
                     + "\nOverrideMemory=true\nMaxMemAlloc=2048\nMinMemAlloc=512\nOverrideCommands=true\nPreLaunchCommand=" + quote(preflight) + "\n";
             Files.writeString(stage.resolve("instance.cfg"), settings, StandardCharsets.UTF_8);
+            var nextConfig = config.deepCopy();
+            nextConfig.addProperty("instance", target.toString());
+            nextConfig.add("component", component.deepCopy());
+            Files.copy(bridge, stage.resolve("neosync-launcher-bridge.jar"));
+            Files.writeString(stage.resolve("neosync-launcher.json"), nextConfig.toString(), StandardCharsets.UTF_8);
+            for (String name : java.util.List.of("instance.cfg", "mmc-pack.json", "patches/org.neosync.json", "neosync-launcher-bridge.jar"))
+                record.setProperty("launcher." + name, SyncManifest.sha256(read(stage.resolve(name), 1024 * 1024)));
+            try (var writer = Files.newBufferedWriter(stage.resolve("neosync-verification.properties"), StandardCharsets.UTF_8)) {
+                record.store(writer, "NeoSync pre-launch verification; contains no account data");
+            }
             token.check();
             if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
                 ManagedPaths.directory(target, false);
                 if (!java.util.Arrays.equals(read(target.resolve("patches/org.neosync.json"), SyncManifest.MAX_BYTES), read(stage.resolve("patches/org.neosync.json"), SyncManifest.MAX_BYTES)))
                     throw new IOException("The existing Prism instance was edited. Select it manually or create a new instance.");
+                if (!java.util.Arrays.equals(read(target.resolve("instance.cfg"), SyncManifest.MAX_BYTES), read(stage.resolve("instance.cfg"), SyncManifest.MAX_BYTES)))
+                    throw new IOException("The existing Prism launch settings changed. No automatic restart was attempted.");
                 for (var entry : libraries.entrySet()) {
                     if (!SyncManifest.sha256(read(target.resolve("libraries").resolve(entry.getKey()), 64 * 1024 * 1024)).equals(entry.getValue().getAsString()))
                         throw new IOException("A library in the existing Prism instance changed. Configure a new instance.");
@@ -138,7 +269,7 @@ public final class PrismIntegration {
                     Files.move(stage, target, StandardCopyOption.ATOMIC_MOVE);
                 }
             }
-            return new Launch(javaBinary, executable, root, target, bridge, verification);
+            return new Launch(javaBinary, executable, root, target, target.resolve("neosync-launcher-bridge.jar"), verification);
         } finally {
             if (Files.exists(stage, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(stage);
         }
@@ -146,6 +277,10 @@ public final class PrismIntegration {
 
     public static void restart(Launch launch) throws IOException {
         LauncherBridge.Verifier.verify(launch.verification());
+        ManagedPaths.directory(launch.root(), false);
+        ManagedPaths.directory(launch.instance(), false);
+        if (!Files.isRegularFile(launch.executable(), LinkOption.NOFOLLOW_LINKS) || !Files.isExecutable(launch.executable()))
+            throw new IOException("The detected Prism executable is no longer available.");
         Path log = launch.instance().resolve("neosync-handoff-" + UUID.randomUUID() + ".log");
         new ProcessBuilder(launch.javaBinary().toString(), "-cp", launch.bridge().toString(), LauncherBridge.class.getName(), "restart", Long.toString(ProcessHandle.current().pid()),
                 launch.executable().toString(), launch.root().toString(), launch.instance().getFileName().toString(), launch.verification().toString())

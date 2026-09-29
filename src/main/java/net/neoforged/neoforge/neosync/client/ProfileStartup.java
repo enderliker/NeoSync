@@ -42,6 +42,7 @@ public final class ProfileStartup {
         var minecraft = Minecraft.getInstance();
         if (started || !(minecraft.screen instanceof TitleScreen parent) || minecraft.getOverlay() != null) return;
         started = true;
+        net.neoforged.neoforge.neosync.launcher.PrismIntegration.discover(minecraft.gameDirectory.toPath());
         var token = new DiscoveryCancellation();
         CompletableFuture.supplyAsync(() -> {
             try {
@@ -82,7 +83,7 @@ public final class ProfileStartup {
                         lines.add("NeoSync " + prepared.manifest().loaderVersion() + " with NeoForge " + prepared.manifest().neoForgeVersion());
                     }
                     minecraft.setScreen(screen);
-                    screen.show(lines, "Later", "", null);
+                    screen.show(lines, "Later", "Manage prepared profiles", () -> ProfileBrowser.open(parent));
                 }
             });
         });

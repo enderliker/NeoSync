@@ -84,6 +84,16 @@
         {
           "type": "object",
           "additionalProperties": false,
+          "required": ["type", "fingerprint", "sha1"],
+          "properties": {
+            "type": {"const": "curseforge"},
+            "fingerprint": {"type": "integer", "minimum": 0, "maximum": 4294967295},
+            "sha1": {"type": "string", "pattern": "^[0-9a-f]{40}$", "minLength": 40, "maxLength": 40}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
           "required": ["type"],
           "properties": {"type": {"const": "server"}}
         }

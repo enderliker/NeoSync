@@ -22,6 +22,11 @@ public final class AutomaticSources {
     private AutomaticSources() {}
 
     public static Map<Path, ProviderArtifact> resolve(Map<Path, ArtifactFiles.Fingerprint> files, ProviderTransport transport, DiscoveryCancellation token) throws IOException {
+        return resolve(files, transport, token, java.util.Set.of());
+    }
+
+    public static Map<Path, ProviderArtifact> resolve(Map<Path, ArtifactFiles.Fingerprint> files, ProviderTransport transport, DiscoveryCancellation token,
+            java.util.Set<Path> eligibleHosting) throws IOException {
         var hashes = new HashMap<Path, String>();
         long total = 0;
         for (var entry : files.entrySet()) {
@@ -47,11 +52,18 @@ public final class AutomaticSources {
         }
         var matches = new ModrinthProvider(transport).findHashes(hashes.values().stream().toList(), token);
         var needed = hashes.entrySet().stream().filter(entry -> !matches.containsKey(entry.getValue())).map(Map.Entry::getKey).toList();
-        if (!needed.isEmpty())
-            throw new IOException("Modrinth has no exact match for " + needed.getFirst().getFileName() + ". Configure an exact permitted HTTPS source; hosting is not a third-party fallback.");
+        var remaining = new HashMap<Path, ArtifactFiles.Fingerprint>();
+        for (var path : needed) remaining.put(path, files.get(path));
+        var curseForge = new CurseForgeProvider(transport).findFiles(remaining, token);
         var result = new HashMap<Path, ProviderArtifact>();
         for (var entry : hashes.entrySet()) {
             var match = matches.get(entry.getValue());
+            if (match == null) match = curseForge.get(entry.getKey());
+            if (match == null) {
+                if (eligibleHosting.contains(entry.getKey())) continue;
+                throw new IOException("Neither Modrinth nor CurseForge has an exact authorized match for " + entry.getKey().getFileName()
+                        + ". Configure a permitted HTTPS source; hosting is restricted to administrator-authored exclusive mods.");
+            }
             if (match.size() != files.get(entry.getKey()).size()) throw new IOException("The provider file size does not match the selected artifact.");
             result.put(entry.getKey(), match);
         }
@@ -59,6 +71,7 @@ public final class AutomaticSources {
     }
 
     public static JsonArray sources(ProviderArtifact artifact) {
+        if (!artifact.identity().id().equals("modrinth")) throw new IllegalArgumentException("CurseForge metadata cannot be stored in a manifest. Compute lookup evidence from the local artifact.");
         var hint = new JsonObject();
         hint.addProperty("id", artifact.identity().id());
         hint.addProperty("projectId", artifact.identity().projectId());

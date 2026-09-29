@@ -51,7 +51,8 @@ public record RequirementReport(boolean ready, int missingFiles, List<String> li
             }
             for (var source : file.sources()) {
                 lines.add(source.type().equals("server") ? "Source: provided by this server (unverified)"
-                        : "Source: " + source.url().getHost() + " (unverified)");
+                        : source.type().equals("curseforge") ? "Source: CurseForge (fresh exact lookup required; not a safety guarantee)"
+                                : "Source: " + source.url().getHost() + " (unverified)");
             }
         }
         lines.add(2, count(missing, "file") + (missing == 1 ? " needs" : " need") + " installation or replacement.");

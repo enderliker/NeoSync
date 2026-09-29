@@ -229,14 +229,13 @@ public final class NeoSyncClient {
         }
 
         void prepared(ProfileStore.Prepared prepared) {
-            screen.show(List.of("Profile prepared for " + prepared.manifest().displayName() + ".",
-                    "Restart Minecraft using the prepared game directory to apply these mods. Closing and reopening your original installation will not activate them.",
-                    prepared.gameDirectory().toString()), "Later", "Restart instructions", () -> activation(prepared));
+            activation(prepared);
         }
 
         void activation(ProfileStore.Prepared prepared) {
+            var detected = net.neoforged.neoforge.neosync.launcher.LauncherIntegration.detect(minecraft.gameDirectory.toPath());
             if (net.neoforged.neoforge.neosync.launcher.PrismIntegration.available()) {
-                screen.menu(activationInstructions(prepared), List.of(new DiscoveryScreen.Choice("Prepare Prism instance", () -> {
+                screen.menu(activationReview(prepared, detected), "Later", List.of(new DiscoveryScreen.Choice("Prepare in Prism Launcher", () -> {
                     screen.show(List.of("Verifying the profile and preparing its Prism instance..."), "Cancel", "", null);
                     run(token -> net.neoforged.neoforge.neosync.launcher.PrismIntegration.prepare(prepared, FMLLoader.versionInfo().fmlVersion(), token), launch -> {
                         screen.show(List.of("The verified profile is ready in Prism Launcher.", "Close Minecraft and launch this server profile? Your account stays in Prism.",
@@ -251,7 +250,39 @@ public final class NeoSyncClient {
                                 });
                     }, false, 15);
                 })));
-            } else screen.show(activationInstructions(prepared), "Later", "", null);
+            } else if (detected.canCreateInstallation()) {
+                screen.menu(activationReview(prepared, detected), "Later", List.of(new DiscoveryScreen.Choice("Create Minecraft installation", () -> {
+                    screen.show(List.of("Verifying the profile and creating its Minecraft Launcher installation..."), "Cancel", "", null);
+                    run(token -> net.neoforged.neoforge.neosync.launcher.LauncherIntegration.createInstallation(detected.installation(), prepared,
+                            FMLLoader.versionInfo().fmlVersion(), token), id -> {
+                                screen.show(List.of("The installation is ready. No path changes are needed.",
+                                        "Open Minecraft Launcher and select NeoSync " + prepared.manifest().displayName() + " / " + prepared.manifest().revision() + ".",
+                                        "Minecraft Launcher does not provide a verified command to start this custom installation automatically.",
+                                        "Your account stays in the launcher. The active mods are unchanged until the next launch."),
+                                        "Later", detected.executable() == null ? "Close Minecraft" : "Close and open launcher", () -> {
+                                            try {
+                                                if (detected.executable() != null) new ProcessBuilder(detected.executable().toString())
+                                                        .redirectOutput(ProcessBuilder.Redirect.DISCARD).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+                                                minecraft.stop();
+                                            } catch (IOException failure) {
+                                                error(new IOException("The launcher could not be opened. Your prepared installation is preserved."), false);
+                                            }
+                                        });
+                            }, false, 15);
+                })));
+            } else {
+                var lines = new ArrayList<>(activationReview(prepared, detected));
+                lines.addAll(activationInstructions(prepared));
+                if (detected.kind() == net.neoforged.neoforge.neosync.launcher.LauncherIntegration.Kind.LUNAR)
+                    lines.add("Lunar Client has no verified NeoSync 1.21.1 custom-runtime integration. Use Prism or the installed Minecraft Launcher version instead.");
+                screen.menu(lines, "Later", List.of(new DiscoveryScreen.Choice("Copy profile path", () -> {
+                    minecraft.keyboardHandler.setClipboard(prepared.gameDirectory().toString());
+                    activation(prepared);
+                }), new DiscoveryScreen.Choice("Open prepared profile", () -> {
+                    net.minecraft.Util.getPlatform().openFile(prepared.gameDirectory().toFile());
+                    activation(prepared);
+                })));
+            }
         }
 
         private <T> void run(Work<T> work, Consumer<T> success, boolean ordinaryFallback) {
@@ -298,6 +329,14 @@ public final class NeoSyncClient {
                     ordinaryFallback ? "You can attempt an ordinary connection without synchronization." : "Your current installation was not changed. Previously prepared revisions remain available."),
                     "Back", ordinaryFallback ? "Connect without discovery" : "Retry", ordinaryFallback ? this::proceed : this::discover);
         }
+    }
+
+    static List<String> activationReview(ProfileStore.Prepared prepared, net.neoforged.neoforge.neosync.launcher.LauncherIntegration.Detected detected) {
+        return List.of("Profile prepared for " + prepared.manifest().displayName() + ".",
+                "Launcher: " + detected.kind().displayName() + ".",
+                "Minecraft will use this separate game directory after restart:", prepared.gameDirectory().toString(),
+                "Your current installation, personal mods and worlds are not moved or removed.",
+                "Choose Later to keep the profile without changing your launcher. Preparing an installation requires your permission.");
     }
 
     static List<String> activationInstructions(ProfileStore.Prepared prepared) {

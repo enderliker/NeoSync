@@ -84,6 +84,14 @@ class LauncherBridgeTest {
         assertEquals("org.neosync", components.get(2).getAsJsonObject().get("uid").getAsString());
         LauncherBridge.Verifier.verify(launch.verification());
         assertEquals(launch, PrismIntegration.prepare(config, prepared, "4.0.44", new DiscoveryCancellation()));
+        var repeated = PrismIntegration.prepare(launch.instance().resolve("neosync-launcher.json"), prepared, "4.0.44", new DiscoveryCancellation());
+        assertEquals(launch.instance(), repeated.instance());
+        assertEquals(1, Files.readString(launch.instance().resolve("patches/org.neosync.json")).split("--gameDir", -1).length - 1);
+        String settings = Files.readString(launch.instance().resolve("instance.cfg"));
+        Files.writeString(launch.instance().resolve("instance.cfg"), settings.replace("OverrideCommands=true", "OverrideCommands=false"));
+        assertThrows(IOException.class, () -> LauncherBridge.Verifier.verify(launch.verification()));
+        assertThrows(IOException.class, () -> PrismIntegration.prepare(config, prepared, "4.0.44", new DiscoveryCancellation()));
+        Files.writeString(launch.instance().resolve("instance.cfg"), settings);
         Path injected = Files.writeString(prepared.gameDirectory().resolve("mods/extra.jar"), "unreviewed");
         assertThrows(IOException.class, () -> LauncherBridge.Verifier.verify(launch.verification()));
         Files.delete(injected);
@@ -91,5 +99,47 @@ class LauncherBridgeTest {
         Files.writeString(installed, "changed after preparation");
         assertThrows(IOException.class, () -> LauncherBridge.Verifier.verify(launch.verification()));
         assertThrows(IOException.class, () -> PrismIntegration.prepare(config, prepared, "4.0.44", new DiscoveryCancellation()));
+    }
+
+    @Test
+    void createsALocalDescriptorOnlyAfterVerifiedPreparation(@TempDir Path directory) throws Exception {
+        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
+        var artifact = JarMetadataTest.artifact(jar);
+        var manifest = JsonParser.parseString(new String(InstallationPlanTest.manifest(), StandardCharsets.UTF_8)).getAsJsonObject();
+        manifest.getAsJsonArray("files").get(0).getAsJsonObject().addProperty("sha256", artifact.sha256());
+        manifest.getAsJsonArray("files").get(0).getAsJsonObject().addProperty("size", artifact.size());
+        byte[] bytes = manifest.toString().getBytes(StandardCharsets.UTF_8);
+        var plan = InstallationPlan.create(InstallationPlanTest.endpoint(bytes), bytes, Set.of(artifact.sha256()), null, "0.1.0-dev", "21.1.251");
+        var prepared = ProfileStore.open(directory).prepare(plan, plan.accept(true, true), Map.of(artifact.sha256(), jar), "4.0.44", new DiscoveryCancellation(), (action, completed, total) -> {});
+        Path base = Files.createDirectories(directory.resolve("Prism root/instances/base"));
+        Files.createDirectory(base.resolve("libraries"));
+        Files.writeString(base.resolve("libraries/bootstrap.jar"), "fixture library");
+        Path patches = Files.createDirectory(base.resolve("patches"));
+        var component = new JsonObject();
+        component.addProperty("uid", "org.neosync");
+        component.addProperty("version", "0.1.0-dev");
+        component.addProperty("mainClass", "cpw.mods.bootstraplauncher.BootstrapLauncher");
+        component.addProperty("minecraftArguments", "--gameDir ${game_directory} --accessToken ${auth_access_token}");
+        component.add("libraries", JsonParser.parseString("[{\"name\":\"fixture:bootstrap:1\",\"MMC-hint\":\"local\"}]"));
+        Files.writeString(patches.resolve("org.neosync.json"), component.toString());
+        Path executable = Files.writeString(base.resolve("prismlauncher"), "fixture executable");
+        Path descriptor = base.resolve("neosync-launcher.json");
+        var cancelled = new DiscoveryCancellation();
+        cancelled.close();
+        assertThrows(IOException.class, () -> PrismIntegration.prepareDetected(base, executable, prepared, "4.0.44", cancelled));
+        assertTrue(!Files.exists(descriptor));
+        String previous = System.getProperty("neosync.launcher.config");
+        try {
+            var launch = PrismIntegration.prepareDetected(base, executable, prepared, "4.0.44", new DiscoveryCancellation());
+            assertTrue(Files.isRegularFile(descriptor));
+            assertTrue(Files.isRegularFile(launch.instance().resolve("neosync-launcher.json")));
+            assertTrue(Files.isRegularFile(launch.instance().resolve("neosync-launcher-bridge.jar")));
+            assertTrue(Files.readString(descriptor).contains("${auth_access_token}"));
+            assertTrue(!Files.readString(descriptor).contains("authenticationDatabase"));
+            LauncherBridge.Verifier.verify(launch.verification());
+        } finally {
+            if (previous == null) System.clearProperty("neosync.launcher.config");
+            else System.setProperty("neosync.launcher.config", previous);
+        }
     }
 }

@@ -1,6 +1,11 @@
 # Installed Phase 3 acceptance driver
 
-Current development supports the Modrinth and restricted-hosting fixtures.
+Current development supports Modrinth, CurseForge and restricted-hosting fixtures.
+The driver handles the development path-and-Later activation screen and provider
+display names. The new `--curseforge` fixture retains only hashes computed from
+the local JAR, not API metadata; it requires an installer with authorized embedded
+provider access. It selects CurseForge explicitly to exercise that client's live
+lookup and download path, not to override automatic Modrinth-first selection.
 The former CurseForge/manual-import fixture was removed on September 27, 2026.
 Any browser-import execution records below describe historical alpha.4 only.
 
@@ -144,6 +149,14 @@ Use a fresh installation root as in Phase 4, then run `prepare_fixture.py` with
 client review to identify Modrinth and pending byte checks. Run installed
 `install` and `resume` modes. These are live Modrinth calls, followed by a real
 server join. Record the exact source commit and installer hash for each run.
+
+## Development CurseForge acceptance
+
+On September 29, 2026 the new `--curseforge` fixture passed installed `install` and
+`resume` runs on Linux with Clumps 19.0.0.1 and the repository's production
+launcher harness. Both consent cancellations left the store untouched; explicit
+acceptance downloaded verified bytes, Later was focused, and the next launch
+joined the real server. This is not actual-launcher automatic restart evidence.
 
 ## Prism restart and update acceptance
 

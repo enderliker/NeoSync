@@ -39,10 +39,15 @@ required client files and their sources; the player reviews and accepts the set
 before installation.
 
 > [!IMPORTANT]
-> NeoSync is a beta for Minecraft 1.21.1. Modrinth is the only provider.
+> NeoSync is a beta for Minecraft 1.21.1. Published beta releases use Modrinth only.
 > The administrator panel, isolated updates, verified recovery and Prism restart
 > integration are implemented. See the [validation matrix](docs/neosync/phase-7.md)
 > for the exact tested builds, platforms and remaining limits.
+
+Unreleased development adds Modrinth → CurseForge → eligible local hosting,
+without caching CurseForge metadata, and consented launcher activation helpers.
+See [development notes](docs/neosync/development-sources-launchers.md) for key
+injection, provider restrictions and which launchers still require manual launch.
 
 <details>
 <summary>Download formats and release notes</summary>
@@ -114,7 +119,7 @@ You can postpone activation and leave the profile prepared for later.
 | Discovery | Retrieves a bounded HTTPS manifest before gameplay login and reports missing or incompatible requirements. |
 | Consent | Binds acceptance to the exact reviewed files and sources. Unverified-source warnings default to **No, cancel**. |
 | Downloads | Uses configured direct HTTPS URLs or restricted server hosting, with destination restrictions, transfer limits, and SHA-256 verification. |
-| Provider resolution | Resolves exact Modrinth files before review and checks both provider and manifest hashes. Modrinth is the only provider. |
+| Provider resolution | Published betas resolve exact Modrinth files. Development adds fresh exact CurseForge lookup after Modrinth and retains restricted hosting. |
 | Server hosting | Serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
 | Preparation | Inspects JAR metadata without executing it and prepares a new revision while preserving existing profiles. |
 | Launcher support | Prism instance export and restart handoff, with pre-launch verification. Manual installed-version instructions for SKlauncher and Minecraft Launcher. See [launchers](docs/neosync/launchers.md). |
@@ -209,15 +214,18 @@ these versions. Published releases are pinned to a specific source commit.
 
 ## Provider source handling
 
-Modrinth is the only supported provider. Use `resolveProviders: true` for exact
-SHA-512 lookup of a selected server JAR. Clients independently review its identity
-and verify both provider and manifest hashes. Configured direct HTTPS downloads
-and restricted hosting of administrator-authored mods remain available.
+Use `resolveProviders: true` to identify the selected server JAR through Modrinth,
+then CurseForge when Modrinth has no exact match. Clients independently resolve
+identity before review and verify the provider hash and approved SHA-256.
+CurseForge requires access injected at build time; responses are never cached
+and API-derived metadata is not persisted in profiles or manifests.
+Eligible hosting requires explicit byte-bound declarations and successful misses
+from both providers. Configured direct HTTPS remains a separate reviewed choice.
 
-CurseForge and browser imports have been removed from current development. Old
-profiles using that provider are rejected and left intact; prepare a new revision
-with a supported source. Published alpha.4 binaries and historical validation
-records are unchanged. See [Phase 5](docs/neosync/phase-5.md).
+Browser import remains removed. Legacy persisted CurseForge provider hints remain
+rejected and intact. Published releases and historical validation are unchanged;
+see [Phase 5](docs/neosync/phase-5.md) and
+[development notes](docs/neosync/development-sources-launchers.md).
 
 Automatic downloads still require review and consent. A provider failure never
 authorizes rehosting third-party mods or silently changing the approved source.

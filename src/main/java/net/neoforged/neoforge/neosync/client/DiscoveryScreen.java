@@ -49,15 +49,19 @@ final class DiscoveryScreen extends Screen {
     }
 
     void menu(List<String> paragraphs, List<Choice> choices) {
+        menu(paragraphs, "Back", choices);
+    }
+
+    void menu(List<String> paragraphs, String backLabel, List<Choice> choices) {
         if (choices.size() > 3) throw new IllegalArgumentException("Too many screen choices.");
-        show(paragraphs, "Back", "", null);
+        show(paragraphs, backLabel, "", null);
         this.choices = List.copyOf(choices);
         rebuildWidgets();
     }
 
     @Override
     protected void init() {
-        int buttonWidth = Math.min(180, width / 2 - 24);
+        int buttonWidth = Math.max(20, Math.min(180, width / 2 - 24));
         var back = addRenderableWidget(Button.builder(Component.literal(backLabel), button -> onClose())
                 .bounds(width / 2 - buttonWidth - 4, height - 30, buttonWidth, 20).build());
         negativeAction = back;
@@ -71,7 +75,10 @@ final class DiscoveryScreen extends Screen {
         }
         for (int i = 0; i < choices.size(); i++) {
             var choice = choices.get(i);
-            addRenderableWidget(Button.builder(Component.literal(choice.label()), button -> choice.action().run())
+            addRenderableWidget(Button.builder(Component.literal(choice.label()), button -> {
+                button.active = false;
+                choice.action().run();
+            })
                     .bounds(width / 2 - Math.min(180, width / 2 - 20), height - 34 - (choices.size() - i) * 24, Math.min(360, width - 40), 20).build());
         }
         setInitialFocus(back);

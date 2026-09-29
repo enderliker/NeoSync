@@ -36,6 +36,51 @@ sourceSets {
     }
 }
 
+final providerAccessDirectory = layout.buildDirectory.dir('generated/provider-access')
+final providerAccessFile = providers.environmentVariable('NEOSYNC_CURSEFORGE_KEY_FILE')
+final generateProviderAccess = tasks.register('generateProviderAccess') {
+    outputs.dir(providerAccessDirectory)
+    outputs.upToDateWhen { false }
+    doLast {
+        def target = providerAccessDirectory.get().file('META-INF/neosync/provider-access.bin').asFile
+        target.parentFile.mkdirs()
+        def location = providerAccessFile.orNull
+        if (location == null) {
+            target.delete()
+            return
+        }
+        def source = new File(location)
+        if (!source.isFile() || source.length() > 4096) throw new GradleException('Invalid CurseForge credential file.')
+        def credential = source.getText('UTF-8').trim()
+        if (credential.isEmpty() || !credential.matches('[\\x21-\\x7E]+')) throw new GradleException('Invalid CurseForge credential file.')
+        byte[] clear = credential.getBytes('UTF-8')
+        byte[] pad = new byte[clear.length]
+        new java.security.SecureRandom().nextBytes(pad)
+        byte[] encoded = new byte[clear.length * 2]
+        for (int index = 0; index < clear.length; index++) {
+            encoded[index * 2] = pad[index]
+            encoded[index * 2 + 1] = (byte) (clear[index] ^ pad[index])
+        }
+        target.bytes = encoded
+        try {
+            java.nio.file.Files.setPosixFilePermissions(target.toPath(), java.nio.file.attribute.PosixFilePermissions.fromString('rw-------'))
+        } catch (UnsupportedOperationException ignored) {}
+        java.util.Arrays.fill(clear, (byte) 0)
+    }
+}
+sourceSets.main.resources.srcDir(providerAccessDirectory)
+tasks.named('processResources') {
+    dependsOn(generateProviderAccess)
+    outputs.doNotCacheIf('Contains an embedded provider credential') { providerAccessFile.isPresent() }
+}
+tasks.withType(Jar).configureEach {
+    outputs.doNotCacheIf('May contain an embedded provider credential') { providerAccessFile.isPresent() }
+}
+tasks.named('sourcesJar') {
+    dependsOn(generateProviderAccess)
+    exclude('META-INF/neosync/provider-access.bin')
+}
+
 final checkVersion = JCCPlugin.providePreviousVersion(
         project.providers, project.providers.provider({['https://maven.neoforged.net/releases']}), project.providers.provider({'net.neoforged:neoforge'}),
         project.provider { project.version }.map { ver -> CompatibilityTask.VersionComponentTest.MINOR.predicate(ver) }

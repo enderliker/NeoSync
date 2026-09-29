@@ -57,6 +57,10 @@ public final class LauncherBridge {
             try (var input = Files.newBufferedReader(specification, StandardCharsets.UTF_8)) {
                 record.load(input);
             }
+            for (String name : java.util.List.of("instance.cfg", "mmc-pack.json", "patches/org.neosync.json", "neosync-launcher-bridge.jar")) {
+                String expected = record.getProperty("launcher." + name);
+                if (expected != null) verifyFile(specification.getParent().resolve(name), expected, 1024 * 1024);
+            }
             Path game = Path.of(record.getProperty("gameDirectory"));
             requirePath(game, true);
             verifyFile(game.resolve("neosync-profile.json"), record.getProperty("marker"), 8192);

@@ -79,10 +79,12 @@ public final class InstallationPlan {
         var files = new ArrayList<File>();
         for (var artifact : manifest.files()) {
             if (artifact.mods().isEmpty()) throw new IOException("Library-only artifacts are not supported by this installation MVP: " + artifact.fileName());
-            var source = artifact.sources().stream().filter(candidate -> candidate.type().equals("external")).findFirst().orElse(artifact.sources().getFirst());
+            var source = artifact.sources().stream().filter(candidate -> candidate.type().equals("external") || candidate.type().equals("curseforge")).findFirst().orElse(artifact.sources().getFirst());
             boolean hosted = source.type().equals("server");
-            URI url = hosted ? serverSource(identity, artifact.sha256()) : externalSource(source.url());
             var provider = resolved.get(artifact.sha256());
+            if (source.type().equals("curseforge") && provider == null)
+                throw new IOException("Resolve fresh CurseForge metadata before reviewing or downloading this artifact.");
+            URI url = hosted ? serverSource(identity, artifact.sha256()) : source.type().equals("curseforge") ? provider.source() : externalSource(source.url());
             if (provider != null) {
                 provider.require(artifact);
                 if (hosted) throw new IOException("Hosted files cannot be substituted with provider files.");
@@ -196,12 +198,14 @@ public final class InstallationPlan {
         var lines = new ArrayList<String>();
         lines.add("These files come from unverified sources. Installed mods can execute code with Minecraft's permissions. A matching hash does not prove that a mod is trustworthy.");
         for (var file : files) lines.add(file.artifact().fileName() + " — " + sourceDescription(file));
+        if (files.stream().anyMatch(file -> file.provider() != null && file.provider().identity().id().equals("curseforge")))
+            lines.add("CurseForge downloads may use edge.forgecdn.net and mediafilez.forgecdn.net for the same reviewed file path. No other domain or changed path is accepted.");
         lines.add("Accept only if you want to install this exact set from these sources.");
         return List.copyOf(lines);
     }
 
     private String sourceDescription(File file) {
-        if (file.provider() != null) return file.provider().identity().id() + " — " + file.source()
+        if (file.provider() != null) return (file.provider().identity().id().equals("curseforge") ? "CurseForge" : "Modrinth") + " — " + file.source()
                 + " (unverified source; provider metadata matched; exact bytes will be checked against the approved SHA-256 and provider hash; not a safety guarantee)";
         return file.providedByServer() ? "Provided by the server " + manifest.displayName() + " (" + identity.host() + ":" + identity.gamePort()
                 + ") via " + identity.origin() + " (unverified source)" : file.source() + " (unverified source)";
