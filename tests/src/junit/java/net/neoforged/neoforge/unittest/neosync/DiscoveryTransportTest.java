@@ -121,6 +121,71 @@ class DiscoveryTransportTest {
     }
 
     @Test
+    void retrievesOnlyTheBoundedRevisionOverVerifiedHttps() throws Exception {
+        byte[] body = SyncProtocolTest.manifest();
+        var manifest = SyncManifest.parse(body);
+        String digest = SyncManifest.sha256(body);
+        String route = "/.well-known/neosync/v1/servers/25565/manifests/" + digest + ".json";
+        String revisionPath = "/.well-known/neosync/v1/servers/25565/revision.json";
+        var revision = RevisionCheckTest.revision(manifest, digest);
+        try (var service = new ManifestService(new InetSocketAddress("127.0.0.1", 0), serverTls, route, body, "", java.util.Map.of(),
+                net.neoforged.neoforge.neosync.server.HostingPolicy.parse(null), false, revisionPath, revision.bytes())) {
+            var endpoint = new SyncEndpoint("localhost", 25565, service.port(), digest);
+            assertEquals(revision, ManifestHttpClient.fetchRevision(endpoint, InetAddress.getByName("127.0.0.1"), clientTls, new DiscoveryCancellation()).orElseThrow());
+            assertThrows(IOException.class, () -> ManifestHttpClient.fetchRevision(new SyncEndpoint("localhost", 25565, service.port(), "b".repeat(64)), InetAddress.getByName("127.0.0.1"), clientTls, new DiscoveryCancellation()));
+            assertThrows(IOException.class, () -> ManifestHttpClient.fetchRevision(endpoint, InetAddress.getByName("127.0.0.1"), SSLContext.getDefault(), new DiscoveryCancellation()));
+        }
+        try (var legacy = new ManifestService(new InetSocketAddress("127.0.0.1", 0), serverTls, route, body)) {
+            var endpoint = new SyncEndpoint("localhost", 25565, legacy.port(), digest);
+            assertTrue(ManifestHttpClient.fetchRevision(endpoint, InetAddress.getByName("127.0.0.1"), clientTls, new DiscoveryCancellation()).isEmpty());
+        }
+    }
+
+    @Test
+    void requestsRevisionBeforeManifestAndRejectsEmptyOrOversizedRevisionResponses() throws Exception {
+        byte[] manifest = SyncProtocolTest.manifest();
+        String digest = SyncManifest.sha256(manifest);
+        var revision = RevisionCheckTest.revision(SyncManifest.parse(manifest), digest);
+        var requests = new java.util.ArrayList<String>();
+        var response = new java.util.concurrent.atomic.AtomicReference<>(revision.bytes());
+        var server = com.sun.net.httpserver.HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 4);
+        server.createContext("/", exchange -> {
+            requests.add(exchange.getRequestURI().getPath());
+            byte[] body = exchange.getRequestURI().getPath().endsWith("revision.json") ? response.get() : manifest;
+            exchange.getResponseHeaders().set("Content-Type", "application/json");
+            exchange.sendResponseHeaders(200, body.length == 0 ? -1 : body.length);
+            try (var output = exchange.getResponseBody()) {
+                output.write(body);
+            }
+        });
+        server.start();
+        try {
+            var endpoint = new SyncEndpoint("localhost", 25565, server.getAddress().getPort(), digest, "http");
+            assertEquals(revision, ManifestHttpClient.fetchRevision(endpoint, InetAddress.getByName("127.0.0.1"), clientTls, new DiscoveryCancellation()).orElseThrow());
+            assertEquals(digest, SyncManifest.sha256(ManifestHttpClient.fetch(endpoint, InetAddress.getByName("127.0.0.1"), clientTls, new DiscoveryCancellation())));
+            assertEquals(java.util.List.of(endpoint.revisionUri().getPath(), endpoint.manifestUri().getPath()), requests);
+            for (byte[] invalid : new byte[][] { new byte[0], "{}".getBytes(StandardCharsets.UTF_8), new byte[net.neoforged.neoforge.neosync.protocol.SyncRevision.MAX_BYTES + 1] }) {
+                response.set(invalid);
+                assertThrows(IOException.class, () -> ManifestHttpClient.fetchRevision(endpoint, InetAddress.getByName("127.0.0.1"), clientTls, new DiscoveryCancellation()));
+            }
+        } finally {
+            server.stop(0);
+        }
+    }
+
+    @Test
+    void rejectsPublishedRevisionWithUnselectedFiles() throws Exception {
+        byte[] body = SyncProtocolTest.manifest();
+        var manifest = SyncManifest.parse(body);
+        String digest = SyncManifest.sha256(body);
+        var files = java.util.List.of(new net.neoforged.neoforge.neosync.protocol.SyncRevision.Jar("server-only.jar", "a".repeat(64), 1, java.time.Instant.EPOCH));
+        var revision = new net.neoforged.neoforge.neosync.protocol.SyncRevision(manifest.serverId(), digest,
+                net.neoforged.neoforge.neosync.protocol.SyncRevision.inventoryDigest(files), java.time.Instant.EPOCH, files, java.util.List.of(), java.util.List.of(), java.util.List.of());
+        assertThrows(IOException.class, () -> new ManifestService(new InetSocketAddress("127.0.0.1", 0), serverTls, "/manifest.json", body, "", java.util.Map.of(),
+                net.neoforged.neoforge.neosync.server.HostingPolicy.parse(null), false, "/revision.json", revision.bytes()));
+    }
+
+    @Test
     void verifiesHttpsDigestAndHostname() throws Exception {
         byte[] body = SyncProtocolTest.manifest();
         String digest = SyncManifest.sha256(body);

@@ -36,6 +36,7 @@ import net.neoforged.neoforge.neosync.protocol.InstallationPlan;
 import net.neoforged.neoforge.neosync.protocol.ManifestHttpClient;
 import net.neoforged.neoforge.neosync.protocol.ProfileStore;
 import net.neoforged.neoforge.neosync.protocol.RequirementReport;
+import net.neoforged.neoforge.neosync.protocol.RevisionCheck;
 import net.neoforged.neoforge.neosync.protocol.StatusQuery;
 import net.neoforged.neoforge.neosync.protocol.SyncEndpoint;
 import net.neoforged.neoforge.neosync.protocol.SyncManifest;
@@ -139,10 +140,9 @@ public final class NeoSyncClient {
         }
 
         void fetch(SyncEndpoint endpoint, InetAddress approvedAddress) {
-            screen.show(List.of("Reading this server's mod requirements..."), "Cancel", "", null);
+            screen.show(List.of("Checking this server's client mod revision..."), "Cancel", "", null);
             run(token -> {
-                byte[] bytes = ManifestHttpClient.fetch(endpoint, approvedAddress, SSLContext.getDefault(), token);
-                var manifest = SyncManifest.parse(bytes);
+                var revision = ManifestHttpClient.fetchRevision(endpoint, approvedAddress, SSLContext.getDefault(), token);
                 var store = ProfileStore.open(minecraft.gameDirectory.toPath());
                 if (store.active().isPresent()) store.verify(store.active().get(), FMLLoader.versionInfo().fmlVersion(), token);
                 var hashes = new HashSet<String>();
@@ -165,6 +165,17 @@ public final class NeoSyncClient {
                     hashes.add(fingerprint.sha256());
                     localFiles.put(fingerprint.sha256(), path);
                 }
+                if (store.active().isPresent() && store.active().get().digest().equals(endpoint.digest())) {
+                    var active = store.active().get();
+                    if (revision.isPresent() && RevisionCheck.matches(endpoint, revision.get(), active, hashes, versions,
+                            SyncManifest.NEOSYNC_VERSION, NeoForgeVersion.getVersion()))
+                        return new Review(RequirementReport.compare(active.manifest(), hashes, versions, SyncManifest.NEOSYNC_VERSION, NeoForgeVersion.getVersion()),
+                                true, store, null, Map.of(), null, null);
+                }
+                byte[] bytes = ManifestHttpClient.fetch(endpoint, approvedAddress, SSLContext.getDefault(), token);
+                var manifest = SyncManifest.parse(bytes);
+                if (revision.isPresent() && !revision.get().matchesManifest(manifest))
+                    throw new IOException("The server's client revision and manifest disagree. Retry discovery.");
                 var report = RequirementReport.compare(manifest, hashes, versions, SyncManifest.NEOSYNC_VERSION, NeoForgeVersion.getVersion());
                 var identity = new InstallationPlan.Identity(endpoint.host(), endpoint.gamePort(), InstallationPlan.origin(endpoint.manifestUri()), manifest.serverId());
                 var pending = store.prepared(identity).orElse(null);
@@ -190,7 +201,7 @@ public final class NeoSyncClient {
             if (review.pending != null) {
                 prepared(review.pending);
             } else if (review.ready) {
-                screen.show(review.report.lines(), "Back", "Continue to server", this::proceed);
+                proceed();
             } else if (review.plan != null) {
                 var lines = new ArrayList<>(review.plan.reviewLines());
                 lines.add("You cannot join with the currently loaded mod set. Accept installation to prepare this set for a new launch.");

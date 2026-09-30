@@ -51,6 +51,39 @@ public final class JarMetadata {
 
     private JarMetadata() {}
 
+    public static ModEnvironment environment(Path path, DiscoveryCancellation token) throws IOException {
+        var before = ArtifactFiles.fingerprint(path, token);
+        checkDirectory(path);
+        ModEnvironment result = ModEnvironment.UNKNOWN;
+        try (var zip = new ZipFile(path.toFile())) {
+            String text = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                    .decode(ByteBuffer.wrap(read(zip, MOD_METADATA, true, token))).toString();
+            boundToml(text);
+            UnmodifiableConfig config = new TomlParser().parse(new StringReader(text));
+            Object rawMods = config.get("mods");
+            if (!(rawMods instanceof List<?> mods) || mods.isEmpty() || mods.size() > 64) throw new IOException("Invalid mod list for environment detection.");
+            boolean client = false;
+            boolean server = false;
+            boolean unknown = false;
+            for (Object value : mods) {
+                if (!(value instanceof UnmodifiableConfig mod)) throw new IOException("Invalid mod metadata.");
+                String id = string(mod, "modId", "");
+                Object declaration = config.get(List.of("modproperties", id, "neosyncSide"));
+                if (declaration == null) {
+                    unknown = true;
+                    continue;
+                }
+                if (!(declaration instanceof String side) || !Set.of("CLIENT", "BOTH", "SERVER").contains(side))
+                    throw new IOException("Invalid NeoSync environment declaration.");
+                client |= !side.equals("SERVER");
+                server |= !side.equals("CLIENT");
+            }
+            if (!unknown) result = client ? (server ? ModEnvironment.BOTH : ModEnvironment.CLIENT) : ModEnvironment.SERVER;
+        }
+        if (!before.equals(ArtifactFiles.fingerprint(path, token))) throw new IOException("The artifact changed during environment inspection.");
+        return result;
+    }
+
     public static List<SyncManifest.Mod> inspect(Path path, String javaFmlVersion, DiscoveryCancellation token) throws IOException {
         var before = ArtifactFiles.fingerprint(path, token);
         var mods = inspectContents(path, javaFmlVersion, token);

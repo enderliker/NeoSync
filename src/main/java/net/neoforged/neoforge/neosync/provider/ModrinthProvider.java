@@ -14,7 +14,9 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
+import net.neoforged.neoforge.neosync.protocol.ModEnvironment;
 import net.neoforged.neoforge.neosync.protocol.SyncJson;
 import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 
@@ -23,6 +25,35 @@ public final class ModrinthProvider {
 
     public ModrinthProvider(ProviderTransport transport) {
         this.transport = transport;
+    }
+
+    public Map<String, ModEnvironment> environments(List<String> projectIds, DiscoveryCancellation token) throws IOException {
+        var ids = projectIds.stream().distinct().toList();
+        if (ids.size() > 2048) throw new IOException("Too many provider projects.");
+        var result = new HashMap<String, ModEnvironment>();
+        for (int start = 0; start < ids.size(); start += 32) {
+            var batch = ids.subList(start, Math.min(start + 32, ids.size()));
+            var array = new JsonArray();
+            for (String id : batch) {
+                if (!id.matches("[A-Za-z0-9]{8}")) throw new IOException("Invalid Modrinth project ID.");
+                array.add(id);
+            }
+            byte[] bytes = transport.request(ProviderHttpClient.Service.MODRINTH, "/v2/projects?ids=" + URLEncoder.encode(array.toString(), StandardCharsets.UTF_8), "", token);
+            if (bytes.length == 0) continue;
+            for (var entry : SyncJson.array(SyncJson.parse(bytes, ProviderHttpClient.MAX_BYTES), 0, 32)) {
+                var project = ProviderJson.object(entry);
+                String id = SyncJson.matching(project.get("id"), 8, "[A-Za-z0-9]{8}");
+                String client = SyncJson.string(project.get("client_side"), 16);
+                String server = SyncJson.string(project.get("server_side"), 16);
+                var environment = ModEnvironment.UNKNOWN;
+                if (Set.of("required", "optional", "unsupported").contains(client) && Set.of("required", "optional", "unsupported").contains(server)) {
+                    if (!client.equals("unsupported")) environment = server.equals("unsupported") ? ModEnvironment.CLIENT : ModEnvironment.BOTH;
+                    else if (!server.equals("unsupported")) environment = ModEnvironment.SERVER;
+                }
+                if (!batch.contains(id) || result.putIfAbsent(id, environment) != null) throw new IOException("Modrinth returned unexpected or duplicate projects.");
+            }
+        }
+        return Map.copyOf(result);
     }
 
     public Map<String, List<ProviderArtifact>> versions(List<SyncManifest.ProviderHint> hints, DiscoveryCancellation token) throws IOException {

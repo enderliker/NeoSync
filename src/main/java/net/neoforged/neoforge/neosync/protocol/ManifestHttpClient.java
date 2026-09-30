@@ -24,7 +24,9 @@ import io.netty.handler.ssl.SslHandler;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLContext;
@@ -40,9 +42,25 @@ public final class ManifestHttpClient {
 
     public static byte[] fetch(SyncEndpoint endpoint, InetAddress approvedAddress, SSLContext tls,
             DiscoveryCancellation cancellation) throws IOException {
+        byte[] bytes = fetch(endpoint, approvedAddress, tls, cancellation, endpoint.manifestUri(), SyncManifest.MAX_BYTES, false)
+                .orElseThrow(() -> new IOException("The server did not return a manifest."));
+        if (!SyncManifest.sha256(bytes).equals(endpoint.digest())) throw new IOException("The manifest does not match the advertised SHA-256 hash.");
+        return bytes;
+    }
+
+    public static Optional<SyncRevision> fetchRevision(SyncEndpoint endpoint, InetAddress approvedAddress, SSLContext tls,
+            DiscoveryCancellation cancellation) throws IOException {
+        var bytes = fetch(endpoint, approvedAddress, tls, cancellation, endpoint.revisionUri(), SyncRevision.MAX_BYTES, true);
+        if (bytes.isEmpty()) return Optional.empty();
+        var revision = SyncRevision.parse(bytes.get());
+        if (!revision.manifestSha256().equals(endpoint.digest())) throw new IOException("The revision does not match the advertised manifest digest. Retry discovery.");
+        return Optional.of(revision);
+    }
+
+    private static Optional<byte[]> fetch(SyncEndpoint endpoint, InetAddress approvedAddress, SSLContext tls,
+            DiscoveryCancellation cancellation, URI uri, int maxBytes, boolean allowMissing) throws IOException {
         cancellation.check();
-        var uri = endpoint.manifestUri();
-        var result = new CompletableFuture<byte[]>();
+        var result = new CompletableFuture<Optional<byte[]>>();
         var bootstrap = new Bootstrap().group(NETWORK).channel(NioSocketChannel.class)
                 .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000)
                 .handler(new ChannelInitializer<SocketChannel>() {
@@ -58,7 +76,7 @@ public final class ManifestHttpClient {
                             ssl.setHandshakeTimeoutMillis(5000);
                             channel.pipeline().addLast(ssl);
                         }
-                        channel.pipeline().addLast(new HttpClientCodec(), new HttpObjectAggregator(SyncManifest.MAX_BYTES),
+                        channel.pipeline().addLast(new HttpClientCodec(), new HttpObjectAggregator(maxBytes),
                                 new SimpleChannelInboundHandler<FullHttpResponse>() {
                                     @Override
                                     public void channelActive(ChannelHandlerContext context) throws IOException {
@@ -75,14 +93,16 @@ public final class ManifestHttpClient {
                                     protected void channelRead0(ChannelHandlerContext context, FullHttpResponse response) {
                                         String type = response.headers().get(HttpHeaderNames.CONTENT_TYPE, "").toLowerCase(Locale.ROOT);
                                         String encoding = response.headers().get(HttpHeaderNames.CONTENT_ENCODING, "identity");
-                                        if (!response.decoderResult().isSuccess() || response.status().code() != 200
+                                        if (allowMissing && response.decoderResult().isSuccess() && response.status().code() == 404) {
+                                            result.complete(Optional.empty());
+                                        } else if (!response.decoderResult().isSuccess() || response.status().code() != 200
                                                 || !type.split(";", 2)[0].trim().equals("application/json") || !encoding.equalsIgnoreCase("identity")) {
-                                            result.completeExceptionally(new IOException("The server did not return an uncompressed JSON manifest (HTTP " + response.status().code() + ")."));
-                                        } else {
-                                            byte[] bytes = new byte[response.content().readableBytes()];
-                                            response.content().readBytes(bytes);
-                                            result.complete(bytes);
-                                        }
+                                                    result.completeExceptionally(new IOException("The server did not return an uncompressed JSON synchronization record (HTTP " + response.status().code() + ")."));
+                                                } else {
+                                                    byte[] bytes = new byte[response.content().readableBytes()];
+                                                    response.content().readBytes(bytes);
+                                                    result.complete(Optional.of(bytes));
+                                                }
                                         context.close();
                                     }
 
@@ -109,9 +129,8 @@ public final class ManifestHttpClient {
                 connection.channel().close();
                 result.cancel(false);
             });
-            byte[] bytes = result.get(10, TimeUnit.SECONDS);
+            var bytes = result.get(10, TimeUnit.SECONDS);
             cancellation.check();
-            if (!SyncManifest.sha256(bytes).equals(endpoint.digest())) throw new IOException("The manifest does not match the advertised SHA-256 hash.");
             return bytes;
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();

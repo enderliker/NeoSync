@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Map;
 import net.neoforged.neoforge.neosync.protocol.ArtifactFiles;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
+import net.neoforged.neoforge.neosync.protocol.ModEnvironment;
 import net.neoforged.neoforge.neosync.protocol.SyncJson;
 import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 
@@ -27,6 +28,50 @@ public final class CurseForgeProvider {
 
     public CurseForgeProvider(ProviderTransport transport) {
         this.transport = transport;
+    }
+
+    public ModEnvironment environment(ProviderArtifact expected, DiscoveryCancellation token) throws IOException {
+        var hint = expected.identity();
+        if (!hint.id().equals("curseforge")) throw new IOException("A CurseForge file identity is required.");
+        expected.validate();
+        if (!transport.available(ProviderHttpClient.Service.CURSEFORGE)) throw new IOException("CurseForge API access is unavailable in this build.");
+        byte[] bytes = transport.request(ProviderHttpClient.Service.CURSEFORGE, "/v1/mods/" + hint.projectId() + "/files/" + hint.fileId(), "", token);
+        if (bytes.length == 0) return ModEnvironment.UNKNOWN;
+        var file = ProviderJson.object(ProviderJson.object(SyncJson.parse(bytes, ProviderHttpClient.MAX_BYTES)).get("data"));
+        var actual = parse(file);
+        if (!actual.identity().equals(hint) || actual.size() != expected.size() || !actual.hash().equals(expected.hash()))
+            throw new IOException("The CurseForge environment lookup returned a different file.");
+        byte[] types = transport.request(ProviderHttpClient.Service.CURSEFORGE, "/v1/games/432/version-types", "", token);
+        if (types.length == 0) return ModEnvironment.UNKNOWN;
+        var environmentTypes = new java.util.HashSet<Long>();
+        for (var entry : SyncJson.array(ProviderJson.object(SyncJson.parse(types, ProviderHttpClient.MAX_BYTES)).get("data"), 0, 512)) {
+            var type = ProviderJson.object(entry);
+            if (SyncJson.number(type.get("gameId"), 1, Integer.MAX_VALUE) != 432) throw new IOException("Unexpected CurseForge game version type.");
+            if (SyncJson.string(type.get("name"), 128).equalsIgnoreCase("Environment"))
+                environmentTypes.add(SyncJson.number(type.get("id"), 1, Integer.MAX_VALUE));
+        }
+        if (environmentTypes.isEmpty() || !file.has("sortableGameVersions")) return ModEnvironment.UNKNOWN;
+        boolean client = false;
+        boolean server = false;
+        for (var entry : SyncJson.array(file.get("sortableGameVersions"), 0, 512)) {
+            var version = ProviderJson.object(entry);
+            if (!version.has("gameVersionTypeId") || version.get("gameVersionTypeId").isJsonNull()
+                    || !environmentTypes.contains(SyncJson.number(version.get("gameVersionTypeId"), 1, Integer.MAX_VALUE)))
+                continue;
+            String name = SyncJson.string(version.get("gameVersionName"), 128);
+            switch (name) {
+                case "Client" -> client = true;
+                case "Server" -> server = true;
+                case "Client and Server", "Both" -> {
+                    client = true;
+                    server = true;
+                }
+                default -> {
+                    return ModEnvironment.UNKNOWN;
+                }
+            }
+        }
+        return client ? (server ? ModEnvironment.BOTH : ModEnvironment.CLIENT) : (server ? ModEnvironment.SERVER : ModEnvironment.UNKNOWN);
     }
 
     public ProviderArtifact file(SyncManifest.ProviderHint hint, DiscoveryCancellation token) throws IOException {

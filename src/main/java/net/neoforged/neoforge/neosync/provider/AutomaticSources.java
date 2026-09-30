@@ -27,6 +27,28 @@ public final class AutomaticSources {
 
     public static Map<Path, ProviderArtifact> resolve(Map<Path, ArtifactFiles.Fingerprint> files, ProviderTransport transport, DiscoveryCancellation token,
             java.util.Set<Path> eligibleHosting) throws IOException {
+        var hashes = lookupHashes(files, token);
+        var matches = new ModrinthProvider(transport).findHashes(hashes.values().stream().toList(), token);
+        var needed = hashes.entrySet().stream().filter(entry -> !matches.containsKey(entry.getValue())).map(Map.Entry::getKey).toList();
+        var remaining = new HashMap<Path, ArtifactFiles.Fingerprint>();
+        for (var path : needed) remaining.put(path, files.get(path));
+        var curseForge = new CurseForgeProvider(transport).findFiles(remaining, token);
+        var result = new HashMap<Path, ProviderArtifact>();
+        for (var entry : hashes.entrySet()) {
+            var match = matches.get(entry.getValue());
+            if (match == null) match = curseForge.get(entry.getKey());
+            if (match == null) {
+                if (eligibleHosting.contains(entry.getKey())) continue;
+                throw new IOException("Neither Modrinth nor CurseForge has an exact authorized match for " + entry.getKey().getFileName()
+                        + ". Configure a permitted HTTPS source; hosting is restricted to administrator-authored exclusive mods.");
+            }
+            if (match.size() != files.get(entry.getKey()).size()) throw new IOException("The provider file size does not match the selected artifact.");
+            result.put(entry.getKey(), match);
+        }
+        return Map.copyOf(result);
+    }
+
+    public static Map<Path, String> lookupHashes(Map<Path, ArtifactFiles.Fingerprint> files, DiscoveryCancellation token) throws IOException {
         var hashes = new HashMap<Path, String>();
         long total = 0;
         for (var entry : files.entrySet()) {
@@ -50,24 +72,7 @@ public final class AutomaticSources {
                 throw new IOException("The selected provider artifact changed during inspection.");
             hashes.put(entry.getKey(), HexFormat.of().formatHex(digest.digest()));
         }
-        var matches = new ModrinthProvider(transport).findHashes(hashes.values().stream().toList(), token);
-        var needed = hashes.entrySet().stream().filter(entry -> !matches.containsKey(entry.getValue())).map(Map.Entry::getKey).toList();
-        var remaining = new HashMap<Path, ArtifactFiles.Fingerprint>();
-        for (var path : needed) remaining.put(path, files.get(path));
-        var curseForge = new CurseForgeProvider(transport).findFiles(remaining, token);
-        var result = new HashMap<Path, ProviderArtifact>();
-        for (var entry : hashes.entrySet()) {
-            var match = matches.get(entry.getValue());
-            if (match == null) match = curseForge.get(entry.getKey());
-            if (match == null) {
-                if (eligibleHosting.contains(entry.getKey())) continue;
-                throw new IOException("Neither Modrinth nor CurseForge has an exact authorized match for " + entry.getKey().getFileName()
-                        + ". Configure a permitted HTTPS source; hosting is restricted to administrator-authored exclusive mods.");
-            }
-            if (match.size() != files.get(entry.getKey()).size()) throw new IOException("The provider file size does not match the selected artifact.");
-            result.put(entry.getKey(), match);
-        }
-        return Map.copyOf(result);
+        return Map.copyOf(hashes);
     }
 
     public static JsonArray sources(ProviderArtifact artifact) {

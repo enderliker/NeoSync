@@ -120,6 +120,47 @@ required. Publish the status object and its digest together, updating the cached
 status JSON. Keep in-progress requests bound to their original snapshot. If it
 expires, refresh status once and show any changed requirements before proceeding.
 
+### Priority client revision (development)
+
+After approving the manifest origin's transport and destination, development
+clients first request the fixed sibling path
+`/.well-known/neosync/v1/servers/<logical-game-port>/revision.json`. The status
+capability and manifest schema remain unchanged. Servers without this optional
+resource return HTTP 404, causing ordinary full-manifest discovery. Other errors,
+redirects, malformed JSON, empty HTTP 200 bodies and inconsistent digests must not
+be treated as an unchanged set.
+
+The JSON record has `schemaVersion: 1`, `serverId`, `manifestSha256`,
+`inventorySha256`, `changedAt`, `files`, `added`, `replaced` and `removed`. `files`
+contains only saved client-selected JARs, each with `fileName`, `sha256`, `size`
+and `firstSeenAt`; there are no provider hints or URLs. UTC timestamps indicate
+startup observation, not an authenticated filesystem event time. Change arrays
+describe the last detected batch. Limit the response to 1 MiB, 2048 JARs and the
+manifest's file and aggregate byte limits. Validate unique names, SHA-256 values,
+timestamps, change-array membership, and the inventory digest. Compute that digest
+as SHA-256 over the UTF-8 compact JSON array of `fileName|sha256|size` strings,
+sorted by filename; dates and API metadata are excluded.
+
+Publish the revision and manifest from the same startup snapshot. Verify that the
+revision's file inventory exactly equals the manifest's selected artifacts and
+that its manifest digest equals the status-advertised digest. A change to an
+unchecked server-only JAR must not change the client inventory record.
+Selection additions, removals and byte replacements do change it. Source or
+loader changes may change the manifest digest without changing inventory dates.
+
+Skipping the full manifest requires a verified active profile for the same
+logical host, game port, origin and server ID, the same manifest digest, and
+matching locally loaded file hashes, mod versions and platform requirements.
+The client then runs normal Minecraft connection checks without fresh provider
+lookups. A prepared but inactive profile does not qualify. Different or missing
+requirements retain full discovery and specific installation consent. HTTPS
+identity verification and explicit HTTP/LAN approval still apply to this request;
+neither dates nor the unauthenticated status response alone establish identity.
+This extension stores only administrator-computed local inventory evidence,
+never cached CurseForge responses or API-derived identifiers, URLs or hashes.
+
+### Restricted file hosting
+
 Phase 4 implements this route only for a mod written by the administrator for that
 server and not published or distributed elsewhere:
 

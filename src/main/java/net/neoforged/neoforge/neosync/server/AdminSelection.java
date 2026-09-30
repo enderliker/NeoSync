@@ -26,12 +26,17 @@ import java.util.Set;
 import net.neoforged.neoforge.neosync.protocol.ArtifactFiles;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
 import net.neoforged.neoforge.neosync.protocol.ManagedPaths;
+import net.neoforged.neoforge.neosync.protocol.ModEnvironment;
 import net.neoforged.neoforge.neosync.protocol.SyncJson;
 import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 
 /** Saves a reviewed selection for the next server start; it never changes loaded mods. */
 public final class AdminSelection {
-    public record Candidate(Path path, String description) {}
+    public record Candidate(Path path, String description, ModEnvironment environment) {
+        public Candidate(Path path, String description) {
+            this(path, description, ModEnvironment.UNKNOWN);
+        }
+    }
 
     private record Entry(Candidate candidate, ArtifactFiles.Fingerprint fingerprint) {}
 
@@ -63,7 +68,16 @@ public final class AdminSelection {
         defaults.addProperty("port", 8443);
         defaults.addProperty("httpsPort", 8443);
         defaults.addProperty("gamePort", gamePort);
-        defaults.add("files", new JsonArray());
+        var automaticFiles = new JsonArray();
+        for (var entry : inventory.entrySet()) {
+            if (!entry.getValue().candidate().environment().clientDownload()) continue;
+            var file = new JsonObject();
+            file.addProperty("fileName", entry.getKey());
+            file.addProperty("resolveProviders", true);
+            automaticFiles.add(file);
+        }
+        defaults.add("files", automaticFiles);
+        defaults.add("reviewedFiles", reviewedInventory());
         createDefaultConfig();
         startupDigest = SyncManifest.sha256(read());
     }
@@ -85,6 +99,7 @@ public final class AdminSelection {
         byte[] bytes = read();
         var config = parse(bytes);
         var selected = selections(config);
+        var reviewed = reviewedFiles(config);
         var transport = ServerTransport.parse(config);
         var result = new JsonObject();
         result.addProperty("revision", SyncManifest.sha256(bytes));
@@ -102,8 +117,9 @@ public final class AdminSelection {
             file.addProperty("description", entry.getValue().candidate().description());
             file.addProperty("sha256", entry.getValue().fingerprint().sha256());
             file.addProperty("size", entry.getValue().fingerprint().size());
+            file.addProperty("environment", entry.getValue().candidate().environment().name());
             var selection = selected.remove(entry.getKey());
-            file.addProperty("selected", selection != null);
+            file.addProperty("selected", selection != null || !reviewed.contains(entry.getKey()) && entry.getValue().candidate().environment().clientDownload());
             String source = "automatic";
             if (selection != null && selection.has("sources")) {
                 source = SyncManifest.parseSources(selection.get("sources")).stream().anyMatch(s -> s.type().equals("server")) ? "server" : "configured";
@@ -180,6 +196,7 @@ public final class AdminSelection {
             files.add(selection);
         }
         config.add("files", files);
+        config.add("reviewedFiles", reviewedInventory());
         config.addProperty("enabled", SyncJson.bool(input.get("enabled")));
         config.addProperty("displayName", SyncJson.string(input.get("displayName"), 128));
         for (var entry : defaults.entrySet()) {
@@ -226,7 +243,22 @@ public final class AdminSelection {
 
     private static JsonObject parse(byte[] bytes) throws IOException {
         return SyncJson.object(SyncJson.parse(bytes, SyncManifest.MAX_BYTES), Set.of("enabled"),
-                Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "adminPort", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
+                Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "adminPort", "gamePort", "displayName", "files", "reviewedFiles", "keyStore", "passwordEnvironment", "hosting"));
+    }
+
+    private JsonArray reviewedInventory() {
+        var result = new JsonArray();
+        inventory.keySet().forEach(result::add);
+        return result;
+    }
+
+    private Set<String> reviewedFiles(JsonObject config) throws IOException {
+        if (!config.has("reviewedFiles")) return Set.copyOf(inventory.keySet());
+        var result = new HashSet<String>();
+        for (var entry : SyncJson.array(config.get("reviewedFiles"), 0, 2048)) {
+            if (!result.add(SyncJson.matching(entry, 128, SyncManifest.FILE_PATTERN))) throw new IOException("Duplicate reviewed inventory file.");
+        }
+        return Set.copyOf(result);
     }
 
     private static Map<String, JsonObject> selections(JsonObject config) throws IOException {

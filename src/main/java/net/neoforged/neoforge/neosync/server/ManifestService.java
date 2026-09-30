@@ -62,9 +62,23 @@ public final class ManifestService implements AutoCloseable {
 
     public ManifestService(InetSocketAddress address, @Nullable SSLContext tls, String path, byte[] manifest,
             String filesPrefix, Map<String, HostedInventory.Entry> inventory, HostingPolicy policy, boolean publicHttp) throws IOException {
+        this(address, tls, path, manifest, filesPrefix, inventory, policy, publicHttp, "", new byte[0]);
+    }
+
+    public ManifestService(InetSocketAddress address, @Nullable SSLContext tls, String path, byte[] manifest,
+            String filesPrefix, Map<String, HostedInventory.Entry> inventory, HostingPolicy policy, boolean publicHttp,
+            String revisionPath, byte[] revision) throws IOException {
         if (tls == null && !publicHttp && !address.getAddress().isLoopbackAddress()) throw new IOException("A plaintext manifest backend must bind to loopback.");
         if (!policy.enabled() && !inventory.isEmpty()) throw new IOException("Server artifact hosting is disabled.");
         byte[] snapshot = manifest.clone();
+        byte[] revisionSnapshot = revision.clone();
+        if (!revisionPath.isEmpty()) {
+            var parsed = net.neoforged.neoforge.neosync.protocol.SyncRevision.parse(revisionSnapshot);
+            if (!parsed.manifestSha256().equals(net.neoforged.neoforge.neosync.protocol.SyncManifest.sha256(snapshot)))
+                throw new IOException("The published revision must match the manifest snapshot.");
+            if (!parsed.matchesManifest(net.neoforged.neoforge.neosync.protocol.SyncManifest.parse(snapshot)))
+                throw new IOException("The published revision must contain only the selected client manifest files.");
+        }
         var files = Map.copyOf(inventory);
         var limits = new Limits(policy);
         ThreadFactory threads = runnable -> {
@@ -120,6 +134,7 @@ public final class ManifestService implements AutoCloseable {
                                             else if (request.headers().contains(HttpHeaderNames.RANGE) || request.headers().contains(HttpHeaderNames.TRANSFER_ENCODING))
                                                 respond(context, HttpResponseStatus.BAD_REQUEST, null);
                                             else if (request.uri().equals(path)) respond(context, HttpResponseStatus.OK, snapshot);
+                                            else if (!revisionPath.isEmpty() && request.uri().equals(revisionPath)) respond(context, HttpResponseStatus.OK, revisionSnapshot);
                                             else {
                                                 String uri = request.uri();
                                                 var entry = uri.startsWith(filesPrefix) ? files.get(uri.substring(filesPrefix.length())) : null;

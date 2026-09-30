@@ -37,6 +37,30 @@ and do not survive restart. Sign out when finished.
 The panel lists JARs from the loaded server `mods` inventory. Enable synchronization,
 choose the server name, and select only files needed by clients, including required
 dependencies. NeoSync does not assume that every server mod belongs on the client.
+Development automatically checks CLIENT and BOTH files in the first-run selection
+and suggests newly added files in the panel. SERVER and UNKNOWN files remain
+unchecked. Saved administrator choices are preserved, including unchecked files;
+legacy configurations without review tracking keep their existing selection.
+Review and save suggestions before restarting. Synchronization remains disabled
+by default, and player download consent is unchanged.
+
+Environment detection reads explicit local `[modproperties.<modId>]`
+`neosyncSide="CLIENT"`, `"BOTH"`, or `"SERVER"` declarations for every mod in a
+JAR, then tries exact Modrinth SHA-512 matches and project side metadata. If still
+unknown, it tries exact CurseForge fingerprint/SHA-1/size matches and live file
+environment tags whose type is identified by the live Minecraft version-type
+catalog. CurseForge responses and API-derived identifiers, URLs and hashes are
+never cached, logged, or persisted by detection. Only the reviewed local file
+names and selection are saved. Missing tags, ambiguous data, provider restrictions
+and unavailable access produce UNKNOWN and a console warning, not a guessed side.
+New provider batches stop after a 30-second startup lookup budget (an in-flight
+bounded request may finish later); remaining files require manual review.
+Dependency `side`, entrypoint sides, mod names, and server-pack flags are not
+evidence that an entire mod is client-required. Provider project tags are a
+reviewable hint, not proof of runtime compatibility; required dependencies and
+bundled mods must still be reviewed. Detection inspects metadata without executing
+mod classes and never authorizes hosting or bypasses source restrictions.
+
 For NeoForge JarJar dependencies declared inside a selected JAR, beta.6 includes
 the bundled mod identities in that file's manifest entry. Select a separate file
 only when the dependency is actually distributed as a separate JAR.
@@ -74,6 +98,51 @@ For public servers, configure a publicly trusted certificate using `https` mode
 or the loopback `reverse-proxy` mode from [Phase 2](phase-2.md#server-setup).
 The panel preserves that existing transport configuration when saving selections.
 The generated local certificate is not a public certificate authority.
+
+## Client inventory revision
+
+Development writes `config/neosync-client-inventory.json` at server startup using
+only the JARs in the saved client download selection (`files` in
+`config/neosync-server.json`). CLIENT and BOTH detection supplies defaults and
+suggestions; the administrator's saved selection remains authoritative. Unchecked
+mods, server-only files, and non-JAR files do not affect this record. Suggested
+new files join the record only after they are saved and the server restarts.
+
+The record contains each selected filename, locally computed SHA-256 and size,
+`firstSeenAt`, the set's `inventorySha256` and `changedAt`, and the last batch's
+`added`, `replaced` and `removed` filenames. Timestamps are UTC detection times at
+startup, not a claim to know when files were copied while the server was stopped.
+Hashing detects replacements even when file sizes and modification times match.
+Selecting or unselecting a JAR changes the set even without changing the folder.
+Unchanged sets preserve the record's exact bytes and timestamps. Updates replace
+it atomically; unsafe, missing selected, or corrupted files block synchronization
+rather than publishing a partial set. The administrator panel remains available
+to correct the selection. Running servers keep their published snapshot until
+restart; no hot-loading is attempted.
+
+After status discovery and the existing HTTPS/LAN or explicit HTTP transport
+checks, the first NeoSync HTTP resource requested by the client is
+`/.well-known/neosync/v1/servers/<game-port>/revision.json`. This bounded public
+JSON projection contains the selected inventory and change times, the server ID,
+and the current manifest digest; it never includes unselected mods, filesystem
+paths, credentials, or CurseForge API-derived data. It is served from an immutable
+startup snapshot, not by exposing the configuration directory.
+
+If that revision matches the verified active server profile and the actual loaded
+JAR hashes, mod versions and loader requirements, NeoSync proceeds directly to
+normal Minecraft connection checks without fetching the full manifest or querying
+providers. Otherwise it fetches the full manifest and retains the review,
+installation consent and restart flow. A legacy server's HTTP 404 for the revision
+uses full manifest discovery; malformed, inconsistent, or failed revision
+responses are errors, not permission to skip verification. Dates alone never
+authorize joining or installation. Source or loader changes also invalidate the
+fast path through the manifest digest, even if the selected JAR inventory matches.
+CurseForge still uses fresh lookups when installation requires provider metadata;
+neither this record nor the fast path caches its responses. Startup source
+resolution is unchanged and may still require provider access.
+
+Validation uses unit and local HTTPS transport tests. An installed client/server
+multiplayer acceptance run for this new revision flow has not been performed.
 
 ## HTTP and HTTPS settings
 

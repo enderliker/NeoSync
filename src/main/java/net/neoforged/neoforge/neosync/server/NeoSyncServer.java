@@ -41,6 +41,8 @@ import net.neoforged.neoforge.neosync.protocol.JarMetadata;
 import net.neoforged.neoforge.neosync.protocol.SyncCapability;
 import net.neoforged.neoforge.neosync.protocol.SyncJson;
 import net.neoforged.neoforge.neosync.protocol.SyncManifest;
+import net.neoforged.neoforge.neosync.protocol.SyncRevision;
+import net.neoforged.neoforge.neosync.provider.ProviderHttpClient;
 import net.neoforged.neoforgespi.language.IModFileInfo;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
@@ -100,7 +102,8 @@ public final class NeoSyncServer {
                     .map(info -> new AdminSelection.Candidate(info.getFile().getFilePath(), info.getMods().stream()
                             .map(mod -> mod.getDisplayName() + " " + mod.getVersion()).collect(java.util.stream.Collectors.joining(", "))))
                     .sorted(java.util.Comparator.comparing(candidate -> candidate.path().getFileName().toString())).toList();
-            var selection = new AdminSelection(configPath, candidates, event.getServer().getPort());
+            var detected = ModEnvironmentDetector.detect(candidates, new ProviderHttpClient());
+            var selection = new AdminSelection(configPath, detected, event.getServer().getPort());
             var adminSettings = selection.transport();
             String adminTransport = adminSettings.adminTransport();
             admin = new AdminService(new InetSocketAddress("0.0.0.0", adminSettings.adminPort()), secrets, selection, adminTransport.equals("https"));
@@ -118,7 +121,17 @@ public final class NeoSyncServer {
                 configBytes = input.readNBytes(SyncManifest.MAX_BYTES + 1);
             }
             var config = SyncJson.object(SyncJson.parse(configBytes, SyncManifest.MAX_BYTES), Set.of("enabled"),
-                    Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "adminPort", "gamePort", "displayName", "files", "keyStore", "passwordEnvironment", "hosting"));
+                    Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "adminPort", "gamePort", "displayName", "files", "reviewedFiles", "keyStore", "passwordEnvironment", "hosting"));
+            var selectedFiles = new java.util.ArrayList<String>();
+            if (config.has("files")) {
+                for (var entry : SyncJson.array(config.get("files"), 0, 2048)) {
+                    var selected = SyncJson.object(entry, Set.of("fileName"), Set.of("sources", "hosting", "resolveProviders"));
+                    selectedFiles.add(SyncJson.matching(selected.get("fileName"), 128, SyncManifest.FILE_PATTERN));
+                }
+            }
+            var modRevision = ModInventoryRevision.update(FMLPaths.MODSDIR.get(), selectedFiles,
+                    FMLPaths.CONFIGDIR.get().resolve("neosync-client-inventory.json"), java.time.Instant.now(), new DiscoveryCancellation());
+            LOGGER.info("NeoSync client inventory: {} selected JARs; last change detected at {}.", modRevision.files().size(), modRevision.changedAt());
             if (!SyncJson.bool(config.get("enabled"))) return;
             var transport = ServerTransport.parse(config);
             String mode = transport.mode();
@@ -139,6 +152,9 @@ public final class NeoSyncServer {
             if (policy.enabled()) inventory = new HostedInventory(FMLPaths.CONFIGDIR.get().resolve("neosync-hosting"), policy.maxBytes());
             byte[] manifest = createManifest(config, policy, inventory);
             SyncManifest parsed = SyncManifest.parse(manifest);
+            var revision = new SyncRevision(parsed.serverId(), SyncManifest.sha256(manifest), modRevision.digest(), modRevision.changedAt(),
+                    modRevision.files(), modRevision.added(), modRevision.replaced(), modRevision.removed());
+            if (!revision.matchesManifest(parsed)) throw new IOException("The client inventory changed during startup. Restart and review the selected files.");
             Map<String, HostedInventory.Entry> hosted = inventory == null ? Map.of() : inventory.seal();
             for (var artifact : parsed.files()) {
                 var entry = hosted.get(artifact.sha256());
@@ -147,7 +163,9 @@ public final class NeoSyncServer {
             var capability = new SyncCapability(httpsPort, SyncManifest.sha256(manifest), transport.insecure() ? "http" : "https");
             String route = "/.well-known/neosync/v1/servers/" + gamePort + "/manifests/" + capability.manifestSha256() + ".json";
             var service = new ManifestService(new InetSocketAddress(InetAddresses.forString(bind), port), tls, route, manifest,
-                    "/.well-known/neosync/v1/servers/" + gamePort + "/files/", hosted, policy, transport.insecure());
+                    "/.well-known/neosync/v1/servers/" + gamePort + "/files/", hosted, policy, transport.insecure(),
+                    "/.well-known/neosync/v1/servers/" + gamePort + "/revision.json",
+                    revision.bytes());
             state = new State(service, capability, inventory);
             inventory = null;
             if (!hosted.isEmpty()) LOGGER.info("NeoSync publicly hosts {} administrator-declared exclusive artifacts. Minecraft login restrictions do not protect these downloads.", hosted.size());

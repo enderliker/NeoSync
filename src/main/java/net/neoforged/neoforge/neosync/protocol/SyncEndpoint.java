@@ -55,6 +55,14 @@ public record SyncEndpoint(String host, int gamePort, int httpsPort, String dige
         }
     }
 
+    public URI revisionUri() throws IOException {
+        try {
+            return new URI(transport, null, host, httpsPort, "/.well-known/neosync/v1/servers/" + gamePort + "/revision.json", null, null);
+        } catch (URISyntaxException failure) {
+            throw new IOException("Invalid revision endpoint.", failure);
+        }
+    }
+
     public static boolean isLocal(InetAddress address) {
         byte[] bytes = address.getAddress();
         return address.isLoopbackAddress() || address.isSiteLocalAddress()

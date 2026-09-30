@@ -32,6 +32,7 @@ async function reload() {
     const card = element('article', '', byId('files'));
     const selected = check(card, ' ' + file.description); selected.checked = file.selected;
     element('p', file.fileName + ' · ' + file.size.toLocaleString() + ' bytes', card);
+    element('p', !file.environment || file.environment === 'UNKNOWN' ? 'Client requirement unknown — review this file manually.' : 'Detected environment: ' + file.environment + ' — review before saving.', card);
     const label = element('label', 'Download source ', card); const source = element('select', '', label);
     for (const [value, text] of [['automatic', 'Modrinth → CurseForge — exact file'], ['server', 'Providers, then eligible server hosting'], ...(file.source === 'configured' ? [['configured', 'Keep configured external source']] : [])]) {
       const option = element('option', text, source); option.value = value;
