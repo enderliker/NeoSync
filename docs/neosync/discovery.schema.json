@@ -5,8 +5,7 @@
   "type": "object",
   "additionalProperties": false,
   "required": [
-    "protocols",
-    "manifestSha256"
+    "protocols"
   ],
   "properties": {
     "protocols": {
@@ -39,16 +38,29 @@
         80,
         8080
       ]
+    },
+    "unavailable": {
+      "const": true
     }
   },
   "oneOf": [
     {
       "required": [
-        "httpsPort"
+        "httpsPort",
+        "manifestSha256"
       ],
       "not": {
-        "required": [
-          "httpPort"
+        "anyOf": [
+          {
+            "required": [
+              "httpPort"
+            ]
+          },
+          {
+            "required": [
+              "unavailable"
+            ]
+          }
         ]
       },
       "properties": {
@@ -61,11 +73,21 @@
     },
     {
       "required": [
-        "httpPort"
+        "httpPort",
+        "manifestSha256"
       ],
       "not": {
-        "required": [
-          "httpsPort"
+        "anyOf": [
+          {
+            "required": [
+              "httpsPort"
+            ]
+          },
+          {
+            "required": [
+              "unavailable"
+            ]
+          }
         ]
       },
       "properties": {
@@ -74,6 +96,30 @@
             2
           ]
         }
+      }
+    },
+    {
+      "required": [
+        "unavailable"
+      ],
+      "not": {
+        "anyOf": [
+          {
+            "required": [
+              "manifestSha256"
+            ]
+          },
+          {
+            "required": [
+              "httpPort"
+            ]
+          },
+          {
+            "required": [
+              "httpsPort"
+            ]
+          }
+        ]
       }
     }
   ]

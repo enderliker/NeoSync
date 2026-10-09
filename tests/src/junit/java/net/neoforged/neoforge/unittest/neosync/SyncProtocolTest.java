@@ -122,6 +122,49 @@ class SyncProtocolTest {
     }
 
     @Test
+    void acceptsSharedEmbeddedModsAndChecksTheActiveVersion() throws Exception {
+        var root = editableManifest();
+        root.addProperty("schemaVersion", 2);
+        var files = root.getAsJsonArray("files");
+        var first = files.get(0).getAsJsonObject().getAsJsonArray("mods").get(0).getAsJsonObject();
+        first.addProperty("embedded", true);
+        var secondFile = files.get(0).deepCopy().getAsJsonObject();
+        secondFile.addProperty("sha256", "b".repeat(64));
+        secondFile.addProperty("fileName", "second.jar");
+        secondFile.getAsJsonArray("mods").get(0).getAsJsonObject().addProperty("version", "2.0");
+        files.add(secondFile);
+        root.add("activeMods", JsonParser.parseString("[{\"id\":\"test_mod\",\"version\":\"2.0\"}]"));
+        byte[] bytes = root.toString().getBytes(StandardCharsets.UTF_8);
+        var parsed = SyncManifest.parse(bytes);
+        assertTrue(RequirementReport.compare(parsed, Set.of(HASH, "b".repeat(64)), Map.of("test_mod", "2.0"), "0.1.0-dev", "21.1.251").ready());
+        assertFalse(RequirementReport.compare(parsed, Set.of(HASH, "b".repeat(64)), Map.of("test_mod", "1.0"), "0.1.0-dev", "21.1.251").ready());
+        assertEquals(2, InstallationPlan.create(InstallationPlanTest.endpoint(bytes), bytes, Set.of(), parsed, "0.1.0-dev", "21.1.251").files().size());
+        root.getAsJsonArray("activeMods").get(0).getAsJsonObject().addProperty("version", "3.0");
+        reject(root);
+        root.getAsJsonArray("activeMods").get(0).getAsJsonObject().addProperty("version", "1.0");
+        first.addProperty("embedded", false);
+        secondFile.getAsJsonArray("mods").get(0).getAsJsonObject().addProperty("embedded", false);
+        reject(root);
+    }
+
+    @Test
+    void honorsTheNeoForgeMinecraftCompatibilityMatrix() throws Exception {
+        var root = editableManifest();
+        root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("mods").get(0).getAsJsonObject().getAsJsonArray("dependencies")
+                .add(JsonParser.parseString("{\"id\":\"minecraft\",\"versionRange\":\"[1.21,1.21.1)\",\"type\":\"required\"}"));
+        SyncManifest.parse(root.toString().getBytes(StandardCharsets.UTF_8));
+        root.getAsJsonArray("files").get(0).getAsJsonObject().getAsJsonArray("mods").get(0).getAsJsonObject().getAsJsonArray("dependencies").get(0)
+                .getAsJsonObject().addProperty("versionRange", "[1.20.1]");
+        reject(root);
+    }
+
+    @Test
+    void reportsUnavailableDiscoveryInsteadOfAnOrdinaryServer() {
+        var failure = assertThrows(IOException.class, () -> SyncCapability.parse(JsonParser.parseString("{\"protocols\":[1,2],\"unavailable\":true}")));
+        assertTrue(failure.getMessage().contains("administrator"));
+    }
+
+    @Test
     void rejectsOversizedArtifactAndTotal() {
         var root = editableManifest();
         root.getAsJsonArray("files").get(0).getAsJsonObject().addProperty("size", SyncManifest.MAX_FILE_BYTES + 1);

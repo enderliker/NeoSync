@@ -78,7 +78,6 @@ public final class InstallationPlan {
         var identity = new Identity(checkedEndpoint.host(), checkedEndpoint.gamePort(), origin(checkedEndpoint.manifestUri()), manifest.serverId());
         var files = new ArrayList<File>();
         for (var artifact : manifest.files()) {
-            if (artifact.mods().isEmpty()) throw new IOException("Library-only artifacts are not supported by this installation MVP: " + artifact.fileName());
             var source = artifact.sources().stream().filter(candidate -> candidate.type().equals("external") || candidate.type().equals("curseforge")).findFirst().orElse(artifact.sources().getFirst());
             boolean hosted = source.type().equals("server");
             var provider = resolved.get(artifact.sha256());
@@ -93,11 +92,8 @@ public final class InstallationPlan {
             files.add(new File(artifact, url, verifiedAvailable.contains(artifact.sha256()), hosted, provider));
         }
         var changes = new ArrayList<String>();
-        Map<String, String> oldMods = previous == null ? Map.of()
-                : previous.files().stream().flatMap(file -> file.mods().stream())
-                        .collect(Collectors.toMap(SyncManifest.Mod::id, SyncManifest.Mod::version));
-        Map<String, String> newMods = manifest.files().stream().flatMap(file -> file.mods().stream())
-                .collect(Collectors.toMap(SyncManifest.Mod::id, SyncManifest.Mod::version));
+        Map<String, String> oldMods = previous == null ? Map.of() : previous.activeMods();
+        Map<String, String> newMods = manifest.activeMods();
         oldMods.forEach((id, version) -> {
             if (!newMods.containsKey(id)) changes.add("Remove from the new profile: " + id + " " + version);
             else if (!newMods.get(id).equals(version)) changes.add("Replace in the new profile: " + id + " " + version + " with " + newMods.get(id));
@@ -178,7 +174,7 @@ public final class InstallationPlan {
         lines.add("Manifest service: " + identity.origin() + "; server identity: " + identity.serverId());
         if (identity.origin().getScheme().equals("http"))
             lines.add("Unencrypted HTTP: the server identity is not authenticated. The manifest and server-hosted files can be changed in transit; matching hashes do not prevent this.");
-        int mods = files.stream().mapToInt(file -> file.artifact().mods().size()).sum();
+        int mods = manifest.activeMods().size();
         long available = files.stream().filter(File::available).count();
         lines.add(count(mods, "mod") + " in " + count(files.size(), "file") + "; " + count(available, "file") + " available; "
                 + count(files.size() - available, "file") + " to download (" + downloadBytes() + " bytes).");

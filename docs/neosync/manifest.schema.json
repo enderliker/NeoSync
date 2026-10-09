@@ -1,13 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "urn:neosync:manifest:1",
-  "title": "NeoSync client manifest version 1",
+  "title": "NeoSync client manifest versions 1 and 2",
   "description": "Structural contract only. Apply the semantic and security checks in protocol-v1.md before using a manifest.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "serverId", "revision", "displayName", "minecraftVersion", "loader", "files"],
   "properties": {
-    "schemaVersion": {"const": 1},
+    "schemaVersion": {"enum": [1, 2]},
     "serverId": {
       "type": "string",
       "format": "uuid",
@@ -28,8 +28,23 @@
         "neoForgeVersion": {"$ref": "#/$defs/version"}
       }
     },
-    "files": {"type": "array", "maxItems": 2048, "items": {"$ref": "#/$defs/artifact"}}
+    "files": {"type": "array", "maxItems": 2048, "items": {"$ref": "#/$defs/artifact"}},
+    "activeMods": {
+      "type": "array", "maxItems": 8192,
+      "items": {
+        "type": "object", "additionalProperties": false, "required": ["id", "version"],
+        "properties": {"id": {"$ref": "#/$defs/modId"}, "version": {"$ref": "#/$defs/version"}}
+      }
+    }
   },
+  "allOf": [{
+    "if": {"properties": {"schemaVersion": {"const": 2}}},
+    "then": {"required": ["activeMods"]},
+    "else": {
+      "not": {"required": ["activeMods"]},
+      "properties": {"files": {"items": {"properties": {"mods": {"items": {"not": {"required": ["embedded"]}}}}}}}
+    }
+  }],
   "$defs": {
     "displayName": {"type": "string", "minLength": 1, "maxLength": 128},
     "version": {"type": "string", "minLength": 1, "maxLength": 128},
@@ -56,6 +71,7 @@
         "id": {"$ref": "#/$defs/modId"},
         "version": {"$ref": "#/$defs/version"},
         "displayName": {"$ref": "#/$defs/displayName"},
+        "embedded": {"type": "boolean"},
         "dependencies": {"type": "array", "maxItems": 256, "items": {"$ref": "#/$defs/dependency"}}
       }
     },

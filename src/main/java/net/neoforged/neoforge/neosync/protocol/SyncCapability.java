@@ -19,6 +19,12 @@ public record SyncCapability(int httpsPort, String manifestSha256, String transp
 
     public static SyncCapability parse(JsonElement value) throws IOException {
         if (value == null || value.toString().getBytes(StandardCharsets.UTF_8).length > 512) throw new IOException("Invalid NeoSync capability size.");
+        if (value.isJsonObject() && value.getAsJsonObject().has("unavailable")) {
+            var unavailable = SyncJson.object(value, Set.of("protocols", "unavailable"), Set.of());
+            for (var protocol : SyncJson.array(unavailable.get("protocols"), 1, 8)) SyncJson.number(protocol, 1, 65535);
+            if (!SyncJson.bool(unavailable.get("unavailable"))) throw new IOException("Invalid NeoSync availability announcement.");
+            throw new IOException("NeoSync could not prepare this server's client mod set. Ask the administrator to review the server startup log, correct the selected files, and restart the server.");
+        }
         var object = SyncJson.object(value, Set.of("protocols", "manifestSha256"), Set.of("httpsPort", "httpPort"));
         var protocols = new HashSet<Long>();
         for (var protocol : SyncJson.array(object.get("protocols"), 1, 8)) {

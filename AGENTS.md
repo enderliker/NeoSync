@@ -17,6 +17,15 @@ server; the administrator places server mods in `mods`. The project is maintaine
 in a standalone Git repository with independent history; preserve upstream
 source attribution and licenses when importing fixes.
 
+Development beta.9 adds sibling `mods_client` for client-only JARs that cannot run
+on the dedicated server. These candidates are always classified CLIENT; they use
+the existing reviewed selection, source resolution, consent and profile flow.
+Do not move server mods automatically or use this folder to authorize rehosting.
+Manifest schema 2 records NeoForge JarJar's effective client mod versions while
+retaining each enclosing artifact's metadata. Published beta.8 stays immutable.
+New server configurations enable synchronization by default; preserve existing
+settings, including an administrator's explicit disabled choice.
+
 This document records the agreed design and roadmap. The
 [Phase 1 investigation](docs/neosync/phase-1.md) documents source-confirmed
 integration points, protocol and profile decisions, and remaining runtime checks.

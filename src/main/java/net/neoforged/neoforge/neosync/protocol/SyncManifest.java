@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.HexFormat;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
@@ -24,9 +25,9 @@ import org.apache.maven.artifact.versioning.VersionRange;
 import org.jetbrains.annotations.Nullable;
 
 public record SyncManifest(UUID serverId, String revision, String displayName, String minecraftVersion,
-        String loaderVersion, String neoForgeVersion, List<Artifact> files) {
+        String loaderVersion, String neoForgeVersion, List<Artifact> files, Map<String, String> activeMods) {
 
-    public static final String NEOSYNC_VERSION = "0.1.0-beta.8";
+    public static final String NEOSYNC_VERSION = "0.1.0-beta.9";
     public static final int MAX_BYTES = 1024 * 1024;
     public static final long MAX_FILE_BYTES = 512L * 1024 * 1024;
     public static final long MAX_TOTAL_BYTES = 4L * 1024 * 1024 * 1024;
@@ -37,6 +38,12 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
 
     public SyncManifest {
         files = List.copyOf(files);
+        activeMods = Map.copyOf(activeMods);
+    }
+
+    public SyncManifest(UUID serverId, String revision, String displayName, String minecraftVersion,
+            String loaderVersion, String neoForgeVersion, List<Artifact> files) {
+        this(serverId, revision, displayName, minecraftVersion, loaderVersion, neoForgeVersion, files, inventoryVersions(files));
     }
     public record Artifact(String sha256, long size, String fileName, List<Mod> mods, List<Source> sources) {
         public Artifact {
@@ -45,9 +52,13 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
         }
     }
 
-    public record Mod(String id, String version, String displayName, List<Dependency> dependencies) {
+    public record Mod(String id, String version, String displayName, List<Dependency> dependencies, boolean embedded) {
         public Mod {
             dependencies = List.copyOf(dependencies);
+        }
+
+        public Mod(String id, String version, String displayName, List<Dependency> dependencies) {
+            this(id, version, displayName, dependencies, false);
         }
     }
 
@@ -63,8 +74,9 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
     }
 
     public static SyncManifest parse(byte[] bytes) throws IOException {
-        var root = SyncJson.object(SyncJson.parse(bytes, MAX_BYTES), Set.of("schemaVersion", "serverId", "revision", "displayName", "minecraftVersion", "loader", "files"), Set.of());
-        SyncJson.number(root.get("schemaVersion"), 1, 1);
+        var root = SyncJson.object(SyncJson.parse(bytes, MAX_BYTES), Set.of("schemaVersion", "serverId", "revision", "displayName", "minecraftVersion", "loader", "files"), Set.of("activeMods"));
+        int schema = (int) SyncJson.number(root.get("schemaVersion"), 1, 2);
+        if (root.has("activeMods") != (schema == 2)) throw new IOException("The manifest schema and active mod inventory disagree.");
         String serverId = SyncJson.matching(root.get("serverId"), 36, "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}");
         String revision = SyncJson.matching(root.get("revision"), 64, "[A-Za-z0-9][A-Za-z0-9._-]*");
         String name = SyncJson.string(root.get("displayName"), 128);
@@ -77,6 +89,7 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
         var files = new ArrayList<Artifact>();
         var hashes = new HashSet<String>();
         var modIds = new HashSet<String>();
+        var topLevelIds = new HashSet<String>();
         long total = 0;
         for (var entry : SyncJson.array(root.get("files"), 0, 2048)) {
             var file = SyncJson.object(entry, Set.of("sha256", "size", "fileName", "required", "mods", "sources"), Set.of());
@@ -88,10 +101,15 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
             String fileName = SyncJson.matching(file.get("fileName"), 128, FILE_PATTERN);
             if (!SyncJson.bool(file.get("required"))) throw new IOException("Optional artifact selection is not supported yet.");
             var mods = new ArrayList<Mod>();
+            var fileIds = new HashSet<String>();
             for (var modEntry : SyncJson.array(file.get("mods"), 0, 64)) {
-                var mod = SyncJson.object(modEntry, Set.of("id", "version", "displayName", "dependencies"), Set.of());
+                var mod = SyncJson.object(modEntry, Set.of("id", "version", "displayName", "dependencies"), schema == 2 ? Set.of("embedded") : Set.of());
                 String id = SyncJson.matching(mod.get("id"), 64, MOD_PATTERN);
-                if (PLATFORM_IDS.contains(id) || !modIds.add(id)) throw new IOException("Duplicate or reserved mod ID in manifest.");
+                boolean embedded = mod.has("embedded") && SyncJson.bool(mod.get("embedded"));
+                if (PLATFORM_IDS.contains(id) || !fileIds.add(id) || schema == 1 && modIds.contains(id)
+                        || !embedded && !topLevelIds.add(id))
+                    throw new IOException("Duplicate or reserved mod ID in manifest.");
+                modIds.add(id);
                 if (modIds.size() > 8192) throw new IOException("Too many mods in manifest.");
                 var dependencies = new ArrayList<Dependency>();
                 for (var dependencyEntry : SyncJson.array(mod.get("dependencies"), 0, 256)) {
@@ -105,11 +123,28 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
                         throw new IOException("Invalid dependency version range.", e);
                     }
                 }
-                mods.add(new Mod(id, SyncJson.string(mod.get("version"), 128), SyncJson.string(mod.get("displayName"), 128), dependencies));
+                mods.add(new Mod(id, SyncJson.string(mod.get("version"), 128), SyncJson.string(mod.get("displayName"), 128), dependencies, embedded));
             }
             files.add(new Artifact(hash, size, fileName, mods, parseSources(file.get("sources"))));
         }
-        var result = new SyncManifest(UUID.fromString(serverId), revision, name, minecraft, loaderVersion, neoForgeVersion, files);
+        var activeMods = new HashMap<String, String>();
+        if (schema == 2) {
+            for (var entry : SyncJson.array(root.get("activeMods"), 0, 8192)) {
+                var mod = SyncJson.object(entry, Set.of("id", "version"), Set.of());
+                String id = SyncJson.matching(mod.get("id"), 64, MOD_PATTERN);
+                String version = SyncJson.string(mod.get("version"), 128);
+                if (!modIds.contains(id) || activeMods.putIfAbsent(id, version) != null
+                        || files.stream().flatMap(file -> file.mods().stream()).noneMatch(candidate -> candidate.id().equals(id) && sameVersion(candidate.version(), version)))
+                    throw new IOException("The active inventory contains an undeclared mod or version: " + id);
+            }
+            for (var file : files) for (var mod : file.mods()) {
+                if (!mod.embedded() && !sameVersion(mod.version(), activeMods.get(mod.id())))
+                    throw new IOException("The active inventory replaces a top-level mod: " + mod.id());
+            }
+        } else {
+            activeMods.putAll(inventoryVersions(files));
+        }
+        var result = new SyncManifest(UUID.fromString(serverId), revision, name, minecraft, loaderVersion, neoForgeVersion, files, activeMods);
         result.validateDependencies();
         return result;
     }
@@ -158,17 +193,35 @@ public record SyncManifest(UUID serverId, String revision, String displayName, S
         versions.put("minecraft", new DefaultArtifactVersion(minecraftVersion));
         versions.put("neoforge", new DefaultArtifactVersion(neoForgeVersion));
         versions.put("neosync", new DefaultArtifactVersion(loaderVersion));
-        files.forEach(file -> file.mods.forEach(mod -> versions.put(mod.id, new DefaultArtifactVersion(mod.version))));
+        activeMods.forEach((id, version) -> versions.put(id, new DefaultArtifactVersion(version)));
         for (var file : files) {
             for (var mod : file.mods) {
+                if (!sameVersion(mod.version(), activeMods.get(mod.id()))) continue;
                 for (var dependency : mod.dependencies) {
                     var version = versions.get(dependency.id);
-                    boolean matches = version != null && dependency.range.containsVersion(version);
+                    boolean matches = version != null && supportsVersion(dependency.id, dependency.range, version.toString(), minecraftVersion);
                     if (dependency.type.equals("required") && !matches) throw new IOException("The manifest has an unsatisfied required dependency: " + dependency.id);
                     if (dependency.type.equals("incompatible") && matches) throw new IOException("The manifest contains incompatible mods: " + dependency.id);
                 }
             }
         }
+    }
+
+    private static Map<String, String> inventoryVersions(List<Artifact> files) {
+        var versions = new HashMap<String, String>();
+        files.forEach(file -> file.mods().forEach(mod -> versions.put(mod.id(), mod.version())));
+        return versions;
+    }
+
+    public static boolean sameVersion(String first, String second) {
+        return first != null && second != null && new DefaultArtifactVersion(first).compareTo(new DefaultArtifactVersion(second)) == 0;
+    }
+
+    public static boolean supportsVersion(String id, VersionRange range, String version, String minecraft) {
+        if (range.containsVersion(new DefaultArtifactVersion(version))) return true;
+        // FML 4 maps Minecraft 1.21 mods onto 1.21.1 and NeoForge 21.0 mods onto 21.1.
+        return minecraft.equals("1.21.1") && (id.equals("minecraft") && version.equals("1.21.1") && range.containsVersion(new DefaultArtifactVersion("1.21"))
+                || id.equals("neoforge") && version.startsWith("21.1.") && range.containsVersion(new DefaultArtifactVersion("21.0.166")));
     }
 
     public static MessageDigest sha256Digest() {

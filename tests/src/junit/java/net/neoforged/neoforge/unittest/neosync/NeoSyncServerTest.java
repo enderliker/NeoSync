@@ -14,6 +14,8 @@ import com.google.gson.JsonObject;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -22,14 +24,53 @@ import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 import net.neoforged.neoforge.neosync.server.NeoSyncServer;
 import org.apache.maven.artifact.versioning.VersionRange;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class NeoSyncServerTest {
     private static final Map<String, String> LOADED = Map.of(
             "create", "6.0.10", "flywheel", "1.0.6", "ponder", "1.0.82+mc1.21.1");
 
     @Test
+    void advertisesFailedDiscoveryAndRespectsDisabledSynchronization() throws Exception {
+        var unavailable = NeoSyncServer.class.getDeclaredField("discoveryUnavailable");
+        unavailable.setAccessible(true);
+        boolean original = unavailable.getBoolean(null);
+        try {
+            unavailable.setBoolean(null, true);
+            var status = com.google.gson.JsonParser.parseString(NeoSyncServer.decorateStatus("{}"));
+            assertTrue(status.getAsJsonObject().getAsJsonObject("neosync").get("unavailable").getAsBoolean());
+            assertThrows(IOException.class, () -> net.neoforged.neoforge.neosync.protocol.SyncCapability.parse(status.getAsJsonObject().get("neosync")));
+            unavailable.setBoolean(null, false);
+            assertEquals("{}", NeoSyncServer.decorateStatus("{}"));
+        } finally {
+            unavailable.setBoolean(null, original);
+        }
+    }
+
+    @Test
+    void includesClientOnlyJarsWithoutRequiringServerLoading(@TempDir Path directory) throws Exception {
+        Path server = Files.createDirectory(directory.resolve("mods"));
+        var inventory = NeoSyncServer.class.getDeclaredMethod("clientArtifacts", Path.class);
+        inventory.setAccessible(true);
+        assertEquals(List.of(), inventory.invoke(null, server));
+        Path client = directory.resolve("mods_client");
+        assertTrue(Files.isDirectory(client));
+        Path jar = JarMetadataTest.jar(client, JarMetadataTest.TOML, Map.of());
+        assertEquals(List.of(jar), inventory.invoke(null, server));
+        var method = NeoSyncServer.class.getDeclaredMethod("manifestMods", List.class, Map.class, Map.class, boolean.class);
+        method.setAccessible(true);
+        var inspected = net.neoforged.neoforge.neosync.protocol.JarMetadata.inspect(jar, "4.0.45", new net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation());
+        assertEquals(1, ((JsonArray) method.invoke(null, inspected, Map.of(), Map.of(), true)).size());
+        var failure = assertThrows(InvocationTargetException.class, () -> method.invoke(null, inspected, Map.of(), Map.of(), false));
+        assertTrue(failure.getCause() instanceof IOException);
+        Files.copy(jar, server.resolve(jar.getFileName()));
+        assertTrue(assertThrows(InvocationTargetException.class, () -> inventory.invoke(null, server)).getCause() instanceof IOException);
+    }
+
+    @Test
     void bundledModsAppearInOneReviewedArtifact() throws Exception {
         var mods = manifestMods(createMods(), Map.of("create", "6.0.10"), LOADED);
+        for (var mod : mods) mod.getAsJsonObject().remove("embedded");
         assertEquals(3, mods.size());
         var manifest = SyncManifest.parse(manifest(mods).toString().getBytes(StandardCharsets.UTF_8));
         assertEquals(1, manifest.files().size());

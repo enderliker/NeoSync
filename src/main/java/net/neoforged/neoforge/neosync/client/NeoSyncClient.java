@@ -151,9 +151,15 @@ public final class NeoSyncClient {
                 ModList.get().getMods().forEach(mod -> versions.put(mod.getModId(), mod.getVersion().toString()));
                 var visited = new HashSet<java.nio.file.Path>();
                 long inspected = 0;
-                for (var info : ModList.get().getModFiles()) {
+                var localInventory = new ArrayList<>(ModList.get().getModFiles());
+                localInventory.addAll(FMLLoader.getLoadingModList().getPlugins());
+                for (var info : localInventory) {
                     token.check();
-                    var path = info.getFile().getFilePath();
+                    var file = info.getFile();
+                    var parents = new HashSet<net.neoforged.neoforgespi.locating.IModFile>();
+                    while (file.getDiscoveryAttributes().parent() != null && parents.add(file))
+                        file = file.getDiscoveryAttributes().parent();
+                    var path = file.getFilePath();
                     if (path.getFileSystem() != java.nio.file.FileSystems.getDefault()
                             || !visited.add(path) || !Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)
                             || !path.getFileName().toString().endsWith(".jar"))
