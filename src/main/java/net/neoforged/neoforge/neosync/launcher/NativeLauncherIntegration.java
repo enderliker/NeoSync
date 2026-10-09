@@ -8,7 +8,6 @@ package net.neoforged.neoforge.neosync.launcher;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import java.io.IOException;
-import java.nio.channels.FileChannel;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
@@ -19,6 +18,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.Properties;
 import java.util.UUID;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
 import net.neoforged.neoforge.neosync.protocol.ManagedPaths;
@@ -74,120 +74,135 @@ final class NativeLauncherIntegration {
         }
         String targetId = (modrinth ? "1.21.1-" : "") + id;
         Path instance = root.resolve(modrinth ? "profiles" : "instances").resolve(id);
-        String gameDirectory = modrinth ? ModrinthRuntime.gameDirectoryArgument(instance, prepared.gameDirectory()) : prepared.gameDirectory().toString();
-        runtime.addProperty("id", targetId);
-        if (!modrinth) runtime.addProperty("type", "custom");
-        var arguments = runtime.getAsJsonObject("arguments");
-        var nextGame = new JsonArray();
-        int directories = 0;
-        for (int i = 0; i < game.size(); i++) {
-            var argument = game.get(i);
-            if (argument.isJsonPrimitive() && argument.getAsString().equals("--gameDir")) {
-                if (++directories > 1 || ++i >= game.size()) throw new IOException("The installed runtime has invalid game-directory arguments.");
-                nextGame.add("--gameDir");
-                nextGame.add(gameDirectory);
-            } else {
-                nextGame.add(argument.deepCopy());
-            }
-        }
-        if (directories == 0) {
-            nextGame.add("--gameDir");
-            nextGame.add(gameDirectory);
-        }
-        arguments.add("game", nextGame);
         Path target = versions.resolve(targetId);
-        Path natives = root.resolve("meta/natives").resolve(targetId);
-        boolean createdNatives = modrinth && !Files.exists(natives, LinkOption.NOFOLLOW_LINKS);
         if (Files.exists(instance, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.directory(instance, false);
         if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS) && Files.exists(instance, LinkOption.NOFOLLOW_LINKS))
             throw new IOException("The target launcher instance directory already exists. It was not reused.");
         boolean createdInstance = !Files.exists(instance, LinkOption.NOFOLLOW_LINKS);
-        byte[] metadata = runtime.toString().getBytes(StandardCharsets.UTF_8);
-        if (metadata.length > SyncManifest.MAX_BYTES) throw new IOException("The launcher runtime exceeds its size limit.");
         boolean created = false;
-        if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
-            if (!runtime.equals(object(read(target.resolve(targetId + ".json")))))
-                throw new IOException("The prepared launcher runtime was edited. It was not overwritten.");
-            if (modrinth) ModrinthRuntime.materialize(verified, target, targetId, natives, token);
-        } else {
-            ManagedPaths.directory(versions, false);
-            Path stage = ManagedPaths.directory(versions.resolve(".neosync-" + UUID.randomUUID()), true);
-            try {
-                Files.write(stage.resolve(targetId + ".json"), metadata, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-                if (modrinth) ModrinthRuntime.materialize(verified, stage, targetId, natives, token);
-                token.check();
-                Files.move(stage, target, StandardCopyOption.ATOMIC_MOVE);
-                created = true;
-            } finally {
-                if (Files.exists(stage, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(stage);
-                if (!created && createdNatives && Files.isDirectory(natives, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(natives);
-            }
-        }
+        Path natives = root.resolve("meta/natives").resolve(targetId);
+        boolean createdNatives = modrinth && !Files.exists(natives, LinkOption.NOFOLLOW_LINKS);
         try {
+            ProfileStore.Prepared launchProfile = prepared;
+            if (!modrinth) {
+                ManagedPaths.directory(instance, true);
+                launchProfile = ProfileStore.open(prepared.gameDirectory()).export(prepared, instance, fmlVersion, token);
+            }
+            String gameDirectory = modrinth ? ModrinthRuntime.gameDirectoryArgument(instance, prepared.gameDirectory()) : launchProfile.gameDirectory().toString();
+            runtime.addProperty("id", targetId);
+            if (!modrinth) runtime.addProperty("type", "custom");
+            var arguments = runtime.getAsJsonObject("arguments");
+            var nextGame = new JsonArray();
+            int directories = 0;
+            for (int i = 0; i < game.size(); i++) {
+                var argument = game.get(i);
+                if (argument.isJsonPrimitive() && argument.getAsString().equals("--gameDir")) {
+                    if (++directories > 1 || ++i >= game.size()) throw new IOException("The installed runtime has invalid game-directory arguments.");
+                    nextGame.add("--gameDir");
+                    nextGame.add(gameDirectory);
+                } else {
+                    nextGame.add(argument.deepCopy());
+                }
+            }
+            if (directories == 0) {
+                nextGame.add("--gameDir");
+                nextGame.add(gameDirectory);
+            }
+            arguments.add("game", nextGame);
+            byte[] metadata = runtime.toString().getBytes(StandardCharsets.UTF_8);
+            if (metadata.length > SyncManifest.MAX_BYTES) throw new IOException("The launcher runtime exceeds its size limit.");
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                if (!runtime.equals(object(read(target.resolve(targetId + ".json")))))
+                    throw new IOException("The prepared launcher runtime was edited. It was not overwritten.");
+                if (modrinth) ModrinthRuntime.materialize(verified, target, targetId, natives, token);
+            } else {
+                ManagedPaths.directory(versions, false);
+                Path stage = ManagedPaths.directory(versions.resolve(".neosync-" + UUID.randomUUID()), true);
+                try {
+                    Files.write(stage.resolve(targetId + ".json"), metadata, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                    if (modrinth) ModrinthRuntime.materialize(verified, stage, targetId, natives, token);
+                    token.check();
+                    Files.move(stage, target, StandardCopyOption.ATOMIC_MOVE);
+                    created = true;
+                } finally {
+                    if (Files.exists(stage, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(stage);
+                    if (!created && createdNatives && Files.isDirectory(natives, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(natives);
+                }
+            }
             ManagedPaths.directory(instance, true);
             if (modrinth) registerModrinth(root, id, prepared, launchOverrides, verified.protocolVersion(), token);
-            else registerSklauncher(root, id, prepared, token);
+            else prepareSklauncherRegistration(root, id, launchProfile, metadata, token);
         } catch (IOException failure) {
             if (created) ManagedPaths.deleteTree(target);
             if (createdNatives && Files.isDirectory(natives, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(natives);
-            if (createdInstance) Files.deleteIfExists(instance);
+            if (createdInstance && Files.exists(instance, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(instance);
             throw failure;
         }
         return id;
     }
 
-    private static void registerSklauncher(Path root, String id, ProfileStore.Prepared prepared, DiscoveryCancellation token) throws IOException {
-        Path inventory = root.resolve("instances.json");
-        byte[] original = read(inventory);
-        var document = object(original);
-        if (!document.has("instances") || !document.get("instances").isJsonArray()) throw new IOException("Unsupported SKlauncher instance inventory.");
-        var instances = document.getAsJsonArray("instances");
-        JsonObject existing = null;
-        for (var value : instances) {
-            if (!value.isJsonObject()) throw new IOException("Malformed SKlauncher instance.");
-            var entry = value.getAsJsonObject();
-            if (id.equals(SyncJson.string(entry.get("id"), 256))) {
-                if (existing != null || !id.equals(SyncJson.string(entry.get("versionId"), 256))
-                        || !id.equals(SyncJson.string(entry.get("minecraftVersion"), 256))
-                        || !SyncJson.string(entry.get("gameType"), 32).equals("custom")
-                        || !SyncJson.string(entry.get("type"), 32).equals("custom")
-                        || !SyncJson.bool(entry.get("compatibilityMode")))
-                    throw new IOException("The prepared SKlauncher instance was edited. It was not overwritten.");
-                existing = entry;
-            }
+    private static void prepareSklauncherRegistration(Path root, String id, ProfileStore.Prepared prepared, byte[] runtime, DiscoveryCancellation token) throws IOException {
+        Path instance = root.resolve("instances").resolve(id);
+        Path specification = instance.resolve("neosync-registration.properties");
+        var record = new Properties();
+        record.setProperty("launcherRoot", root.toString());
+        record.setProperty("instanceId", id);
+        record.setProperty("instanceName", name(prepared));
+        record.setProperty("runtimeSha256", SyncManifest.sha256(runtime));
+        record.setProperty("gameDirectory", prepared.gameDirectory().toString());
+        record.setProperty("manifest", prepared.digest());
+        record.setProperty("marker", SyncManifest.sha256(read(prepared.gameDirectory().resolve("neosync-profile.json"))));
+        record.setProperty("consent", SyncManifest.sha256(read(prepared.gameDirectory().getParent().resolve("consent.json"))));
+        record.setProperty("count", Integer.toString(prepared.manifest().files().size()));
+        for (int i = 0; i < prepared.manifest().files().size(); i++) record.setProperty("file." + i, prepared.manifest().files().get(i).sha256());
+        var processes = new java.util.ArrayList<ProcessHandle>();
+        var ancestor = ProcessHandle.current().parent();
+        for (int depth = 0; depth < 8 && ancestor.isPresent(); depth++) {
+            var process = ancestor.get();
+            if (process.info().command().map(command -> Path.of(command).getFileName().toString().matches("(?i)sklauncher(?:\\.exe)?")).orElse(false)
+                    && process.info().startInstant().isPresent())
+                processes.add(process);
+            ancestor = process.parent();
         }
-        if (existing != null) {
-            token.check();
+        if (!processes.isEmpty()) {
+            processes.add(ProcessHandle.current());
+            record.setProperty("processes", processes.stream().map(process -> process.pid() + "@" + process.info().startInstant().orElseThrow())
+                    .collect(java.util.stream.Collectors.joining(",")));
+        }
+        token.check();
+        try (var output = Files.newOutputStream(specification, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS)) {
+            record.store(output, "NeoSync SKlauncher registration");
+        }
+        if (processes.isEmpty()) {
+            SklauncherRegistration.register(specification);
             return;
         }
-        var entry = new JsonObject();
-        entry.addProperty("id", id);
-        entry.addProperty("name", name(prepared));
-        entry.addProperty("type", "custom");
-        entry.addProperty("versionId", id);
-        entry.addProperty("gameType", "custom");
-        entry.addProperty("minecraftVersion", id);
-        entry.addProperty("directory", root.resolve("instances").resolve(id).toString());
-        entry.addProperty("createdAt", Instant.now().toString());
-        entry.addProperty("playTime", 0);
-        entry.addProperty("sessionCount", 0);
-        entry.addProperty("compatibilityMode", true);
-        instances.add(entry);
-        byte[] output = document.toString().getBytes(StandardCharsets.UTF_8);
-        if (output.length > SyncManifest.MAX_BYTES) throw new IOException("The SKlauncher instance inventory exceeds its size limit.");
-        Path stage = root.resolve(".neosync-instances-" + UUID.randomUUID() + ".tmp");
-        try (var channel = FileChannel.open(root.resolve(".neosync-launcher.lock"), StandardOpenOption.CREATE, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS);
-                var lock = channel.tryLock()) {
-            if (lock == null) throw new IOException("Another NeoSync process is preparing launcher instances.");
-            try {
-                Files.write(stage, output, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
-                token.check();
-                if (!java.util.Arrays.equals(original, read(inventory))) throw new IOException("SKlauncher changed its instances. Retry preparation.");
-                Files.move(stage, inventory, StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING);
-            } finally {
-                Files.deleteIfExists(stage);
+        Path helper = instance.resolve("neosync-registration.jar");
+        try (var output = new java.util.zip.ZipOutputStream(Files.newOutputStream(helper, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE, LinkOption.NOFOLLOW_LINKS))) {
+            for (String name : java.util.List.of("SklauncherRegistration", "LauncherBridge", "LauncherBridge$Verifier")) {
+                String resource = "net/neoforged/neoforge/neosync/launcher/" + name + ".class";
+                try (var input = NativeLauncherIntegration.class.getClassLoader().getResourceAsStream(resource)) {
+                    if (input == null) throw new IOException("The SKlauncher registration helper is unavailable.");
+                    output.putNextEntry(new java.util.zip.ZipEntry(resource));
+                    input.transferTo(output);
+                    output.closeEntry();
+                }
             }
         }
+        Path gson = root.resolve("libraries/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar");
+        ManagedPaths.directory(gson.getParent(), false);
+        if (!Files.isRegularFile(gson, LinkOption.NOFOLLOW_LINKS) || Files.size(gson) != 283367)
+            throw new IOException("The installed Gson library is missing or changed. Rerun the NeoSync installer.");
+        try {
+            if (!java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-1").digest(Files.readAllBytes(gson))).equals("b3add478d4382b78ea20b1671390a858002feb6c"))
+                throw new IOException("The installed Gson library changed. Rerun the NeoSync installer.");
+        } catch (java.security.NoSuchAlgorithmException impossible) {
+            throw new IllegalStateException(impossible);
+        }
+        Path javaBinary = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").toLowerCase(java.util.Locale.ROOT).contains("windows") ? "javaw.exe" : "java");
+        token.check();
+        new ProcessBuilder(javaBinary.toString(), "-cp", helper + java.io.File.pathSeparator + gson, SklauncherRegistration.class.getName(), specification.toString())
+                .redirectOutput(ProcessBuilder.Redirect.DISCARD).redirectError(instance.resolve("neosync-registration.log").toFile()).start();
     }
 
     private static void registerModrinth(Path root, String id, ProfileStore.Prepared prepared, JsonObject launchOverrides, int protocolVersion, DiscoveryCancellation token) throws IOException {

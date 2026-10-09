@@ -34,7 +34,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 class LauncherIntegrationTest {
     @Test
-    void preparesBetaAndModrinthRevisionsWithoutRelocatingTheirVerifiedGameDirectory(@TempDir Path directory) throws Exception {
+    void exportsSklauncherRevisionsIntoSiblingInstancesAndPreservesModrinthPaths(@TempDir Path directory) throws Exception {
         var prepared = prepare(directory);
         for (var kind : java.util.List.of(LauncherIntegration.Kind.SKLAUNCHER_BETA, LauncherIntegration.Kind.MODRINTH)) {
             boolean modrinth = kind == LauncherIntegration.Kind.MODRINTH;
@@ -84,7 +84,18 @@ class LauncherIntegrationTest {
                 assertTrue(Files.isDirectory(root.resolve("meta/natives").resolve(target.getFileName())));
                 assertEquals(java.util.List.of(argument.replace("${game_directory}", instance.toString())),
                         java.util.Arrays.asList(argument.replace(" ", "\n").replace("${game_directory}", instance.toString()).split("\n")));
-            } else assertEquals(prepared.gameDirectory().toString(), launchArguments.get(3).getAsString());
+            } else {
+                Path instance = root.resolve("instances").resolve(id);
+                Path exportedGame = Path.of(launchArguments.get(3).getAsString());
+                assertTrue(exportedGame.startsWith(instance));
+                assertFalse(exportedGame.startsWith(prepared.gameDirectory()));
+                var exportedStore = ProfileStore.open(exportedGame);
+                var exported = exportedStore.active().orElseThrow();
+                exportedStore.verify(exported, "4.0.44", new DiscoveryCancellation());
+                assertEquals(prepared.digest(), exported.digest());
+                assertEquals(prepared.identity(), exported.identity());
+                ProfileStore.open(prepared.gameDirectory()).verify(prepared, "4.0.44", new DiscoveryCancellation());
+            }
             assertEquals("${auth_player_name}", launchArguments.get(1).getAsString());
             assertEquals("private fixture", Files.readString(accounts));
             assertEquals(id, LauncherIntegration.createInstallation(detected, prepared, "4.0.44", new DiscoveryCancellation()));
@@ -128,6 +139,35 @@ class LauncherIntegrationTest {
                 assertEquals("My world", inventory.getAsJsonArray("instances").get(0).getAsJsonObject().get("name").getAsString());
                 assertTrue(inventory.get("setting").getAsBoolean());
                 var entry = inventory.getAsJsonArray("instances").get(1).getAsJsonObject();
+                assertEquals(root.resolve("instances").resolve(id).toString(), entry.get("directory").getAsString());
+                Files.writeString(root.resolve("instances.json"), "{\"instances\":[{\"id\":\"personal\",\"name\":\"Renamed while Minecraft ran\"}],\"setting\":true}");
+                net.neoforged.neoforge.neosync.launcher.SklauncherRegistration.register(root.resolve("instances").resolve(id).resolve("neosync-registration.properties"));
+                inventory = JsonParser.parseString(Files.readString(root.resolve("instances.json"))).getAsJsonObject();
+                assertEquals(2, inventory.getAsJsonArray("instances").size());
+                assertEquals("Renamed while Minecraft ran", inventory.getAsJsonArray("instances").get(0).getAsJsonObject().get("name").getAsString());
+                Path specification = root.resolve("instances").resolve(id).resolve("neosync-registration.properties");
+                Path sleeper = Files.writeString(directory.resolve("RegistrationSleeper.java"), "class RegistrationSleeper { public static void main(String[] args) throws Exception { Thread.sleep(2000); } }");
+                Path javaBinary = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").toLowerCase(Locale.ROOT).contains("windows") ? "java.exe" : "java");
+                var launcher = new ProcessBuilder(javaBinary.toString(), sleeper.toString()).redirectOutput(ProcessBuilder.Redirect.DISCARD).redirectError(ProcessBuilder.Redirect.DISCARD).start();
+                var handoff = new java.util.Properties();
+                try (var input = Files.newInputStream(specification)) {
+                    handoff.load(input);
+                }
+                handoff.setProperty("processes", launcher.pid() + "@" + launcher.info().startInstant().orElseThrow());
+                try (var output = Files.newOutputStream(specification)) {
+                    handoff.store(output, "fixture registration");
+                }
+                Files.writeString(root.resolve("instances.json"), "{\"instances\":[{\"id\":\"personal\",\"name\":\"Saved on launcher exit\"}],\"setting\":true}");
+                var registration = java.util.concurrent.CompletableFuture.runAsync(() -> net.neoforged.neoforge.neosync.launcher.SklauncherRegistration.main(new String[] { specification.toString() }));
+                Thread.sleep(200);
+                assertFalse(registration.isDone());
+                assertEquals(1, JsonParser.parseString(Files.readString(root.resolve("instances.json"))).getAsJsonObject().getAsJsonArray("instances").size());
+                launcher.onExit().get(15, java.util.concurrent.TimeUnit.SECONDS);
+                registration.get(15, java.util.concurrent.TimeUnit.SECONDS);
+                inventory = JsonParser.parseString(Files.readString(root.resolve("instances.json"))).getAsJsonObject();
+                assertEquals(2, inventory.getAsJsonArray("instances").size());
+                assertEquals("Saved on launcher exit", inventory.getAsJsonArray("instances").get(0).getAsJsonObject().get("name").getAsString());
+                entry = inventory.getAsJsonArray("instances").get(1).getAsJsonObject();
                 entry.addProperty("compatibilityMode", false);
                 Files.writeString(root.resolve("instances.json"), inventory.toString());
                 assertThrows(IOException.class, () -> LauncherIntegration.createInstallation(detected, prepared, "4.0.44", new DiscoveryCancellation()));

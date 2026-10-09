@@ -114,11 +114,24 @@ paths retain manual activation.
 
 Reopen the launcher and launch the new NeoSync instance. After accepting server
 mods, choose **Prepare in SKlauncher 4.0 Beta** or **Prepare in Modrinth App**.
-NeoSync creates a version and an instance for that specific revision. Their game
-argument points directly to the verified prepared directory. This avoids
-SKlauncher's startup rebasing of instance directories and preserves the NeoSync
-profile marker's path. Reopen the launcher, select the named server instance and
-press Play. Opening the launcher does not automatically start Minecraft.
+NeoSync creates a version and an instance for that specific revision. SKlauncher
+server instances are siblings of the base NeoSync instance under
+`<launcher-root>/instances`. NeoSync copies the consented revision into that
+instance's own profile store, verifies its mods and adjusts its local marker;
+the original prepared profile stays available. The custom version's game argument
+uses the verified directory inside the new instance. Modrinth continues to use
+the original prepared revision path.
+
+SKlauncher keeps its instance inventory in memory and saves it when a game ends.
+When preparing from a running SKlauncher game, NeoSync starts a registration
+helper that waits for Minecraft and SKlauncher to exit before merging the new
+instance into the latest `instances.json`. Close Minecraft and SKlauncher after
+preparation, then reopen SKlauncher and select the server instance. Choosing
+**Later** leaves registration waiting for that exit. The helper rechecks the
+manifest, consent, marker, runtime metadata and full mod set before registration;
+edited existing instances are preserved. Closing SKlauncher also stops its games,
+so preparation completes before that close. Opening the launcher does not
+automatically start Minecraft.
 
 SKlauncher uses its native `instances.json` inventory and custom versions, with
 Compatibility Mode enabled for generated instances. Modrinth uses the installed
