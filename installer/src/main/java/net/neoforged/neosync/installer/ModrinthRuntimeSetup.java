@@ -17,6 +17,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -26,6 +27,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -44,15 +46,21 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
         void download(URI uri, Path target, long size) throws IOException;
     }
 
-    private record Resource(Path path, Path source, String sha1, long size, URI uri) {}
+    private record Resource(Path path, Path source, String sha1, long size, URI uri, boolean official) {}
+
+    private record Original(long size, String sha256) {}
+
+    private record Published(Path anchor, Original identity) {}
 
     private final Path metadata;
     private final Path stage;
     private final Downloader downloader;
     private final Consumer<String> progress;
     private final Map<Path, Resource> resources = new LinkedHashMap<>();
-    private final List<Path> published = new ArrayList<>();
+    private final Map<Path, Published> published = new LinkedHashMap<>();
     private final List<Path> directories = new ArrayList<>();
+    private final Map<Path, Original> replacements = new ConcurrentHashMap<>();
+    private final Map<Path, Original> backups = new LinkedHashMap<>();
     private final String versionId;
     private final JsonObject descriptor;
     private final byte[] versionBytes;
@@ -77,14 +85,21 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
         var setup = new ModrinthRuntimeSetup(root, versionId, downloader, versionBytes, progress);
         try {
             Path clientPath = Path.of("versions", versionId, versionId + ".jar");
-            Resource client = setup.add(clientPath, installation.resolve("versions/1.21.1/1.21.1.jar"), vanilla.getAsJsonObject("downloads").getAsJsonObject("client"));
+            Resource client = setup.add(clientPath, installation.resolve("versions/1.21.1/1.21.1.jar"), vanilla.getAsJsonObject("downloads").getAsJsonObject("client"), true);
             String indexId = vanilla.getAsJsonObject("assetIndex").get("id").getAsString();
             if (!indexId.matches("[A-Za-z0-9._-]{1,128}")) throw new IOException("Invalid Minecraft asset index identity.");
             Path indexPath = Path.of("assets/indexes", indexId + ".json");
-            Resource index = setup.add(indexPath, installation.resolve(indexPath), vanilla.getAsJsonObject("assetIndex"));
+            Resource index = setup.add(indexPath, installation.resolve(indexPath), vanilla.getAsJsonObject("assetIndex"), true);
             if (index.size > INDEX_LIMIT) throw new IOException("The Minecraft asset index exceeds its limit.");
             JsonArray required = new JsonArray();
             JsonArray local = new JsonArray();
+            Map<String, JsonObject> officialArtifacts = new LinkedHashMap<>();
+            for (var value : vanilla.getAsJsonArray("libraries")) {
+                JsonObject library = value.getAsJsonObject();
+                if (!applies(library)) continue;
+                JsonObject artifact = library.getAsJsonObject("downloads").getAsJsonObject("artifact");
+                officialArtifacts.put(artifact.get("path").getAsString(), artifact);
+            }
             if (merged.getAsJsonArray("libraries").size() > 4096) throw new IOException("The Minecraft library count exceeds its limit.");
             for (var value : merged.getAsJsonArray("libraries")) {
                 var library = value.getAsJsonObject();
@@ -92,7 +107,9 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
                 if (library.has("natives")) throw new IOException("Legacy extracted Minecraft natives are unsupported for this runtime.");
                 var artifact = library.getAsJsonObject("downloads").getAsJsonObject("artifact");
                 Path path = InstallerFiles.relativeJar(artifact.get("path").getAsString());
-                setup.add(Path.of("libraries").resolve(path), installation.resolve("libraries").resolve(path), artifact);
+                JsonObject official = officialArtifacts.get(artifact.get("path").getAsString());
+                boolean isOfficial = official != null && official.get("sha1").equals(artifact.get("sha1")) && official.get("size").equals(artifact.get("size"));
+                setup.add(Path.of("libraries").resolve(path), installation.resolve("libraries").resolve(path), isOfficial ? official : artifact, isOfficial);
             }
             for (var entry : libraries.entrySet()) {
                 Path path = Path.of("libraries").resolve(entry.getKey());
@@ -102,7 +119,7 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
             var logging = vanilla.getAsJsonObject("logging").getAsJsonObject("client").getAsJsonObject("file");
             String logId = logging.get("id").getAsString();
             if (!logId.matches("[A-Za-z0-9._-]{1,128}")) throw new IOException("Invalid Minecraft logging configuration identity.");
-            setup.add(Path.of("log_configs", logId), installation.resolve("assets/log_configs").resolve(logId), logging);
+            setup.add(Path.of("log_configs", logId), installation.resolve("assets/log_configs").resolve(logId), logging, true);
             setup.materialize(List.copyOf(setup.resources.values()));
             JsonObject assetDocument = parse(setup.available(index), INDEX_LIMIT);
             JsonObject assets = assetDocument.getAsJsonObject("objects");
@@ -120,7 +137,7 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
                 artifact.addProperty("sha1", hash);
                 artifact.addProperty("size", object.get("size").getAsLong());
                 artifact.addProperty("url", "https://resources.download.minecraft.net/" + hash.substring(0, 2) + "/" + hash);
-                if (!setup.resources.containsKey(path)) objects.add(setup.add(path, installation.resolve(path), artifact));
+                if (!setup.resources.containsKey(path)) objects.add(setup.add(path, installation.resolve(path), artifact, true));
                 else if (setup.resources.get(path).size != artifact.get("size").getAsLong()) throw new IOException("Conflicting Minecraft asset identities.");
             }
             setup.materialize(objects);
@@ -142,7 +159,11 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
             setup.descriptor.add("localLibraries", local);
             return setup;
         } catch (Exception failure) {
-            setup.close();
+            try {
+                setup.close();
+            } catch (IOException cleanup) {
+                failure.addSuppressed(cleanup);
+            }
             throw failure;
         }
     }
@@ -155,11 +176,24 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
         progress.accept("Publishing the verified Modrinth runtime...");
         for (Resource resource : resources.values()) {
             Path target = metadata.resolve(resource.path);
-            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) verify(target, resource);
+            Original original = replacements.get(resource.path);
+            if (original != null) {
+                if (!original.equals(original(target))) throw new IOException("A Minecraft resource changed during repair. It was not overwritten.");
+                Path backup = stage.resolve("backups").resolve(resource.path);
+                InstallerFiles.directory(backup.getParent(), true);
+                Files.move(target, backup, StandardCopyOption.ATOMIC_MOVE);
+                backups.put(resource.path, original);
+                if (!original.equals(original(backup))) {
+                    if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) Files.createLink(target, backup);
+                    throw recovery("A Minecraft resource changed during repair.");
+                }
+                publishFile(target, stage.resolve(resource.path));
+                verify(target, resource);
+            } else if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) verify(target, resource);
             else {
                 directory(target.getParent());
-                Files.createLink(target, stage.resolve(resource.path));
-                published.add(target);
+                publishFile(target, stage.resolve(resource.path));
+                verify(target, resource);
             }
         }
         directory(metadata.resolve("natives").resolve(versionId));
@@ -178,9 +212,18 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
             if (!java.util.Arrays.equals(InstallerFiles.read(target, limit), bytes)) throw new IOException("The existing NeoSync runtime was edited. It was not overwritten.");
         } else {
             directory(target.getParent());
-            InstallerFiles.publish(target, bytes);
-            published.add(target);
+            Path anchor = stage.resolve("records").resolve(UUID.randomUUID().toString());
+            InstallerFiles.directory(anchor.getParent(), true);
+            Files.write(anchor, bytes, StandardOpenOption.CREATE_NEW);
+            publishFile(target, anchor);
         }
+    }
+
+    private void publishFile(Path target, Path anchor) throws IOException {
+        Original expected = original(anchor);
+        Files.createLink(target, anchor);
+        published.put(target, new Published(anchor, expected));
+        if (!expected.equals(original(target))) throw recovery("A published Minecraft resource changed.");
     }
 
     private void directory(Path path) throws IOException {
@@ -190,15 +233,15 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
         for (int i = missing.size() - 1; i >= 0; i--) directories.add(missing.get(i));
     }
 
-    private Resource add(Path path, Path source, JsonObject artifact) throws IOException {
+    private Resource add(Path path, Path source, JsonObject artifact, boolean official) throws IOException {
         if (path.isAbsolute() || !path.equals(path.normalize())) throw new IOException("Invalid Minecraft resource path.");
         for (Path segment : path) if (segment.toString().equals("..") || segment.toString().equals(".") || segment.toString().isEmpty()) throw new IOException("Invalid Minecraft resource path.");
         String sha1 = artifact.get("sha1").getAsString();
         long size = artifact.get("size").getAsLong();
         if (!sha1.matches("[0-9a-f]{40}") || size < 0 || size > InstallerFiles.LIBRARY_LIMIT) throw new IOException("Invalid Minecraft resource identity.");
         URI uri = null;
-        if (!Files.exists(source, LinkOption.NOFOLLOW_LINKS) && artifact.has("url") && !artifact.get("url").getAsString().isEmpty()) uri = approved(artifact.get("url").getAsString());
-        Resource resource = new Resource(path, source, sha1, size, uri);
+        if (official && artifact.has("url") && !artifact.get("url").getAsString().isEmpty()) uri = approved(artifact.get("url").getAsString());
+        Resource resource = new Resource(path, source, sha1, size, uri, official);
         Resource previous = resources.putIfAbsent(path, resource);
         if (previous != null) {
             if (previous.size != size || !previous.sha1.equals(sha1)) throw new IOException("Conflicting Minecraft resource identities.");
@@ -213,12 +256,15 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
         JsonObject artifact = new JsonObject();
         artifact.addProperty("sha1", InstallerFiles.hash(source, "SHA-1"));
         artifact.addProperty("size", Files.size(source));
-        add(path, source, artifact);
+        add(path, source, artifact, false);
     }
 
     private void materialize(List<Resource> files) throws Exception {
         long required = 64L * 1024 * 1024;
-        for (Resource resource : files) if (!Files.exists(metadata.resolve(resource.path), LinkOption.NOFOLLOW_LINKS)) required += resource.size;
+        for (Resource resource : files) {
+            Path target = metadata.resolve(resource.path);
+            if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS) || !matches(target, resource)) required += resource.size;
+        }
         if (Files.getFileStore(stage).getUsableSpace() < required) throw new IOException("There is not enough free space to stage the complete Minecraft runtime.");
         progress.accept("Preparing " + files.size() + " Minecraft runtime files for Modrinth App...");
         var completed = new AtomicInteger();
@@ -257,12 +303,15 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
     private void materialize(Resource resource) throws IOException {
         if (Thread.currentThread().isInterrupted()) throw new IOException("Minecraft runtime preparation was interrupted.");
         Path target = metadata.resolve(resource.path);
-        if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) verify(target, resource);
+        if (Files.exists(target, LinkOption.NOFOLLOW_LINKS) && matches(target, resource)) return;
         else {
+            if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                if (!resource.official) throw new IOException("A local NeoSync runtime resource was changed. It was not overwritten.");
+                replacements.put(resource.path, original(target));
+            }
             Path staged = stage.resolve(resource.path);
             InstallerFiles.directory(staged.getParent(), true);
-            if (Files.exists(resource.source, LinkOption.NOFOLLOW_LINKS)) {
-                verify(resource.source, resource);
+            if (Files.exists(resource.source, LinkOption.NOFOLLOW_LINKS) && matches(resource.source, resource)) {
                 Files.copy(resource.source, staged);
             } else {
                 if (resource.uri == null) throw new IOException("A required local Minecraft runtime resource is missing.");
@@ -274,7 +323,19 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
 
     private Path available(Resource resource) {
         Path target = metadata.resolve(resource.path);
-        return Files.exists(target, LinkOption.NOFOLLOW_LINKS) ? target : stage.resolve(resource.path);
+        Path staged = stage.resolve(resource.path);
+        return Files.exists(staged, LinkOption.NOFOLLOW_LINKS) ? staged : target;
+    }
+
+    private static boolean matches(Path file, Resource resource) throws IOException {
+        InstallerFiles.directory(file.getParent(), false);
+        if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS) || Files.size(file) > InstallerFiles.LIBRARY_LIMIT)
+            throw new IOException("A Minecraft runtime resource is linked, invalid or oversized.");
+        return Files.size(file) == resource.size && resource.sha1.equals(InstallerFiles.hash(file, "SHA-1"));
+    }
+
+    private static Original original(Path file) throws IOException {
+        return new Original(Files.size(file), InstallerFiles.hash(file, "SHA-256"));
     }
 
     private static void verify(Path file, Resource resource) throws IOException {
@@ -414,11 +475,25 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
     @Override
     public void close() throws IOException {
         if (!committed) {
-            for (int i = published.size() - 1; i >= 0; i--) Files.deleteIfExists(published.get(i));
-            for (int i = directories.size() - 1; i >= 0; i--) {
-                try {
-                    Files.deleteIfExists(directories.get(i));
-                } catch (java.nio.file.DirectoryNotEmptyException ignored) {}
+            try {
+                var outputs = new ArrayList<>(published.entrySet());
+                for (int i = outputs.size() - 1; i >= 0; i--) {
+                    var entry = outputs.get(i);
+                    removePublished(entry.getKey(), entry.getValue());
+                }
+                for (var entry : backups.entrySet()) {
+                    Path target = metadata.resolve(entry.getKey());
+                    Path backup = stage.resolve("backups").resolve(entry.getKey());
+                    if (!entry.getValue().equals(original(backup))) throw recovery("A repair backup changed.");
+                    Files.createLink(target, backup);
+                }
+                for (int i = directories.size() - 1; i >= 0; i--) {
+                    try {
+                        Files.deleteIfExists(directories.get(i));
+                    } catch (java.nio.file.DirectoryNotEmptyException ignored) {}
+                }
+            } catch (IOException failure) {
+                throw recovery("The Minecraft runtime rollback could not be completed.", failure);
             }
         }
         if (Files.exists(stage, LinkOption.NOFOLLOW_LINKS)) {
@@ -426,5 +501,28 @@ final class ModrinthRuntimeSetup implements AutoCloseable {
                 for (Path path : paths.sorted(Comparator.reverseOrder()).toList()) Files.delete(path);
             }
         }
+    }
+
+    private void removePublished(Path target, Published publication) throws IOException {
+        if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return;
+        Path claimed = stage.resolve("rollback-" + UUID.randomUUID());
+        InstallerFiles.directory(target.getParent(), false);
+        Files.move(target, claimed, StandardCopyOption.ATOMIC_MOVE);
+        if (!Files.isSameFile(claimed, publication.anchor) || !publication.identity.equals(original(claimed))) {
+            try {
+                Files.createLink(target, claimed);
+            } catch (IOException failure) {
+                throw recovery("A published resource changed during rollback and could not be restored.", failure);
+            }
+            throw recovery("A published resource changed during rollback.");
+        }
+    }
+
+    private IOException recovery(String message) {
+        return recovery(message, null);
+    }
+
+    private IOException recovery(String message, IOException cause) {
+        return new IOException(message + " Files were preserved for recovery in " + stage + ".", cause);
     }
 }

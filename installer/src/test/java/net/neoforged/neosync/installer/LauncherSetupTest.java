@@ -345,7 +345,7 @@ class LauncherSetupTest {
         modrinthDatabase(false);
         var target = new LauncherTarget(LauncherTarget.Kind.MODRINTH, root);
         LauncherSetup.configure(target, runtime, VERSION);
-        Path edited = root.resolve("meta/libraries/example/vanilla/1/vanilla-1.jar");
+        Path edited = root.resolve("meta/libraries/example/runtime/1/runtime-1.jar");
         Files.write(edited, new byte[] { 0 });
         assertThrows(IOException.class, () -> LauncherSetup.configure(target, runtime, VERSION));
         assertArrayEquals(new byte[] { 0 }, Files.readAllBytes(edited));
@@ -353,6 +353,125 @@ class LauncherSetupTest {
             assertTrue(rows.next());
             assertEquals("installed", rows.getString(1));
         }
+    }
+
+    @Test
+    void repairsCorruptOfficialResourcesFromVerifiedCopiesAndDownloads() throws Exception {
+        modrinthDatabase(false);
+        var target = new LauncherTarget(LauncherTarget.Kind.MODRINTH, root);
+        LauncherSetup.configure(target, runtime, VERSION);
+        Path sharedLibrary = root.resolve("meta/libraries/example/vanilla/1/vanilla-1.jar");
+        Path sharedAsset = root.resolve("meta").resolve(runtime.relativize(asset));
+        Path sharedClient = root.resolve("meta/versions/1.21.1-" + VERSION + "/1.21.1-" + VERSION + ".jar");
+        byte[] libraryBytes = Files.readAllBytes(officialLibrary);
+        byte[] assetBytes = Files.readAllBytes(asset);
+        byte[] clientBytes = Files.readAllBytes(sharedClient);
+        Files.write(sharedLibrary, new byte[] { 0 });
+        Files.write(sharedAsset, new byte[] { 0 });
+        Files.write(sharedClient, new byte[] { 0 });
+        Files.delete(officialLibrary);
+        Files.delete(asset);
+        var requests = new java.util.concurrent.ConcurrentLinkedQueue<String>();
+        LauncherSetup.configure(target, runtime, VERSION, (uri, file, size) -> {
+            requests.add(uri.getHost());
+            Files.write(file, uri.getHost().equals("libraries.minecraft.net") ? libraryBytes : assetBytes);
+        });
+        assertEquals(2, requests.size());
+        assertArrayEquals(libraryBytes, Files.readAllBytes(sharedLibrary));
+        assertArrayEquals(assetBytes, Files.readAllBytes(sharedAsset));
+        assertArrayEquals(clientBytes, Files.readAllBytes(sharedClient));
+        try (var paths = Files.list(root)) {
+            assertFalse(paths.anyMatch(path -> path.getFileName().toString().startsWith(".neosync-runtime-")));
+        }
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db"));
+                var statement = connection.createStatement();
+                var rows = statement.executeQuery("SELECT count(*),install_stage FROM instances")) {
+            assertTrue(rows.next());
+            assertEquals(1, rows.getInt(1));
+            assertEquals("installed", rows.getString(2));
+        }
+    }
+
+    @Test
+    void rollsBackOfficialRepairsWhenRegistrationFails() throws Exception {
+        modrinthDatabase(false);
+        var target = new LauncherTarget(LauncherTarget.Kind.MODRINTH, root);
+        LauncherSetup.configure(target, runtime, VERSION);
+        Path sharedLibrary = root.resolve("meta/libraries/example/vanilla/1/vanilla-1.jar");
+        Path sharedAsset = root.resolve("meta").resolve(runtime.relativize(asset));
+        Path version = root.resolve("meta/versions/1.21.1-" + VERSION + "/1.21.1-" + VERSION + ".json");
+        byte[] versionBytes = Files.readAllBytes(version);
+        Files.write(sharedLibrary, new byte[] { 0 });
+        Files.write(sharedAsset, new byte[] { 1 });
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement()) {
+            statement.execute("UPDATE instances SET name='Keep my name',install_stage='not_installed'");
+            statement.execute("UPDATE instance_sync_preferences SET enabled=1");
+            statement.execute("CREATE TRIGGER fail_repair_registration BEFORE UPDATE ON instances BEGIN SELECT RAISE(ABORT,'repair fixture failure'); END");
+        }
+        assertThrows(Exception.class, () -> LauncherSetup.configure(target, runtime, VERSION));
+        assertArrayEquals(new byte[] { 0 }, Files.readAllBytes(sharedLibrary));
+        assertArrayEquals(new byte[] { 1 }, Files.readAllBytes(sharedAsset));
+        assertArrayEquals(versionBytes, Files.readAllBytes(version));
+        try (var paths = Files.list(root)) {
+            assertFalse(paths.anyMatch(path -> path.getFileName().toString().startsWith(".neosync-runtime-")));
+        }
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement()) {
+            try (var rows = statement.executeQuery("SELECT name,install_stage FROM instances")) {
+                assertTrue(rows.next());
+                assertEquals("Keep my name", rows.getString(1));
+                assertEquals("not_installed", rows.getString(2));
+            }
+            try (var rows = statement.executeQuery("SELECT enabled FROM instance_sync_preferences")) {
+                assertTrue(rows.next());
+                assertEquals(1, rows.getInt(1));
+            }
+        }
+    }
+
+    @Test
+    void rollbackPreservesAnUnrelatedReplacementOfPublishedMetadata() throws Exception {
+        var setup = prepareModrinthRuntime();
+        setup.publish();
+        Path descriptor = root.resolve("meta/versions/1.21.1-" + VERSION + "/neosync-runtime.json");
+        Files.delete(descriptor);
+        Files.write(descriptor, new byte[] { 42 });
+        IOException failure = assertThrows(IOException.class, setup::close);
+        assertTrue(failure.getMessage().contains("preserved for recovery"));
+        assertArrayEquals(new byte[] { 42 }, Files.readAllBytes(descriptor));
+        try (var paths = Files.list(root)) {
+            assertTrue(paths.anyMatch(path -> path.getFileName().toString().startsWith(".neosync-runtime-")));
+        }
+    }
+
+    @Test
+    void rollbackPreservesAConcurrentEditAndTheOriginalRepairBackup() throws Exception {
+        try (var initial = prepareModrinthRuntime()) {
+            initial.publish();
+            initial.commit();
+        }
+        Path sharedLibrary = root.resolve("meta/libraries/example/vanilla/1/vanilla-1.jar");
+        Files.write(sharedLibrary, new byte[] { 0 });
+        var repair = prepareModrinthRuntime();
+        repair.publish();
+        Files.write(sharedLibrary, new byte[] { 42 });
+        IOException failure = assertThrows(IOException.class, repair::close);
+        assertTrue(failure.getMessage().contains("preserved for recovery"));
+        assertArrayEquals(new byte[] { 42 }, Files.readAllBytes(sharedLibrary));
+        Path recovery;
+        try (var paths = Files.list(root)) {
+            recovery = paths.filter(path -> path.getFileName().toString().startsWith(".neosync-runtime-")).findFirst().orElseThrow();
+        }
+        assertArrayEquals(new byte[] { 0 }, Files.readAllBytes(recovery.resolve("backups/libraries/example/vanilla/1/vanilla-1.jar")));
+    }
+
+    private ModrinthRuntimeSetup prepareModrinthRuntime() throws Exception {
+        JsonObject vanilla = InstallerFiles.json(runtime.resolve("versions/1.21.1/1.21.1.json"));
+        JsonObject merged = vanilla.deepCopy();
+        String versionId = "1.21.1-" + VERSION;
+        merged.addProperty("id", versionId);
+        return ModrinthRuntimeSetup.prepare(root, runtime, versionId, merged, vanilla, Map.of(), (uri, target, size) -> {
+            throw new IOException("The fixture must use local verified resources.");
+        }, ignored -> {});
     }
 
     @Test

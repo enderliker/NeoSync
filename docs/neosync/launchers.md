@@ -104,8 +104,10 @@ metadata so a launcher repair does not replace the fork.
 The installer writes `neosync-runtime.json` beside the custom version metadata.
 Preparing a server revision verifies that record, the local NeoSync runtime and
 required Minecraft files, then publishes the revision's client JAR and native
-directory before updating the instance inventory. Missing or changed resources
-require rerunning the installer. The server game-directory argument uses
+directory before updating the instance inventory. Missing or changed official Minecraft resources
+require rerunning the installer, which repairs them using verified staging and
+restores their prior bytes if registration fails. Modified local NeoSync libraries
+and metadata remain rejected. The server game-directory argument uses
 Modrinth's own directory placeholder and a validated relative revision path so
 spaces in the launcher root survive its argument parser. Unsupported relative
 paths retain manual activation.

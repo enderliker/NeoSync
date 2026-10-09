@@ -1,7 +1,7 @@
 # Unreleased source and launcher changes
 
 Current development reserves 0.1.0-beta.8 for Minecraft 1.21.1; the existing
-beta.7 draft and its installed version remain intact.
+beta.7 release and its installed version remain intact.
 The September 29 work used NeoForge 21.1.252; October 8 development updates it to
 21.1.256 and adds SKlauncher/Modrinth integration. They do not alter published
 beta.6 or earlier artifacts. Installed acceptance below is limited to its exact
