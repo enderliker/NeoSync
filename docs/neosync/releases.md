@@ -102,6 +102,23 @@ The generated password is stored in `config/neosync-admin/password.txt`.
 Restart the server to apply selections. Public servers should configure a
 publicly trusted [HTTPS manifest service](phase-2.md#server-setup).
 
+## Graphical installer development
+
+The unreleased beta.7 installer lets users select Prism, Minecraft Launcher,
+SKlauncher stable/beta, Modrinth or an existing custom folder. Runtime installation
+and launcher registration are automatic. No Python scripts are required by users.
+Published beta.6 and older installers keep their historical UI and assets.
+
+Windows packaging runs `scripts/build_windows_installer.ps1 -InstallerJar <jar>`.
+The wrapper embeds that exact JAR, verifies its SHA-256 on extraction, discovers
+installed Java 21 and opens the GUI without a console. It runs with user permissions.
+`--wrapper-check <report>` verifies extraction, Java discovery and the embedded
+installer self-test; its report contains no account data. It is unsigned.
+The release workflow tests JARs on Linux, builds the Windows wrapper from those
+same bytes, verifies it, and exports all six artifacts with checksums.
+It uploads review artifacts and does not publish or replace a GitHub release.
+Use `prepare_release.py --windows-exe <exe>` to include it in a verified export.
+
 ## Packaging and validation
 
 Update `neosync_version` and `SyncManifest.NEOSYNC_VERSION` together. Retain
@@ -127,7 +144,7 @@ attribution, and the difference between development and installed startup assets
 With JDK 21 selected, build and validate:
 
 ```bash
-./gradlew checkFormatting :tests:runUnitTests :neoforge:installerJar :neoforge:sourcesJar --max-workers=2
+./gradlew checkFormatting :installer:test :tests:runUnitTests :neoforge:installerJar :neoforge:sourcesJar --max-workers=2
 ./gradlew :neoforge:testProductionServer :neoforge:testProductionClient --max-workers=2
 ```
 

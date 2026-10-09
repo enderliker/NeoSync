@@ -204,8 +204,8 @@ public final class NeoSyncClient {
                 proceed();
             } else if (review.plan != null) {
                 var lines = new ArrayList<>(review.plan.reviewLines());
-                lines.add("You cannot join with the currently loaded mod set. Accept installation to prepare this set for a new launch.");
-                screen.show(lines, "No, cancel", "Accept installation", () -> screen.show(review.plan.warningLines(), "No, cancel", "Yes, download these files", () -> install(review)));
+                lines.add("You cannot join with the currently loaded mod set. Accept all to prepare every mod in this reviewed set for a new launch. You will confirm the listed download sources next.");
+                screen.show(lines, "No, cancel", "Accept all", () -> screen.show(review.plan.warningLines(), "No, cancel", "Yes, download these files", () -> install(review)));
             } else {
                 var lines = new ArrayList<>(review.report.lines());
                 if (review.problem != null) lines.add(review.problem);
@@ -262,13 +262,13 @@ public final class NeoSyncClient {
                     }, false, 15);
                 })));
             } else if (detected.canCreateInstallation()) {
-                screen.menu(activationReview(prepared, detected), "Later", List.of(new DiscoveryScreen.Choice("Create Minecraft installation", () -> {
-                    screen.show(List.of("Verifying the profile and creating its Minecraft Launcher installation..."), "Cancel", "", null);
-                    run(token -> net.neoforged.neoforge.neosync.launcher.LauncherIntegration.createInstallation(detected.installation(), prepared,
+                screen.menu(activationReview(prepared, detected), "Later", List.of(new DiscoveryScreen.Choice("Prepare in " + detected.kind().displayName(), () -> {
+                    screen.show(List.of("Verifying the profile and preparing it in " + detected.kind().displayName() + "..."), "Cancel", "", null);
+                    run(token -> net.neoforged.neoforge.neosync.launcher.LauncherIntegration.createInstallation(detected, prepared,
                             FMLLoader.versionInfo().fmlVersion(), token), id -> {
                                 screen.show(List.of("The installation is ready. No path changes are needed.",
-                                        "Open Minecraft Launcher and select NeoSync " + prepared.manifest().displayName() + " / " + prepared.manifest().revision() + ".",
-                                        "Minecraft Launcher does not provide a verified command to start this custom installation automatically.",
+                                        "Reopen " + detected.kind().displayName() + " and select NeoSync " + prepared.manifest().displayName() + " / " + prepared.manifest().revision() + ".",
+                                        "Press Play in the launcher to start the prepared profile.",
                                         "Your account stays in the launcher. The active mods are unchanged until the next launch."),
                                         "Later", detected.executable() == null ? "Close Minecraft" : "Close and open launcher", () -> {
                                             try {
@@ -355,7 +355,7 @@ public final class NeoSyncClient {
                 "Select the installed NeoSync " + prepared.manifest().loaderVersion() + " build with NeoForge " + prepared.manifest().neoForgeVersion() + " for Minecraft " + prepared.manifest().minecraftVersion() + ".",
                 "Set Game Directory to this exact path:", prepared.gameDirectory().toString(),
                 "Minecraft Launcher: Installations > New installation > Game Directory. SKlauncher: Installations Manager > New Installation > Game Directory. Select the installed NeoSync version in either launcher.",
-                "Prism Launcher: use a NeoSync instance created with the project's Prism setup tool. Its restart option prepares a separate instance for this directory. Installing ordinary NeoForge in Prism does not install NeoSync.",
+                "Prism Launcher: select Prism in the NeoSync installer to create an instance automatically. Its restart option prepares a separate instance for this directory. Installing ordinary NeoForge in Prism does not install NeoSync.",
                 "Launch that installation. NeoSync will verify the selected profile and offer to review and reconnect to the server.",
                 "Keep your account and authentication settings in the launcher. The profile does not include your personal worlds or settings.",
                 "A separate directory organizes your mods; it does not restrict the permissions of installed mod code.");

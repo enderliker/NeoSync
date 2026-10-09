@@ -17,10 +17,10 @@ from zipfile import ZipFile
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Digests of unchanged entries from the pinned upstream 4.0.44 archives.
+# Digests of unchanged entries from the pinned upstream 4.0.45 archives.
 # Include paths, class/source bytes, module metadata, services, and the font.
 EARLYDISPLAY_CONTENT = {
-    "earlydisplay": "f3f519e5ef4939280af2ed3edbbdacef59c936f8bfd1856f55c9346658978a04",
+    "earlydisplay": "754302881692ff53928b760068fd0cc3328b051869f24a444c5ddafbdc3d9014",
     "earlydisplay-sources": "5d756005a7a5702d1bf7cd8741b84cecd3e7e683a07e434e14ee4ceae7c4eb0a",
 }
 
@@ -79,8 +79,8 @@ def validate():
                 require(archive.read("neosync/admin/icon.svg") == (ROOT / "docs/assets/neosync-mark.svg").read_bytes(), "Stale administrator panel logo.")
             else:
                 require(archive.read(source_path + ".java") == source, "Sources JAR is stale.")
-    require(properties["fancy_mod_loader_version"] == "4.0.44", "Review startup branding against the new FML version.")
-    early_version = f'4.0.44-neosync-{version}'
+    require(properties["fancy_mod_loader_version"] == "4.0.45", "Review startup branding against the new FML version.")
+    early_version = f'4.0.45-neosync-{version}'
     early_path = f"io/github/enderliker/neosync/earlydisplay/{early_version}/earlydisplay-{early_version}.jar"
     graphics = {"neoforged_icon.png": "neosync-icon.png", "squirrel.png": "neosync-icon.png", "fox_running.png": "neosync-startup.png"}
     for kind, expected in EARLYDISPLAY_CONTENT.items():
@@ -98,6 +98,10 @@ def validate():
             require(archive.read("META-INF/earlydisplay-NOTICE.txt") == (ROOT / "docs/assets/earlydisplay-NOTICE.txt").read_bytes(), "Missing startup attribution.")
     with ZipFile(assets["installer"]) as archive:
         require(archive.testzip() is None, "Corrupt installer archive.")
+        require(len(set(archive.namelist())) == len(archive.namelist()), "Duplicate installer entries.")
+        require("Main-Class: net.neoforged.neosync.installer.InstallerMain" in archive.read("META-INF/MANIFEST.MF").decode(), "Missing graphical installer entry point.")
+        for entry in ("net/neoforged/neosync/installer/InstallerMain.class", "org/sqlite/JDBC.class", "com/google/gson/JsonParser.class", "org/slf4j/LoggerFactory.class", "launchers/prism.png", "launchers/modrinth.png"):
+            require(entry in archive.namelist(), f"Missing installer component: {entry}")
         require(next(name for name in archive.namelist() if not name.endswith("/")) == "META-INF/MANIFEST.MF",
                 "The executable installer manifest must be the first file.")
         profile = json.loads(archive.read("install_profile.json"))
@@ -148,15 +152,23 @@ def main():
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--check", action="store_true", help="Validate built artifacts without exporting or requiring a clean tree.")
     mode.add_argument("--local", action="store_true", help="Export an unpublished candidate from a clean local commit without requiring a push.")
+    parser.add_argument("--windows-exe", type=Path, help="Include the Windows wrapper built from this exact installer.")
     args = parser.parse_args()
     name, properties, assets = validate()
+    if args.windows_exe:
+        exe = args.windows_exe.resolve()
+        require(exe.is_file() and exe.name == name + "-installer.exe", "Wrong Windows installer name.")
+        require(exe.read_bytes()[:2] == b"MZ", "The Windows installer is not a PE executable.")
+        require(Path(str(exe) + ".jar.sha256").read_text().strip() == sha256(assets["installer"]), "The executable wraps a different installer JAR.")
+        require(assets["installer"].read_bytes() in exe.read_bytes(), "The executable is missing the exact embedded installer.")
+        assets["windows-installer"] = exe
     if args.check:
         print(f"PASS: {name}: installer, embedded libraries, isolated paths, source identity, branding, and unchanged FML code.")
         return
     require(not git("status", "--porcelain", "--untracked-files=no"), "Commit all tracked changes before exporting a release.")
     commit = git("rev-parse", "HEAD")
     if not args.local:
-        require(git("rev-parse", "origin/1.21.1") == commit, "Push the source commit to origin/1.21.1 before exporting.")
+        require(git("branch", "-r", "--contains", commit), "Push the source commit before exporting.")
     parent = ROOT / ("build/neosync-candidates" if args.local else "build/neosync-release")
     parent.mkdir(parents=True, exist_ok=True)
     target = parent / name

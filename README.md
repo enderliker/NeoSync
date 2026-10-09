@@ -46,6 +46,11 @@ before installation.
 
 Unreleased development adds Modrinth → CurseForge → eligible local hosting,
 without caching CurseForge metadata, and consented launcher activation helpers.
+October 8 development updates the base to NeoForge 21.1.256 and adds SKlauncher
+3.2, SKlauncher 4.0 Beta and Modrinth profile preparation. Its graphical installer
+automatically installs and registers Prism, Minecraft Launcher, SKlauncher stable
+and beta, and Modrinth instances, with no Python steps. Windows builds also include
+`-installer.exe`, opening the same GUI using Java 21. See [launcher setup](docs/neosync/launchers.md).
 See [development notes](docs/neosync/development-sources-launchers.md) for key
 injection, provider restrictions and which launchers still require manual launch.
 
@@ -122,7 +127,7 @@ You can postpone activation and leave the profile prepared for later.
 | Provider resolution | Published betas resolve exact Modrinth files. Development adds fresh exact CurseForge lookup after Modrinth and retains restricted hosting. |
 | Server hosting | Serves only explicitly declared administrator-authored mods unique to that server through a bounded HTTPS snapshot service. |
 | Preparation | Inspects JAR metadata without executing it and prepares a new revision while preserving existing profiles. |
-| Launcher support | Prism instance export and restart handoff, with pre-launch verification. Manual installed-version instructions for SKlauncher and Minecraft Launcher. See [launchers](docs/neosync/launchers.md). |
+| Launcher support | Prism instance export/restart with pre-launch verification. Development prepares isolated installations in Minecraft Launcher, SKlauncher 3.2, SKlauncher 4.0 Beta and Modrinth App. The GUI handles initial runtime installation; select the prepared instance and press Play manually. See [launchers](docs/neosync/launchers.md). |
 | Profile recovery | Reviews and verifies an earlier revision before selecting it; preserves the running game and all previous revisions. |
 | Manual activation | Shows the exact game directory to select in the launcher; checks the selected profile and offers reconnection after restart. |
 

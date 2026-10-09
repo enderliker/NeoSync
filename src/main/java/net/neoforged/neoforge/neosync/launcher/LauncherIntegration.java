@@ -28,7 +28,7 @@ public final class LauncherIntegration {
     private LauncherIntegration() {}
 
     public enum Kind {
-        PRISM("Prism Launcher"), MINECRAFT("Minecraft Launcher"), SKLAUNCHER("SKlauncher"),
+        PRISM("Prism Launcher"), MINECRAFT("Minecraft Launcher"), SKLAUNCHER("SKlauncher 3.2"), SKLAUNCHER_BETA("SKlauncher 4.0 Beta"),
         LUNAR("Lunar Client"), MULTIMC("MultiMC"), ATLAUNCHER("ATLauncher"),
         MODRINTH("Modrinth App"), CURSEFORGE("CurseForge App"), UNKNOWN("your launcher");
 
@@ -45,20 +45,21 @@ public final class LauncherIntegration {
 
     public record Detected(Kind kind, @Nullable Path installation, @Nullable Path executable) {
         public boolean canCreateInstallation() {
-            return kind == Kind.MINECRAFT && installation != null;
+            return installation != null && (kind == Kind.MINECRAFT || kind == Kind.SKLAUNCHER
+                    || kind == Kind.SKLAUNCHER_BETA || kind == Kind.MODRINTH);
         }
     }
 
     public static Kind identify(String brand) {
         String value = brand.toLowerCase(Locale.ROOT);
         if (value.contains("prism")) return Kind.PRISM;
-        if (value.contains("sklauncher")) return Kind.SKLAUNCHER;
+        if (value.contains("sklauncher")) return value.contains("beta") || value.contains("4.0") || value.contains("next") ? Kind.SKLAUNCHER_BETA : Kind.SKLAUNCHER;
         if (value.contains("lunar")) return Kind.LUNAR;
         if (value.contains("multimc")) return Kind.MULTIMC;
         if (value.contains("atlauncher")) return Kind.ATLAUNCHER;
-        if (value.contains("modrinth")) return Kind.MODRINTH;
+        if (value.contains("modrinth") || value.equals("theseus")) return Kind.MODRINTH;
         if (value.contains("curseforge")) return Kind.CURSEFORGE;
-        if (value.equals("minecraft-launcher") || value.equals("minecraft launcher") || value.equals("mojang") || value.equals("microsoft")) return Kind.MINECRAFT;
+        if (value.equals("minecraft-launcher") || value.equals("minecraftlauncher") || value.equals("minecraft launcher") || value.equals("mojang") || value.equals("microsoft")) return Kind.MINECRAFT;
         return Kind.UNKNOWN;
     }
 
@@ -72,8 +73,8 @@ public final class LauncherIntegration {
             if (command.isPresent()) {
                 Path path = Path.of(command.get()).toAbsolutePath().normalize();
                 Kind ancestor = identify(path.getFileName().toString().replaceFirst("(?i)\\.exe$", ""));
-                if (ancestor != Kind.UNKNOWN && (kind == Kind.UNKNOWN || kind == ancestor)) {
-                    kind = ancestor;
+                if (ancestor != Kind.UNKNOWN && (kind == Kind.UNKNOWN || kind == ancestor || kind == Kind.SKLAUNCHER_BETA && ancestor == Kind.SKLAUNCHER)) {
+                    if (kind != Kind.SKLAUNCHER_BETA || ancestor != Kind.SKLAUNCHER) kind = ancestor;
                     if (Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS) && Files.isExecutable(path)) executable = path;
                     break;
                 }
@@ -88,7 +89,31 @@ public final class LauncherIntegration {
         }
         if (installation == null && Files.isDirectory(gameDirectory.resolve("versions"), LinkOption.NOFOLLOW_LINKS))
             installation = gameDirectory.toAbsolutePath().normalize();
+        if (kind == Kind.SKLAUNCHER && System.getProperty("minecraft.launcher.version", "").matches("4\\..*")) kind = Kind.SKLAUNCHER_BETA;
+        String configuredRoot = System.getProperty("neosync.launcher.root");
+        if (configuredRoot != null && (kind == Kind.MINECRAFT || kind == Kind.SKLAUNCHER || kind == Kind.SKLAUNCHER_BETA || kind == Kind.MODRINTH)) {
+            try {
+                installation = Path.of(configuredRoot).toAbsolutePath().normalize();
+            } catch (RuntimeException ignored) {
+                installation = null;
+            }
+        }
+        if (kind == Kind.MODRINTH && installation != null && installation.getFileName() != null && installation.getFileName().toString().equals("meta"))
+            installation = installation.getParent();
+        if (kind == Kind.SKLAUNCHER_BETA && (installation == null || !Files.isRegularFile(installation.resolve("instances.json"), LinkOption.NOFOLLOW_LINKS)))
+            installation = null;
+        if (kind == Kind.MODRINTH && (installation == null || !Files.isRegularFile(installation.resolve("app.db"), LinkOption.NOFOLLOW_LINKS)))
+            installation = null;
         return new Detected(kind, installation, executable);
+    }
+
+    public static String createInstallation(Detected detected, ProfileStore.Prepared prepared, String fmlVersion, DiscoveryCancellation token) throws IOException {
+        if (!detected.canCreateInstallation()) throw new IOException("Select a supported launcher with an installed NeoSync runtime.");
+        return switch (detected.kind()) {
+            case MINECRAFT, SKLAUNCHER -> createInstallation(detected.installation(), prepared, fmlVersion, token);
+            case SKLAUNCHER_BETA, MODRINTH -> NativeLauncherIntegration.prepare(detected, prepared, fmlVersion, token);
+            default -> throw new IOException("This launcher requires manual activation.");
+        };
     }
 
     public static String versionId(ProfileStore.Prepared prepared) {

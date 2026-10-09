@@ -174,7 +174,7 @@ public final class ClientDriver {
         } else if (text.contains("is on your local network")) {
             require(label(call(screen, "getFocused")).equals("No, cancel"), "LAN decision defaults to No");
             click(screen, "Allow this endpoint");
-        } else if (hasButton(screen, "Accept installation")) {
+        } else if (hasButton(screen, "Accept all")) {
             require(label(call(screen, "getFocused")).equals("No, cancel"), "Installation review defaults to No");
             require(text.contains(settings.getProperty("expectedName", "Clumps")) && text.contains(settings.getProperty("expectedSource", "cdn.modrinth.com")) && text.contains("unverified"), "Review names the exact file and unverified source");
             if (Boolean.parseBoolean(settings.getProperty("expectProvider", "false")))
@@ -193,7 +193,7 @@ public final class ClientDriver {
                 connecting = false;
                 attempt++;
             } else {
-                click(screen, "Accept installation");
+                click(screen, "Accept all");
             }
         } else if (hasButton(screen, "Yes, download these files") || hasButton(screen, "Yes, open and import files")) {
             require(label(call(screen, "getFocused")).equals("No, cancel"), "Source warning defaults to No");

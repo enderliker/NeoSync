@@ -48,7 +48,7 @@ jobs:
         run: ./gradlew --max-workers=2 --console=plain :tests:runGameTestServer
 
       - name: Run JUnit tests with Gradle
-        run: ./gradlew --max-workers=2 --console=plain :tests:runUnitTests
+        run: ./gradlew --max-workers=2 --console=plain :installer:test :tests:runUnitTests
 
       - name: Run production client self-test
         run: xvfb-run -a ./gradlew --max-workers=2 --console=plain :neoforge:testProductionClient

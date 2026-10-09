@@ -1,6 +1,6 @@
 NeoSync startup graphics
 
-This library is based on FancyModLoader earlydisplay 4.0.44 by Forge Development
+This library is based on FancyModLoader earlydisplay 4.0.45 by Forge Development
 LLC, NeoForged, and contributors, licensed under LGPL-2.1-only. The Java classes,
 service registration, module identity, and upstream ownership notices are unchanged.
 NeoSync contributors replaced neoforged_icon.png, fox_running.png, and squirrel.png

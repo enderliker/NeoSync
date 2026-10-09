@@ -1,0 +1,17 @@
+Launcher icons identify the installed applications. NeoSync is an independent project.
+
+Prism Launcher icon: Prism Launcher contributors, GPL-3.0-only.
+Source: https://github.com/PrismLauncher/PrismLauncher/blob/develop/program_info/org.prismlauncher.PrismLauncher_256.png
+License: Prism-COPYING.txt
+
+Modrinth App icon: Modrinth contributors, GPL-3.0-only.
+Source: https://github.com/modrinth/code/blob/82a7b56a35ef7bd7617553468fe93cebe9eb57ad/apps/app/icons/icon.png
+License: Modrinth-COPYING.txt
+
+SKlauncher icons: SKmedix, application identification only.
+Sources: https://skmedix.pl/apple-touch-icon.png and https://next.skmedix.pl/apple-touch-icon.png
+
+Minecraft icon: Mojang/Microsoft, application identification only.
+Source: https://www.minecraft.net/etc.clientlibs/minecraftnet/clientlibs/clientlib-site/resources/android-icon-192x192.png
+
+Names and trademarks remain the property of their respective owners.

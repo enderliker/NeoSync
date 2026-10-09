@@ -32,15 +32,54 @@ jobs:
         run: ./gradlew setup --max-workers=2 --console=plain
 
       - name: Build and test
-        run: ./gradlew checkFormatting :tests:runUnitTests :neoforge:installerJar :neoforge:sourcesJar --max-workers=2 --console=plain
+        run: ./gradlew checkFormatting :installer:test :tests:runUnitTests :neoforge:installerJar :neoforge:sourcesJar --max-workers=2 --console=plain
 
       - name: Test installed server and client
         run: xvfb-run -a ./gradlew :neoforge:testProductionServer :neoforge:testProductionClient --max-workers=2 --console=plain
 
-      - name: Export verified assets
-        run: python3 scripts/prepare_release.py
+      - name: Validate exact JARs
+        run: python3 scripts/prepare_release.py --check
 
       - name: Upload assets for release review
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: neosync-jars-${{ github.sha }}
+          path: projects/neoforge/build/libs/NeoSync-*.jar
+          if-no-files-found: error
+          retention-days: 14
+
+  windows-package:
+    needs: package
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: neosync-jars-${{ github.sha }}
+          path: projects/neoforge/build/libs/
+      - name: Build and test the exact Windows wrapper
+        run: |
+          $installer = @(Get-ChildItem projects/neoforge/build/libs/*-installer.jar)
+          if ($installer.Count -ne 1) { throw 'Expected one installer.' }
+          ./scripts/build_windows_installer.ps1 -InstallerJar $installer[0].FullName
+          $exe = @(Get-ChildItem build/windows-installer/*.exe)[0]
+          $report = Join-Path $PWD 'build/windows-installer/check.txt'
+          $process = Start-Process -FilePath $exe.FullName -ArgumentList '--wrapper-check', $report -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Windows installer check failed.' }
+          Get-Content -LiteralPath $report
+          python scripts/prepare_release.py --windows-exe $exe.FullName
+      - name: Upload complete assets for release review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: neosync-release-${{ github.sha }}

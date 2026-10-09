@@ -1,12 +1,12 @@
 # Launcher integration
 
-Unreleased September 29, 2026 development adds automatic discovery of supported
-NeoSync Prism runtimes and consented Minecraft Launcher installation creation.
-Its prepared screen shows the exact directory and **Later** before changing the
-launcher. Minecraft Launcher still requires selecting the created installation
-and pressing Play; SKlauncher and Lunar have no verified automatic game-launch
-adapter. See [development details and limits](development-sources-launchers.md).
-The setup and published acceptance evidence below remain the beta baseline.
+Unreleased October 8, 2026 development adds consented profile preparation for
+SKlauncher 3.2, SKlauncher 4.0 Beta and Modrinth App, alongside the existing Prism
+and Minecraft Launcher integrations. The prepared screen shows the exact directory
+and **Later** before changing the launcher. SKlauncher and Modrinth require reopening
+the launcher, selecting the prepared instance and pressing Play. Source and format
+checks are not full launcher gameplay acceptance; see the
+[development notes](development-sources-launchers.md).
 
 NeoSync requires its own installed runtime, not an ordinary NeoForge instance.
 The Minecraft version is 1.21.1 and Java 21 is required. Launcher accounts remain
@@ -15,29 +15,18 @@ current command line to restart it.
 
 ## Prism Launcher
 
-Install the NeoSync client with the project's installer into a stable local game
-installation. Then create a fresh Prism instance using Python 3:
+Open Prism once, close it, then select **Prism Launcher > Install NeoSync** in
+the NeoSync installer. The runtime and instance are installed automatically;
+Python scripts are not required. Standard Windows installations use
+`%APPDATA%\PrismLauncher`. Use **Choose another folder...** for a portable root
+containing `prismlauncher.cfg` and its executable. The root must use its normal
+`instances` subdirectory.
 
-```sh
-python3 scripts/configure_prism.py \
-  --installation /path/to/installed-client \
-  --prism-root /path/to/PrismLauncher \
-  --java /path/to/java-21/bin/java \
-  --prism-executable /path/to/prismlauncher
-```
-
-On Windows use `python`, `java.exe` and `prismlauncher.exe`. Use `--version` if
-multiple NeoSync versions are installed and `--instance-id` to choose a new
-instance directory. Existing instances are never replaced. The application root
-must use its normal `instances` subdirectory. Paths containing symbolic links,
-control characters or `${...}` placeholders are rejected.
-
-The tool verifies the installed library sizes and hashes, copies runtime
-classpath libraries into the new instance, and references the original versioned
-installation for generated game artifacts and module paths. Keep that installation
-in place. This is local setup: do not export the resulting runtime as a modpack or
-release artifact. It may refer to generated Minecraft artifacts. No account files,
-worlds or personal settings are copied.
+The installer verifies library sizes and hashes, copies local classpath libraries
+and retains generated game artifacts under `<launcher-root>/neosync/runtime/<version>`.
+Keep that directory in place. Existing instances, accounts, worlds and settings
+are preserved. Linked paths, control characters and `${...}` are rejected.
+Installed Minecraft runtimes must not be exported as release assets or modpacks.
 
 Launch the new NeoSync instance from Prism. After accepting a server's mods, open
 **Restart instructions > Prepare Prism instance**. NeoSync verifies the profile,
@@ -63,23 +52,80 @@ The normal generated paths work when the Prism application root contains spaces.
 A relocated profile whose relative path contains whitespace or quotes must use
 manual activation; Prism's component argument format cannot represent it directly.
 
-## SKlauncher and Minecraft Launcher
+## SKlauncher 3.2 and Minecraft Launcher
 
-Run the NeoSync installer against the launcher's Minecraft installation directory.
-Restart the launcher so it discovers the custom installed version. In SKlauncher,
-open **Installations Manager > New Installation**, select the installed version
-named `NeoSync-...`, and set **Game Directory** to the exact prepared directory
-shown by NeoSync. In Minecraft Launcher use **Installations > New installation**
-and the same custom version and game-directory setting. Keep Java 21 selected.
+Close the launcher, select **SKlauncher 3.2** or **Minecraft Launcher** in the
+NeoSync installer, then **Install NeoSync**. It installs the runtime and creates
+a separate installation with its game directory filled automatically. Reopen the
+launcher, select `NeoSync-...` and press Play. Keep Java 21 selected.
+Use **Choose another folder...** for an existing custom Minecraft directory.
 
 The built-in **Install NeoForge** option installs upstream NeoForge, so it does
 not select NeoSync. Never repair a missing NeoSync runtime by selecting an upstream
 universal JAR. If the custom version is not offered, check the installer target
 and restart the launcher.
 
-These launchers use the manual close/reopen flow. No undocumented restart command
-or automatic profile-file mutation is used. On a new launch NeoSync verifies the
-selected profile and offers to review current requirements and reconnect.
+After accepting a server's mods, choose **Prepare in SKlauncher 3.2** or
+**Prepare in Minecraft Launcher**. NeoSync adds a separate installation to
+`launcher_profiles.json`, using the installed NeoSync version and the exact verified
+game directory. Existing installations and account files are preserved. Reopen the
+launcher and select that installation, then press Play. NeoSync verifies the profile
+and offers to review current requirements and reconnect. Manual selection remains
+available if the local inventory cannot be edited.
+
+## SKlauncher 4.0 Beta and Modrinth App
+
+Open the launcher once, close it, then select **SKlauncher 4.0 Beta** or
+**Modrinth App > Install NeoSync** in the NeoSync installer. It installs and
+registers the native runtime automatically; Python scripts and manual imports
+are not required.
+
+Windows defaults are `%APPDATA%\.sklauncher` and `%APPDATA%\ModrinthApp`.
+`THESEUS_CONFIG_DIR` is also recognized. Select another existing root with
+**Choose another folder...**. Inventory and runtime data currently need to be
+under one root. Separately relocated launcher data requires manual activation
+or a launcher configuration using its default layout.
+Libraries are verified and installed in versioned paths. Keep
+`<launcher-root>/neosync/runtime/<version>`: FML resolves the generated client
+and NeoSync universal JAR there. Accounts, worlds and settings are preserved.
+Do not distribute this local runtime as a modpack.
+Modrinth stores the local Java path arguments in instance launch overrides so its
+metadata argument parser preserves spaces. Keep those generated overrides when
+editing the instance. Verified shared libraries may remain after a failed import;
+runtime metadata and instance registration are rolled back on registration failure.
+
+Reopen the launcher and launch the new NeoSync instance. After accepting server
+mods, choose **Prepare in SKlauncher 4.0 Beta** or **Prepare in Modrinth App**.
+NeoSync creates a version and an instance for that specific revision. Their game
+argument points directly to the verified prepared directory. This avoids
+SKlauncher's startup rebasing of instance directories and preserves the NeoSync
+profile marker's path. Reopen the launcher, select the named server instance and
+press Play. Opening the launcher does not automatically start Minecraft.
+
+SKlauncher uses its native `instances.json` inventory and custom versions, with
+Compatibility Mode enabled for generated instances. Modrinth uses the installed
+loader metadata fallback in `meta/versions/1.21.1-<loader-id>` and the current
+`instances`/`instance_content_sets` SQLite schema. An unsupported database schema
+fails transactionally; no accounts are queried. These integrations retain the
+existing post-load profile verification; Prism's pre-launch verifier is separate.
+
+SKlauncher 4.0's documented **Library > Import > From launcher > Official launcher**
+route copies 3.2 profiles to new directories. A copied NeoSync server profile cannot
+be activated unchanged because its marker is bound to the original path. Use the
+graphical installer and prepare the server instance from NeoSync instead.
+
+## Installer availability
+
+Each card displays the launcher icon, name and detected directory. It is selectable
+only while its directory exists. Missing launchers are disabled and show their
+website and instructions to install and open the launcher once, then reopen the
+installer. Directory existence alone does not prove format compatibility;
+preflight rejects incompatible inventories before downloading.
+
+Windows builds include `-installer.exe`, embedding the exact `-installer.jar`
+with SHA-256 verification and installed Java 21 detection. Python is not required.
+Linux and macOS use the JAR. Original `--install-client` and `--install-server`
+CLI options remain available. Developer scripts are optional tooling.
 
 ## Other launchers
 
@@ -98,6 +144,18 @@ Official pages consulted with Tavily on September 27, 2026:
 - [Prism pre-launch commands](https://prismlauncher.org/wiki/help-pages/custom-commands/)
 - [SKlauncher manual NeoForge installation](https://docs.skmedix.pl/modding/mod-loaders/neoforge)
 - [SKlauncher game directories](https://docs.skmedix.pl/faq/launcher-related)
+
+October 8, 2026 additions also consulted:
+
+- [SKlauncher 4.0 overview](https://docs.skmedix.pl/4.0/)
+- [SKlauncher 3.2 to 4.0 migration](https://docs.skmedix.pl/4.0/getting-started/migrating)
+- [Modrinth loader settings](https://support.modrinth.com/en/articles/8827653-installing-updating-mod-loaders-and-game-versions)
+- [Modrinth installed loader resolution](https://github.com/modrinth/code/blob/82a7b56a35ef7bd7617553468fe93cebe9eb57ad/packages/app-lib/src/launcher/mod.rs)
+
+SKlauncher 4.0.54's distributed main bundle and its local, non-account instance
+inventory confirmed the version, arguments, rebasing and custom-instance contracts.
+Modrinth's source and installed database table definitions confirmed its metadata
+paths and registration schema. These checks do not certify multiplayer execution.
 
 The adapter also follows Prism's `Library.cpp`, `OneSixVersionFormat.cpp` and
 `MinecraftInstance.cpp` and `INIFile.cpp` source contracts. Components are ordered
