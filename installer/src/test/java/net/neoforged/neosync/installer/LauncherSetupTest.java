@@ -18,22 +18,27 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.util.Map;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class LauncherSetupTest {
-    private static final String VERSION = "NeoSync-0.1.0-beta.7-neoforge-21.1.256";
-    private static final String LOADER = "21.1.256-neosync-0.1.0-beta.7";
+    private static final String VERSION = "NeoSync-0.1.0-beta.8-neoforge-21.1.256";
+    private static final String LOADER = "21.1.256-neosync-0.1.0-beta.8";
     @TempDir
     Path temp;
     Path runtime;
     Path root;
+    Path asset;
+    Path officialLibrary;
+    Path nativeLibrary;
 
     @BeforeEach
     void runtime() throws Exception {
-        runtime = Files.createDirectories(temp.resolve("installed runtime"));
         root = Files.createDirectories(temp.resolve("launcher with spaces"));
+        runtime = Files.createDirectories(root.resolve("neosync/runtime").resolve(VERSION));
         Path library = runtime.resolve("libraries/example/runtime/1/runtime-1.jar");
         Files.createDirectories(library.getParent());
         Files.write(library, new byte[] { 1, 2, 3 });
@@ -66,7 +71,31 @@ class LauncherSetupTest {
         InstallerFiles.publish(runtime.resolve("versions/" + VERSION + "/" + VERSION + ".json"), InstallerFiles.encode(profile));
         var vanilla = new JsonObject();
         vanilla.addProperty("id", "1.21.1");
-        vanilla.add("libraries", new JsonArray());
+        var officialLibraries = new JsonArray();
+        officialLibrary = writeRuntime("libraries/example/vanilla/1/vanilla-1.jar", new byte[] { 6, 7 });
+        officialLibraries.add(library("example:vanilla:1", "example/vanilla/1/vanilla-1.jar", officialLibrary));
+        nativeLibrary = writeRuntime("libraries/example/native/1/native-1.jar", new byte[] { 8, 9 });
+        JsonObject nativeEntry = library("example:native:1", "example/native/1/native-1.jar", nativeLibrary);
+        JsonObject nativeRule = new JsonObject();
+        nativeRule.addProperty("action", "allow");
+        JsonObject os = new JsonObject();
+        os.addProperty("name", ModrinthRuntimeSetup.platform());
+        nativeRule.add("os", os);
+        JsonArray rules = new JsonArray();
+        rules.add(nativeRule);
+        nativeEntry.add("rules", rules);
+        officialLibraries.add(nativeEntry);
+        JsonObject excluded = library("example:excluded:1", "example/excluded/1/excluded-1.jar", officialLibrary);
+        JsonObject excludedOs = new JsonObject();
+        excludedOs.addProperty("name", "unsupported");
+        JsonObject excludedRule = new JsonObject();
+        excludedRule.addProperty("action", "allow");
+        excludedRule.add("os", excludedOs);
+        JsonArray excludedRules = new JsonArray();
+        excludedRules.add(excludedRule);
+        excluded.add("rules", excludedRules);
+        officialLibraries.add(excluded);
+        vanilla.add("libraries", officialLibraries);
         var vanillaArguments = new JsonObject();
         var vanillaGame = new JsonArray();
         vanillaGame.add("--gameDir");
@@ -74,10 +103,70 @@ class LauncherSetupTest {
         vanillaArguments.add("game", vanillaGame);
         vanillaArguments.add("jvm", new JsonArray());
         vanilla.add("arguments", vanillaArguments);
+        Path client = runtime.resolve("versions/1.21.1/1.21.1.jar");
+        Files.createDirectories(client.getParent());
+        try (var jar = new JarOutputStream(Files.newOutputStream(client))) {
+            jar.putNextEntry(new JarEntry("version.json"));
+            jar.write("{\"id\":\"1.21.1\",\"protocol_version\":767}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+            jar.closeEntry();
+        }
+        JsonObject downloadsClient = new JsonObject();
+        downloadsClient.add("client", artifact(client, "https://piston-data.mojang.com/client.jar"));
+        vanilla.add("downloads", downloadsClient);
+        Path object = writeRuntime("asset-content", new byte[] { 10, 11, 12 });
+        String objectHash = InstallerFiles.hash(object, "SHA-1");
+        asset = runtime.resolve("assets/objects/" + objectHash.substring(0, 2) + "/" + objectHash);
+        Files.createDirectories(asset.getParent());
+        Files.move(object, asset);
+        JsonObject objects = new JsonObject();
+        JsonObject objectIdentity = new JsonObject();
+        objectIdentity.addProperty("hash", objectHash);
+        objectIdentity.addProperty("size", Files.size(asset));
+        objects.add("test/asset", objectIdentity);
+        JsonObject index = new JsonObject();
+        index.add("objects", objects);
+        index.addProperty("virtual", false);
+        Path indexFile = writeRuntime("assets/indexes/17.json", InstallerFiles.encode(index));
+        JsonObject indexIdentity = artifact(indexFile, "https://piston-meta.mojang.com/index.json");
+        indexIdentity.addProperty("id", "17");
+        vanilla.add("assetIndex", indexIdentity);
+        Path log = writeRuntime("assets/log_configs/client.xml", "<Configuration/>".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        JsonObject logIdentity = artifact(log, "https://piston-data.mojang.com/client.xml");
+        logIdentity.addProperty("id", "client.xml");
+        JsonObject clientLogging = new JsonObject();
+        clientLogging.add("file", logIdentity);
+        JsonObject logging = new JsonObject();
+        logging.add("client", clientLogging);
+        vanilla.add("logging", logging);
         InstallerFiles.publish(runtime.resolve("versions/1.21.1/1.21.1.json"), InstallerFiles.encode(vanilla));
-        Files.write(runtime.resolve("versions/1.21.1/1.21.1.jar"), new byte[] { 4 });
         Path own = Files.createDirectories(runtime.resolve("libraries/net/neoforged/neoforge/" + LOADER));
         for (String side : java.util.List.of("client", "universal")) Files.write(own.resolve("neoforge-" + LOADER + "-" + side + ".jar"), new byte[] { 5 });
+    }
+
+    private Path writeRuntime(String path, byte[] content) throws Exception {
+        Path file = runtime.resolve(path);
+        Files.createDirectories(file.getParent());
+        Files.write(file, content);
+        return file;
+    }
+
+    private static JsonObject artifact(Path file, String url) throws Exception {
+        JsonObject artifact = new JsonObject();
+        artifact.addProperty("sha1", InstallerFiles.hash(file, "SHA-1"));
+        artifact.addProperty("size", Files.size(file));
+        artifact.addProperty("url", url);
+        return artifact;
+    }
+
+    private static JsonObject library(String name, String path, Path file) throws Exception {
+        JsonObject artifact = artifact(file, "https://libraries.minecraft.net/" + path);
+        artifact.addProperty("path", path);
+        JsonObject downloads = new JsonObject();
+        downloads.add("artifact", artifact);
+        JsonObject library = new JsonObject();
+        library.addProperty("name", name);
+        library.add("downloads", downloads);
+        return library;
     }
 
     @Test
@@ -166,10 +255,28 @@ class LauncherSetupTest {
     }
 
     @Test
-    void registersModrinthWithSpacePreservingOverridesAndDisabledSync() throws Exception {
+    void registersCompleteModrinthRuntimeAndPreservesExistingPreferences() throws Exception {
         modrinthDatabase(false);
         var target = new LauncherTarget(LauncherTarget.Kind.MODRINTH, root);
         LauncherSetup.configure(target, runtime, VERSION);
+        String versionId = "1.21.1-" + VERSION;
+        Path meta = root.resolve("meta");
+        assertArrayEquals(Files.readAllBytes(runtime.resolve("versions/1.21.1/1.21.1.jar")), Files.readAllBytes(meta.resolve("versions/" + versionId + "/" + versionId + ".jar")));
+        assertTrue(Files.isDirectory(meta.resolve("natives/" + versionId)));
+        assertArrayEquals(Files.readAllBytes(asset), Files.readAllBytes(meta.resolve(runtime.relativize(asset))));
+        assertTrue(Files.exists(meta.resolve("log_configs/client.xml")));
+        assertFalse(Files.exists(meta.resolve("libraries/example/excluded/1/excluded-1.jar")));
+        JsonObject descriptor = InstallerFiles.json(meta.resolve("versions/" + versionId + "/neosync-runtime.json"));
+        assertEquals(767, descriptor.get("protocolVersion").getAsInt());
+        assertEquals(1, descriptor.get("schemaVersion").getAsInt());
+        assertEquals(InstallerFiles.hash(meta.resolve("versions/" + versionId + "/" + versionId + ".json"), "SHA-256"), descriptor.get("metadataSha256").getAsString());
+        JsonArray mergedLibraries = InstallerFiles.json(meta.resolve("versions/" + versionId + "/" + versionId + ".json")).getAsJsonArray("libraries");
+        assertFalse(mergedLibraries.get(mergedLibraries.size() - 1).getAsJsonObject().get("downloadable").getAsBoolean());
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement()) {
+            statement.execute("UPDATE instance_sync_preferences SET enabled=1");
+            statement.execute("UPDATE instances SET name='My name',install_stage='not_installed'");
+            statement.execute("UPDATE instance_content_sets SET protocol_version=NULL");
+        }
         LauncherSetup.configure(target, runtime, VERSION);
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement()) {
             try (var rows = statement.executeQuery("SELECT count(*) FROM instances")) {
@@ -182,7 +289,13 @@ class LauncherSetupTest {
             }
             try (var rows = statement.executeQuery("SELECT enabled FROM instance_sync_preferences")) {
                 assertTrue(rows.next());
-                assertEquals(0, rows.getInt(1));
+                assertEquals(1, rows.getInt(1));
+            }
+            try (var rows = statement.executeQuery("SELECT i.name,i.install_stage,c.protocol_version FROM instances i JOIN instance_content_sets c ON c.id=i.applied_content_set_id")) {
+                assertTrue(rows.next());
+                assertEquals("My name", rows.getString(1));
+                assertEquals("installed", rows.getString(2));
+                assertEquals(767, rows.getInt(3));
             }
             try (var rows = statement.executeQuery("PRAGMA foreign_key_check")) {
                 assertFalse(rows.next());
@@ -192,6 +305,113 @@ class LauncherSetupTest {
                 assertEquals("preserved", rows.getString(1));
             }
         }
+    }
+
+    @Test
+    void downloadsMissingOfficialResourcesIntoVerifiedStaging() throws Exception {
+        modrinthDatabase(false);
+        byte[] library = Files.readAllBytes(officialLibrary);
+        Files.delete(officialLibrary);
+        byte[] assetBytes = Files.readAllBytes(asset);
+        Files.delete(asset);
+        var downloads = new java.util.concurrent.ConcurrentLinkedQueue<String>();
+        LauncherSetup.configure(new LauncherTarget(LauncherTarget.Kind.MODRINTH, root), runtime, VERSION, (uri, file, size) -> {
+            downloads.add(uri.getHost());
+            Files.write(file, uri.getHost().equals("libraries.minecraft.net") ? library : assetBytes);
+        });
+        assertEquals(2, downloads.size());
+        assertArrayEquals(library, Files.readAllBytes(root.resolve("meta/libraries/example/vanilla/1/vanilla-1.jar")));
+        assertArrayEquals(assetBytes, Files.readAllBytes(root.resolve("meta").resolve(runtime.relativize(asset))));
+    }
+
+    @Test
+    void failedDownloadNeverRegistersOrPublishesAnIncompleteRuntime() throws Exception {
+        modrinthDatabase(false);
+        Files.delete(asset);
+        assertThrows(IOException.class, () -> LauncherSetup.configure(new LauncherTarget(LauncherTarget.Kind.MODRINTH, root), runtime, VERSION, (uri, file, size) -> Files.write(file, new byte[] { 0 })));
+        assertFalse(Files.exists(root.resolve("meta")));
+        assertFalse(Files.exists(root.resolve("profiles")));
+        try (var paths = Files.list(root)) {
+            assertFalse(paths.anyMatch(path -> path.getFileName().toString().startsWith(".neosync-runtime-")));
+        }
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement(); var rows = statement.executeQuery("SELECT count(*) FROM instances")) {
+            assertTrue(rows.next());
+            assertEquals(0, rows.getInt(1));
+        }
+    }
+
+    @Test
+    void rejectsEditedReadyResourcesWhilePreservingInstancePreferences() throws Exception {
+        modrinthDatabase(false);
+        var target = new LauncherTarget(LauncherTarget.Kind.MODRINTH, root);
+        LauncherSetup.configure(target, runtime, VERSION);
+        Path edited = root.resolve("meta/libraries/example/vanilla/1/vanilla-1.jar");
+        Files.write(edited, new byte[] { 0 });
+        assertThrows(IOException.class, () -> LauncherSetup.configure(target, runtime, VERSION));
+        assertArrayEquals(new byte[] { 0 }, Files.readAllBytes(edited));
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement(); var rows = statement.executeQuery("SELECT install_stage FROM instances")) {
+            assertTrue(rows.next());
+            assertEquals("installed", rows.getString(1));
+        }
+    }
+
+    @Test
+    void rejectsEditedModrinthContentIdentityWithoutUpdatingIt() throws Exception {
+        modrinthDatabase(false);
+        var target = new LauncherTarget(LauncherTarget.Kind.MODRINTH, root);
+        LauncherSetup.configure(target, runtime, VERSION);
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement()) {
+            statement.execute("UPDATE instance_content_sets SET game_version='1.20.1'");
+            statement.execute("UPDATE instances SET install_stage='not_installed'");
+        }
+        assertThrows(IOException.class, () -> LauncherSetup.configure(target, runtime, VERSION));
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement(); var rows = statement.executeQuery("SELECT i.install_stage,c.game_version FROM instances i JOIN instance_content_sets c ON c.id=i.applied_content_set_id")) {
+            assertTrue(rows.next());
+            assertEquals("not_installed", rows.getString(1));
+            assertEquals("1.20.1", rows.getString(2));
+        }
+    }
+
+    @Test
+    void rejectsUnapprovedOfficialDownloadHostBeforeDownloaderRuns() throws Exception {
+        modrinthDatabase(false);
+        Files.delete(officialLibrary);
+        Path metadata = runtime.resolve("versions/1.21.1/1.21.1.json");
+        JsonObject vanilla = InstallerFiles.json(metadata);
+        vanilla.getAsJsonArray("libraries").get(0).getAsJsonObject().getAsJsonObject("downloads").getAsJsonObject("artifact").addProperty("url", "https://localhost/private.jar");
+        Files.write(metadata, InstallerFiles.encode(vanilla));
+        var requests = new java.util.concurrent.atomic.AtomicInteger();
+        assertThrows(IOException.class, () -> LauncherSetup.configure(new LauncherTarget(LauncherTarget.Kind.MODRINTH, root), runtime, VERSION, (uri, file, size) -> requests.incrementAndGet()));
+        assertEquals(0, requests.get());
+        assertFalse(Files.exists(root.resolve("meta")));
+    }
+
+    @Test
+    void interruptedOfficialDownloadRemovesPartialStaging() throws Exception {
+        modrinthDatabase(false);
+        Files.delete(asset);
+        assertThrows(IOException.class, () -> LauncherSetup.configure(new LauncherTarget(LauncherTarget.Kind.MODRINTH, root), runtime, VERSION, (uri, file, size) -> {
+            Files.write(file, new byte[] { 10 });
+            throw new IOException("Interrupted fixture download");
+        }));
+        assertFalse(Files.exists(root.resolve("meta")));
+        try (var paths = Files.list(root)) {
+            assertFalse(paths.anyMatch(path -> path.getFileName().toString().startsWith(".neosync-runtime-")));
+        }
+    }
+
+    @Test
+    void rejectsOversizedOfficialArtifactBeforeDownloaderRuns() throws Exception {
+        modrinthDatabase(false);
+        Files.delete(officialLibrary);
+        Path metadata = runtime.resolve("versions/1.21.1/1.21.1.json");
+        JsonObject vanilla = InstallerFiles.json(metadata);
+        vanilla.getAsJsonArray("libraries").get(0).getAsJsonObject().getAsJsonObject("downloads").getAsJsonObject("artifact").addProperty("size", InstallerFiles.LIBRARY_LIMIT + 1);
+        Files.write(metadata, InstallerFiles.encode(vanilla));
+        var requests = new java.util.concurrent.atomic.AtomicInteger();
+        assertThrows(IOException.class, () -> LauncherSetup.configure(new LauncherTarget(LauncherTarget.Kind.MODRINTH, root), runtime, VERSION, (uri, file, size) -> requests.incrementAndGet()));
+        assertEquals(0, requests.get());
+        assertFalse(Files.exists(root.resolve("meta")));
     }
 
     @Test

@@ -11,6 +11,14 @@ installing. Published artifacts and tags remain immutable.
 
 ## Unreleased
 
+- Reserve 0.1.0-beta.8 for authorized CurseForge builds and complete Modrinth App
+  runtime preparation; retain the existing beta.7 draft and installed identity.
+- Finish Modrinth's client, libraries, assets and logging before registering an
+  instance as ready. Verify server revision runtimes and preserve paths with spaces.
+- Supply the official CurseForge key through private build inputs and validate
+  credential-bearing packages explicitly, without putting the key in sources,
+  logs or Gradle caches. Forks must apply for their own key.
+
 - Add a graphical launcher selector with original icons, detected paths, disabled
   missing directories and a custom-folder option. Install and register launchers
   automatically without Python steps.

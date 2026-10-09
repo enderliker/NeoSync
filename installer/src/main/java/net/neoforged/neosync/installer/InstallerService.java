@@ -70,7 +70,7 @@ public final class InstallerService {
                 InstallerFiles.publish(completion, InstallerFiles.encode(record));
             }
             progress.accept("Preparing " + target.kind().label() + "...");
-            return LauncherSetup.configure(target, runtime, version);
+            return LauncherSetup.configure(target, runtime, version, progress);
         }
     }
 }

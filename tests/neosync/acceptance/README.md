@@ -158,6 +158,14 @@ launcher harness. Both consent cancellations left the store untouched; explicit
 acceptance downloaded verified bytes, Later was focused, and the next launch
 joined the real server. This is not actual-launcher automatic restart evidence.
 
+The driver also supports Windows absolute prepared paths. For Modrinth acceptance,
+`bootstrap` with `expectedLauncher=modrinth` and `expectedVersion=<build>` checks
+the local launcher arguments and the title screen. Set `nativePrepare=true` and
+`launcherName=Modrinth App` for `install` to prepare the server instance through
+the actual consented action. Its activation remains focused on Later. Launch the
+generated instance separately and require the `resume` join report. These modes
+do not automate account login or copy credentials.
+
 ## Prism restart and update acceptance
 
 Use a fresh installed client and `scripts/configure_prism.py` to create a new

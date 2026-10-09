@@ -36,6 +36,9 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Test release credential validation
+        run: python3 -m unittest discover -s tests/neosync -p 'test_release_credentials.py'
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
@@ -55,6 +58,9 @@ jobs:
 
       - name: Run production server self-test
         run: ./gradlew --max-workers=2 --console=plain :neoforge:testProductionServer
+
+      - name: Test fixture credential packaging and removal
+        run: python3 scripts/check_provider_access_transition.py
 
       - name: Store reports
         if: failure()

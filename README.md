@@ -54,6 +54,13 @@ and beta, and Modrinth instances, with no Python steps. Windows builds also incl
 See [development notes](docs/neosync/development-sources-launchers.md) for key
 injection, provider restrictions and which launchers still require manual launch.
 
+Authorized NeoSync beta.8 builds include CurseForge API access. Use of NeoSync's
+CurseForge API functionality is subject to the
+[CurseForge 3rd Party API Terms and Conditions](https://support.curseforge.com/en/support/solutions/articles/9000207405).
+An API key embedded in an authorized NeoSync build does not grant permission to
+reuse or redistribute that key. Forks and third-party distributions must obtain
+their own applicable authorization and apply for their own key.
+
 <details>
 <summary>Download formats and release notes</summary>
 
@@ -76,7 +83,8 @@ Create's Flywheel and Ponder dependencies. It retains beta.5's public IPv4 NAT
 panel access, first-run server configuration, and custom panel port, as well as
 beta.4's configurable HTTP or HTTPS, panel branding, Prism restart and profile
 recovery.
-CurseForge remains removed. Restricted hosting remains available for eligible administrator-authored mods.
+Published beta.6 and earlier releases remain Modrinth-only. Restricted hosting
+remains available for eligible administrator-authored mods.
 
 </details>
 
