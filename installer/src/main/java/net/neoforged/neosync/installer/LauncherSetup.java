@@ -121,6 +121,7 @@ final class LauncherSetup {
         merged.add("libraries", allLibraries);
         String targetVersion = (modrinth ? "1.21.1-" : "") + version;
         merged.addProperty("id", targetVersion);
+        if (modrinth) normalizeTimestamps(merged);
         if (!modrinth) merged.addProperty("jar", "1.21.1");
         if (!beta && !modrinth) merged = profile;
         Path record = metadata.resolve("versions").resolve(targetVersion).resolve(targetVersion + ".json");
@@ -195,6 +196,21 @@ final class LauncherSetup {
     private static String argument(JsonArray values, String key) throws IOException {
         for (int i = 0; i + 1 < values.size(); i++) if (key.equals(values.get(i).getAsString())) return values.get(i + 1).getAsString();
         throw new IOException("The installed runtime is missing " + key + ".");
+    }
+
+    private static void normalizeTimestamps(JsonObject metadata) throws IOException {
+        for (String field : java.util.List.of("time", "releaseTime")) {
+            try {
+                String value = metadata.get(field).getAsString();
+                try {
+                    java.time.OffsetDateTime.parse(value);
+                } catch (java.time.format.DateTimeParseException legacy) {
+                    metadata.addProperty(field, java.time.LocalDateTime.parse(value).atOffset(java.time.ZoneOffset.UTC).toString());
+                }
+            } catch (RuntimeException invalid) {
+                throw new IOException("Invalid Minecraft launcher timestamp: " + field, invalid);
+            }
+        }
     }
 
     private static void checkRecord(Path path, JsonObject expected) throws IOException {

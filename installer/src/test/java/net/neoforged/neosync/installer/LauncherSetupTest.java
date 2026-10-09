@@ -57,6 +57,8 @@ class LauncherSetupTest {
         profile.addProperty("id", VERSION);
         profile.addProperty("inheritsFrom", "1.21.1");
         profile.addProperty("mainClass", "cpw.mods.bootstraplauncher.BootstrapLauncher");
+        profile.addProperty("time", "2026-10-09T17:29:50.848063672");
+        profile.addProperty("releaseTime", "2026-10-09T17:29:50.848063672");
         profile.add("libraries", libraries);
         var arguments = new JsonObject();
         var game = new JsonArray();
@@ -71,6 +73,8 @@ class LauncherSetupTest {
         InstallerFiles.publish(runtime.resolve("versions/" + VERSION + "/" + VERSION + ".json"), InstallerFiles.encode(profile));
         var vanilla = new JsonObject();
         vanilla.addProperty("id", "1.21.1");
+        vanilla.addProperty("time", "2024-08-08T12:00:00Z");
+        vanilla.addProperty("releaseTime", "2024-08-08T12:00:00Z");
         var officialLibraries = new JsonArray();
         officialLibrary = writeRuntime("libraries/example/vanilla/1/vanilla-1.jar", new byte[] { 6, 7 });
         officialLibraries.add(library("example:vanilla:1", "example/vanilla/1/vanilla-1.jar", officialLibrary));
@@ -270,6 +274,10 @@ class LauncherSetupTest {
         assertEquals(767, descriptor.get("protocolVersion").getAsInt());
         assertEquals(1, descriptor.get("schemaVersion").getAsInt());
         assertEquals(InstallerFiles.hash(meta.resolve("versions/" + versionId + "/" + versionId + ".json"), "SHA-256"), descriptor.get("metadataSha256").getAsString());
+        JsonObject metadata = InstallerFiles.json(meta.resolve("versions/" + versionId + "/" + versionId + ".json"));
+        for (String field : java.util.List.of("time", "releaseTime")) {
+            assertEquals(java.time.Instant.parse("2026-10-09T17:29:50.848063672Z"), java.time.OffsetDateTime.parse(metadata.get(field).getAsString()).toInstant());
+        }
         JsonArray mergedLibraries = InstallerFiles.json(meta.resolve("versions/" + versionId + "/" + versionId + ".json")).getAsJsonArray("libraries");
         assertFalse(mergedLibraries.get(mergedLibraries.size() - 1).getAsJsonObject().get("downloadable").getAsBoolean());
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement()) {
@@ -304,6 +312,24 @@ class LauncherSetupTest {
                 assertTrue(rows.next());
                 assertEquals("preserved", rows.getString(1));
             }
+        }
+    }
+
+    @Test
+    void rejectsInvalidModrinthTimestampBeforePublishingRuntime() throws Exception {
+        modrinthDatabase(false);
+        Path profileFile = runtime.resolve("versions/" + VERSION + "/" + VERSION + ".json");
+        JsonObject profile = InstallerFiles.json(profileFile);
+        profile.addProperty("releaseTime", "2026-10-09T17:");
+        Files.write(profileFile, InstallerFiles.encode(profile));
+        var target = new LauncherTarget(LauncherTarget.Kind.MODRINTH, root);
+        assertTrue(assertThrows(IOException.class, () -> LauncherSetup.configure(target, runtime, VERSION)).getMessage().contains("timestamp"));
+        assertFalse(Files.exists(root.resolve("meta/versions")));
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db"));
+                var statement = connection.createStatement();
+                var rows = statement.executeQuery("SELECT count(*) FROM instances")) {
+            assertTrue(rows.next());
+            assertEquals(0, rows.getInt(1));
         }
     }
 

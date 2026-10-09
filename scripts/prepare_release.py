@@ -5,6 +5,7 @@
 
 import argparse
 import base64
+from datetime import datetime
 import hashlib
 import hmac
 import io
@@ -184,6 +185,8 @@ def validate(curseforge_key_file=None):
                 "The executable installer manifest must be the first file.")
         profile = json.loads(archive.read("install_profile.json"))
         launcher = json.loads(archive.read("version.json"))
+        for field in ("time", "releaseTime"):
+            require(datetime.fromisoformat(launcher[field]).utcoffset() is not None, "Launcher timestamps must include a timezone.")
         require(profile["profile"] == "NeoSync" and profile["version"] == name and launcher["id"] == name,
                 "Installer or launcher identity differs from the release.")
         require(profile["minecraft"] == properties["minecraft_version"], "Wrong Minecraft version.")
