@@ -5,17 +5,21 @@
 
 import argparse
 import base64
+from datetime import datetime
 import hashlib
+import hmac
+import io
 import json
 import re
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from zipfile import ZipFile
+from zipfile import BadZipFile, ZipFile
 
 
 ROOT = Path(__file__).resolve().parent.parent
+PROVIDER_ACCESS = "META-INF/neosync/provider-access.bin"
 
 # Digests of unchanged entries from the pinned upstream 4.0.45 archives.
 # Include paths, class/source bytes, module metadata, services, and the font.
@@ -39,7 +43,77 @@ def sha256(path):
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
-def validate():
+def require_clean_tree():
+    require(not git("status", "--porcelain"), "Commit all source changes and untracked files before exporting a release.")
+
+
+def credential_bytes(path):
+    try:
+        with path.open("rb") as stream:
+            data = stream.read(4097)
+        require(len(data) <= 4096, "Invalid CurseForge credential file.")
+        key = data.decode("utf-8").strip("".join(map(chr, range(33)))).encode("ascii")
+        require(re.fullmatch(rb"[\x21-\x7e]+", key), "Invalid CurseForge credential file.")
+        return key
+    except (OSError, UnicodeError):
+        raise ValueError("Invalid CurseForge credential file.") from None
+
+
+def credential_needles(key):
+    return (key, key.decode("ascii").encode("utf-16-le"), key.decode("ascii").encode("utf-16-be"))
+
+
+def check_log(path, key):
+    needles = credential_needles(key)
+    overlap = max(map(len, needles)) - 1
+    try:
+        with path.open("rb") as stream:
+            tail = b""
+            while chunk := stream.read(65536):
+                data = tail + chunk
+                require(not any(needle in data for needle in needles), "A validation log contains a literal provider credential.")
+                tail = data[-overlap:] if overlap else b""
+    except OSError:
+        raise ValueError("Could not inspect a validation log.") from None
+
+
+def check_archive_access(data, key, allowed_resources=(), ancestors=(), budget=None):
+    try:
+        _check_archive_access(data, key, allowed_resources, ancestors, budget)
+    except (BadZipFile, RuntimeError, OSError):
+        raise ValueError("Could not inspect a release archive.") from None
+
+
+def _check_archive_access(data, key, allowed_resources, ancestors, budget):
+    if budget is None:
+        budget = [512 * 1024 * 1024]
+    require(len(ancestors) <= 8, "Nested release archives exceed the inspection limit.")
+    if key is not None:
+        require(not any(needle in data for needle in credential_needles(key)), "A release artifact contains a literal provider credential.")
+    with ZipFile(io.BytesIO(data)) as archive:
+        require(len(set(archive.namelist())) == len(archive.namelist()), "Duplicate release archive entries.")
+        for entry in archive.infolist():
+            if entry.is_dir():
+                continue
+            budget[0] -= entry.file_size
+            require(budget[0] >= 0, "Release archive contents exceed the inspection limit.")
+            contents = archive.read(entry)
+            if key is not None:
+                require(key not in entry.filename.encode("utf-8") and not any(needle in contents for needle in credential_needles(key)),
+                        "A release artifact contains a literal provider credential.")
+            location = ancestors + (entry.filename,)
+            if entry.filename == PROVIDER_ACCESS:
+                require(key is not None and location in allowed_resources,
+                        "A provider credential resource is present outside the authorized runtime.")
+                require(0 < len(contents) <= 8192 and len(contents) % 2 == 0,
+                        "Invalid embedded provider access configuration.")
+                decoded = bytes(a ^ b for a, b in zip(contents[::2], contents[1::2]))
+                require(hmac.compare_digest(decoded, key), "The embedded provider credential differs from the supplied file.")
+            if entry.filename.lower().endswith((".jar", ".zip")) or contents.startswith(b"PK\x03\x04"):
+                check_archive_access(contents, key, allowed_resources, location, budget)
+
+
+def validate(curseforge_key_file=None):
     properties = dict(
         line.split("=", 1)
         for line in (ROOT / "gradle.properties").read_text().splitlines()
@@ -59,12 +133,17 @@ def validate():
               for kind in ("installer", "universal", "sources", "earlydisplay", "earlydisplay-sources")}
     for path in assets.values():
         require(path.is_file(), f"Build the missing artifact first: {path.name}")
+    key = credential_bytes(curseforge_key_file) if curseforge_key_file is not None else None
+    for kind, path in assets.items():
+        allowed = ((PROVIDER_ACCESS,),) if kind == "universal" else (("maven/" + maven_path, PROVIDER_ACCESS),) if kind == "installer" else ()
+        check_archive_access(path.read_bytes(), key, allowed)
+    if key is not None:
+        with ZipFile(assets["universal"]) as archive:
+            require(PROVIDER_ACCESS in archive.namelist(), "The authorized runtime is missing its provider credential resource.")
     for kind in ("universal", "sources"):
         with ZipFile(assets[kind]) as archive:
             require(not any(n.startswith(("net/minecraft/", "com/mojang/", "mcp/")) for n in archive.namelist()),
                     f"Minecraft content found in {kind} artifact.")
-            require("META-INF/neosync/provider-access.bin" not in archive.namelist(),
-                    f"A provider credential resource is present in the {kind} artifact.")
             require(archive.testzip() is None, f"Corrupt {kind} archive.")
             if kind == "universal":
                 require(version.encode() in archive.read(source_path + ".class"), "The compiled runtime has a different NeoSync version.")
@@ -106,6 +185,8 @@ def validate():
                 "The executable installer manifest must be the first file.")
         profile = json.loads(archive.read("install_profile.json"))
         launcher = json.loads(archive.read("version.json"))
+        for field in ("time", "releaseTime"):
+            require(datetime.fromisoformat(launcher[field]).utcoffset() is not None, "Launcher timestamps must include a timezone.")
         require(profile["profile"] == "NeoSync" and profile["version"] == name and launcher["id"] == name,
                 "Installer or launcher identity differs from the release.")
         require(profile["minecraft"] == properties["minecraft_version"], "Wrong Minecraft version.")
@@ -153,19 +234,27 @@ def main():
     mode.add_argument("--check", action="store_true", help="Validate built artifacts without exporting or requiring a clean tree.")
     mode.add_argument("--local", action="store_true", help="Export an unpublished candidate from a clean local commit without requiring a push.")
     parser.add_argument("--windows-exe", type=Path, help="Include the Windows wrapper built from this exact installer.")
+    parser.add_argument("--curseforge-key-file", type=Path, help="Validate an authorized embedded credential against this private file without displaying it.")
+    parser.add_argument("--scan-log", type=Path, action="append", default=[], help="Inspect a validation log for literal credentials; requires --curseforge-key-file.")
     args = parser.parse_args()
-    name, properties, assets = validate()
+    require(not args.scan_log or args.curseforge_key_file is not None, "Log inspection requires a private credential file.")
+    name, properties, assets = validate(args.curseforge_key_file)
+    key = credential_bytes(args.curseforge_key_file) if args.curseforge_key_file is not None else None
+    for path in args.scan_log:
+        check_log(path, key)
     if args.windows_exe:
         exe = args.windows_exe.resolve()
         require(exe.is_file() and exe.name == name + "-installer.exe", "Wrong Windows installer name.")
         require(exe.read_bytes()[:2] == b"MZ", "The Windows installer is not a PE executable.")
         require(Path(str(exe) + ".jar.sha256").read_text().strip() == sha256(assets["installer"]), "The executable wraps a different installer JAR.")
         require(assets["installer"].read_bytes() in exe.read_bytes(), "The executable is missing the exact embedded installer.")
+        if key is not None:
+            require(not any(needle in exe.read_bytes() for needle in credential_needles(key)), "The Windows installer contains a literal provider credential.")
         assets["windows-installer"] = exe
     if args.check:
         print(f"PASS: {name}: installer, embedded libraries, isolated paths, source identity, branding, and unchanged FML code.")
         return
-    require(not git("status", "--porcelain", "--untracked-files=no"), "Commit all tracked changes before exporting a release.")
+    require_clean_tree()
     commit = git("rev-parse", "HEAD")
     if not args.local:
         require(git("branch", "-r", "--contains", commit), "Push the source commit before exporting.")
@@ -185,6 +274,7 @@ def main():
             "neoSyncVersion": properties["neosync_version"], "neoForgeBaseVersion": properties["neoforge_base_version"],
             "minecraftVersion": properties["minecraft_version"], "javaVersion": properties["java_version"],
             "protocolVersion": 1, "artifacts": records,
+            "curseForgeAccess": "authorized-embedded" if key is not None else "unavailable",
         }
         manifest_path = staging / "release-manifest.json"
         manifest_path.write_text(json.dumps(manifest, indent=2) + "\n")

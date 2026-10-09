@@ -1,6 +1,7 @@
 # Unreleased source and launcher changes
 
-These changes reserve the unreleased 0.1.0-beta.7 version for Minecraft 1.21.1.
+Current development reserves 0.1.0-beta.8 for Minecraft 1.21.1; the existing
+beta.7 release and its installed version remain intact.
 The September 29 work used NeoForge 21.1.252; October 8 development updates it to
 21.1.256 and adds SKlauncher/Modrinth integration. They do not alter published
 beta.6 or earlier artifacts. Installed acceptance below is limited to its exact
@@ -56,12 +57,24 @@ Gradle output caching. Do not upload private build directories or configuration
 caches. Rebuilding without the variable removes the generated resource.
 
 Obfuscation only frustrates casual string searches: code that authenticates must
-recover the key at runtime. This is not secure secret storage. The official
-[third-party API terms](https://support.curseforge.com/support/solutions/articles/9000207405-curse-forge-3rd-party-api-terms-and-conditions)
-restrict sharing keys and saving/caching API data. Possession of a key or its
-association with NeoForge does not prove permission for NeoSync distribution.
-Obtain applicable authorization before distributing a credential-bearing build.
-Release validation continues to reject embedded credentials by default.
+recover the key at runtime. This is not secure secret storage. On October 9, 2026
+the owner supplied CurseForge's written confirmation that public NeoSync client
+and server builds may embed the recoverable key and that forks must apply for
+their own key. No broader permission is inferred from that confirmation.
+
+Use of NeoSync's CurseForge API functionality is subject to the
+[CurseForge 3rd Party API Terms and Conditions](https://support.curseforge.com/en/support/solutions/articles/9000207405).
+An API key embedded in an authorized NeoSync build does not grant permission to
+reuse or redistribute that key. Forks and third-party distributions must obtain
+their own applicable authorization and apply for their own key.
+
+The official release workflow obtains `NEOSYNC_CURSEFORGE_KEY` from the private
+repository secret, creates a temporary owner-only key file and removes it after
+packaging. Pull-request and ordinary fork builds do not receive this secret.
+Use `scripts/prepare_release.py --curseforge-key-file /private/path/curseforge-key`
+to validate an authorized package. The validator compares decoded access in
+memory and rejects literal credentials in artifacts. Source archives exclude the
+resource. Validation without the option rejects credential-bearing archives.
 
 ## Launcher consent and limits
 

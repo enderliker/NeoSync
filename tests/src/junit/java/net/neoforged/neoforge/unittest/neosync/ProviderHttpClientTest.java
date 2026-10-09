@@ -11,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.URI;
@@ -42,7 +43,7 @@ class ProviderHttpClientTest {
         Path path = directory.resolve("fixture.p12");
         String keytool = Path.of(System.getProperty("java.home"), "bin", System.getProperty("os.name").startsWith("Windows") ? "keytool.exe" : "keytool").toString();
         var process = new ProcessBuilder(keytool, "-genkeypair", "-alias", "fixture", "-keyalg", "RSA", "-validity", "1",
-                "-dname", "CN=api.modrinth.com", "-ext", "SAN=dns:api.modrinth.com", "-storetype", "PKCS12",
+                "-dname", "CN=api.modrinth.com", "-ext", "SAN=dns:api.modrinth.com,dns:api.curseforge.com", "-storetype", "PKCS12",
                 "-keystore", path.toString(), "-storepass", "fixture-password", "-noprompt")
                         .redirectErrorStream(true).redirectOutput(directory.resolve("keytool.log").toFile()).start();
         assertTrue(process.waitFor(15, TimeUnit.SECONDS));
@@ -70,6 +71,36 @@ class ProviderHttpClientTest {
             assertTrue(request.contains("enderliker/NeoSync/"));
             assertFalse(request.contains("x-api-key"));
             assertFalse(request.lines().findFirst().orElseThrow().contains(FAKE_KEY));
+        }
+    }
+
+    @Test
+    void sendsMaskedFixtureAccessOnlyToCurseForgeWithNoStore() throws Exception {
+        var loader = new ProviderFixtureLoader(ProviderFixtureLoader.masked(FAKE_KEY));
+        for (int attempt = 0; attempt < 2; attempt++) {
+            try (var fixture = new Fixture("HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: 2\r\n\r\n{}")) {
+                assertEquals("{}", new String(fetchCurseForge(loader, fixture, URI.create("https://api.curseforge.com/v1/fingerprints/432")), StandardCharsets.UTF_8));
+                String request = fixture.request.get(5, TimeUnit.SECONDS);
+                assertTrue(request.lines().anyMatch(line -> line.equalsIgnoreCase("x-api-key: " + FAKE_KEY)));
+                assertTrue(request.lines().anyMatch(line -> line.equalsIgnoreCase("cache-control: no-store")));
+                assertTrue(request.lines().anyMatch(line -> line.equalsIgnoreCase("host: api.curseforge.com")));
+                assertFalse(request.lines().findFirst().orElseThrow().contains(FAKE_KEY));
+                assertFalse(request.toLowerCase(java.util.Locale.ROOT).contains("authorization:"));
+            }
+        }
+    }
+
+    @Test
+    void rejectsCurseForgeRedirectsAndWrongOriginsWithoutExposingAccess() throws Exception {
+        var loader = new ProviderFixtureLoader(ProviderFixtureLoader.masked(FAKE_KEY));
+        try (var fixture = new Fixture("HTTP/1.1 302 Found\r\nLocation: https://attacker.example/\r\nContent-Length: " + FAKE_KEY.length() + "\r\n\r\n" + FAKE_KEY)) {
+            Exception failure = assertThrows(Exception.class, () -> fetchCurseForge(loader, fixture, URI.create("https://api.curseforge.com/v1/mods/123")));
+            assertFalse(failure.toString().contains(FAKE_KEY));
+            assertTrue(failure.getMessage().contains("302"));
+        }
+        try (var fixture = new Fixture("")) {
+            Exception failure = assertThrows(Exception.class, () -> fetchCurseForge(loader, fixture, URI.create("https://api.modrinth.com/v1/mods/123")));
+            assertFalse(failure.toString().contains(FAKE_KEY));
         }
     }
 
@@ -110,6 +141,19 @@ class ProviderHttpClientTest {
     private static byte[] fetch(ProviderHttpClient.Service service, Fixture fixture, SSLContext tls, DiscoveryCancellation token) throws Exception {
         URI uri = URI.create("https://api.modrinth.com/v2/versions");
         return ProviderHttpClient.fetchPinned(service, uri, "", new InetSocketAddress(InetAddress.getLoopbackAddress(), fixture.listener.getLocalPort()), tls, token);
+    }
+
+    private static byte[] fetchCurseForge(ProviderFixtureLoader loader, Fixture fixture, URI uri) throws Exception {
+        var type = loader.loadClass("net.neoforged.neoforge.neosync.provider.ProviderHttpClient");
+        var serviceType = loader.loadClass("net.neoforged.neoforge.neosync.provider.ProviderHttpClient$Service");
+        Object service = serviceType.getField("CURSEFORGE").get(null);
+        var method = type.getMethod("fetchPinned", serviceType, URI.class, String.class, InetSocketAddress.class, SSLContext.class, DiscoveryCancellation.class);
+        try {
+            return (byte[]) method.invoke(null, service, uri, "", new InetSocketAddress(InetAddress.getLoopbackAddress(), fixture.listener.getLocalPort()), clientTls, new DiscoveryCancellation());
+        } catch (InvocationTargetException failure) {
+            if (failure.getCause() instanceof Exception cause) throw cause;
+            throw failure;
+        }
     }
 
     private static final class Fixture implements AutoCloseable {

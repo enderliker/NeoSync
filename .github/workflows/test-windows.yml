@@ -37,6 +37,9 @@ jobs:
           distribution: temurin
           java-version: '21'
 
+      - name: Test release credential validation
+        run: python -m unittest discover -s tests/neosync -p 'test_release_credentials.py'
+
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:

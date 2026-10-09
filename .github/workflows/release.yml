@@ -27,18 +27,52 @@ jobs:
           java-version: '21'
 
       - uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          cache-disabled: true
 
       - name: Prepare Minecraft sources
-        run: ./gradlew setup --max-workers=2 --console=plain
+        run: ./gradlew setup --no-build-cache --no-configuration-cache --max-workers=2 --console=plain
+
+      - name: Test release credential validation and removal
+        run: |
+          python3 -m unittest discover -s tests/neosync -p 'test_release_credentials.py'
+          python3 scripts/check_provider_access_transition.py
+
+      - name: Prepare authorized provider access
+        env:
+          NEOSYNC_CURSEFORGE_KEY: ${{ secrets.NEOSYNC_CURSEFORGE_KEY }}
+        run: |
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          key = os.environ.pop("NEOSYNC_CURSEFORGE_KEY", "").strip()
+          if not key or len(key) > 4096 or any(ord(c) < 33 or ord(c) > 126 for c in key):
+              raise SystemExit("The official CurseForge secret is missing or invalid.")
+          path = Path(os.environ["RUNNER_TEMP"]) / "neosync-curseforge-key"
+          fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+          with os.fdopen(fd, "w", encoding="ascii") as stream:
+              stream.write(key)
+          with open(os.environ["GITHUB_ENV"], "a", encoding="utf-8") as stream:
+              stream.write(f"NEOSYNC_CURSEFORGE_KEY_FILE={path}\n")
+          PY
 
       - name: Build and test
-        run: ./gradlew checkFormatting :installer:test :tests:runUnitTests :neoforge:installerJar :neoforge:sourcesJar --max-workers=2 --console=plain
+        run: |
+          ./gradlew checkFormatting :installer:test :tests:runUnitTests :neoforge:installerJar :neoforge:sourcesJar --no-build-cache --no-configuration-cache --max-workers=2 --console=plain > "$RUNNER_TEMP/neosync-build.log" 2>&1
 
       - name: Test installed server and client
-        run: xvfb-run -a ./gradlew :neoforge:testProductionServer :neoforge:testProductionClient --max-workers=2 --console=plain
+        run: |
+          xvfb-run -a ./gradlew :neoforge:testProductionServer :neoforge:testProductionClient --no-build-cache --no-configuration-cache --max-workers=2 --console=plain > "$RUNNER_TEMP/neosync-production.log" 2>&1
 
       - name: Validate exact JARs
-        run: python3 scripts/prepare_release.py --check
+        run: |
+          python3 scripts/prepare_release.py --check --curseforge-key-file "$NEOSYNC_CURSEFORGE_KEY_FILE" --scan-log "$RUNNER_TEMP/neosync-build.log" --scan-log "$RUNNER_TEMP/neosync-production.log"
+
+      - name: Remove private build access
+        if: always()
+        run: |
+          rm -f -- "$RUNNER_TEMP/neosync-curseforge-key" "$RUNNER_TEMP/neosync-build.log" "$RUNNER_TEMP/neosync-production.log"
+          rm -rf -- projects/neoforge/build/generated/provider-access projects/neoforge/build/resources/main/META-INF/neosync/provider-access.bin
 
       - name: Upload assets for release review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -68,6 +102,22 @@ jobs:
         with:
           name: neosync-jars-${{ github.sha }}
           path: projects/neoforge/build/libs/
+      - name: Prepare authorized provider validation
+        env:
+          NEOSYNC_CURSEFORGE_KEY: ${{ secrets.NEOSYNC_CURSEFORGE_KEY }}
+        run: |
+          $key = ([string]$env:NEOSYNC_CURSEFORGE_KEY).Trim()
+          if (-not $key -or $key.Length -gt 4096 -or $key -notmatch '^[\x21-\x7E]+$') { throw 'The official CurseForge secret is missing or invalid.' }
+          $keyPath = Join-Path $env:RUNNER_TEMP 'neosync-curseforge-key'
+          [System.IO.File]::WriteAllText($keyPath, $key, [System.Text.UTF8Encoding]::new($false))
+          $identity = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+          $acl = [System.Security.AccessControl.FileSecurity]::new()
+          $acl.SetAccessRuleProtection($true, $false)
+          $acl.AddAccessRule([System.Security.AccessControl.FileSystemAccessRule]::new($identity, 'FullControl', 'Allow'))
+          Set-Acl -LiteralPath $keyPath -AclObject $acl
+          "NEOSYNC_CURSEFORGE_KEY_FILE=$keyPath" | Out-File -LiteralPath $env:GITHUB_ENV -Append -Encoding utf8
+          Remove-Item Env:NEOSYNC_CURSEFORGE_KEY
+          $key = $null
       - name: Build and test the exact Windows wrapper
         run: |
           $installer = @(Get-ChildItem projects/neoforge/build/libs/*-installer.jar)
@@ -77,8 +127,12 @@ jobs:
           $report = Join-Path $PWD 'build/windows-installer/check.txt'
           $process = Start-Process -FilePath $exe.FullName -ArgumentList '--wrapper-check', $report -WindowStyle Hidden -Wait -PassThru
           if ($process.ExitCode -ne 0) { throw 'Windows installer check failed.' }
-          Get-Content -LiteralPath $report
-          python scripts/prepare_release.py --windows-exe $exe.FullName
+          python scripts/prepare_release.py --windows-exe $exe.FullName --curseforge-key-file $env:NEOSYNC_CURSEFORGE_KEY_FILE --scan-log $report
+      - name: Remove private validation access
+        if: always()
+        run: |
+          $keyPath = Join-Path $env:RUNNER_TEMP 'neosync-curseforge-key'
+          Remove-Item -LiteralPath $keyPath -Force -ErrorAction SilentlyContinue
       - name: Upload complete assets for release review
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

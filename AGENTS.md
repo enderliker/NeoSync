@@ -138,8 +138,12 @@ CurseForge hints remain rejected without modifying their files.
 
 Builds may inject access from `NEOSYNC_CURSEFORGE_KEY_FILE`; never put its value
 in source, arguments, logs, sources JARs or build caches. Embedded credential
-obfuscation is not secrecy or authorization to distribute a provider key. Verify
-applicable provider permission before publishing a credential-bearing build.
+obfuscation is not secrecy. On October 9, 2026 the NeoSync owner supplied
+CurseForge's confirmation that embedding the recoverable key in public NeoSync
+client/server builds is permitted and that forks must apply for their own key.
+This permission applies to authorized NeoSync distributions, not reuse of the key
+in forks. The official release workflow uses the repository's private secret;
+pull-request and fork builds must never receive it.
 Published beta.6 and earlier beta releases remain unchanged and Modrinth-only.
 
 ### Server hosting
@@ -417,7 +421,8 @@ validated JARs; beta.6 does not replace any earlier published artifacts.
 - Use one installer for both the client and dedicated server, as NeoForge does.
   Bundle NeoSync's own universal JAR and binary patches; never distribute
   generated Minecraft game JARs, installed game directories, test mods, worlds,
-  accounts, certificates, or credentials as release assets.
+  accounts, certificates, or private credentials as release assets. The explicitly
+  authorized embedded CurseForge access resource is the only provider-key exception.
 - Give launcher profiles and installed fork artifacts unique versioned paths.
   Preserve the base NeoForge version presented to mod dependency checks. FML's
   inherited local Maven layout may be retained for compatibility, but do not

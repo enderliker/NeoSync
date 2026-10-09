@@ -1,6 +1,7 @@
 import net.neoforged.jarcompatibilitychecker.gradle.JCCPlugin
 import net.neoforged.jarcompatibilitychecker.gradle.CompatibilityTask
 import net.neoforged.jarcompatibilitychecker.gradle.ProvideNeoForgeJarTask
+import org.gradle.api.tasks.bundling.AbstractArchiveTask
 
 plugins {
     id 'java-library'
@@ -38,6 +39,9 @@ sourceSets {
 
 final providerAccessDirectory = layout.buildDirectory.dir('generated/provider-access')
 final providerAccessFile = providers.environmentVariable('NEOSYNC_CURSEFORGE_KEY_FILE')
+if (providerAccessFile.isPresent() && (gradle.startParameter.buildCacheEnabled || gradle.startParameter.configurationCacheRequested)) {
+    throw new GradleException('Credential-bearing builds require --no-build-cache --no-configuration-cache.')
+}
 final generateProviderAccess = tasks.register('generateProviderAccess') {
     outputs.dir(providerAccessDirectory)
     outputs.upToDateWhen { false }
@@ -72,8 +76,11 @@ sourceSets.main.resources.srcDir(providerAccessDirectory)
 tasks.named('processResources') {
     dependsOn(generateProviderAccess)
     outputs.doNotCacheIf('Contains an embedded provider credential') { providerAccessFile.isPresent() }
+    doFirst {
+        if (!providerAccessFile.isPresent()) new File(destinationDir, 'META-INF/neosync/provider-access.bin').delete()
+    }
 }
-tasks.withType(Jar).configureEach {
+tasks.withType(AbstractArchiveTask).configureEach {
     outputs.doNotCacheIf('May contain an embedded provider credential') { providerAccessFile.isPresent() }
 }
 tasks.named('sourcesJar') {

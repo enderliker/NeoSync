@@ -38,6 +38,7 @@ final class LauncherSetup {
                 for (String table : java.util.List.of("instances", "instance_content_sets", "instance_links", "instance_launch_overrides", "instance_sync_preferences", "sync_feature_settings")) {
                     try (var rows = statement.executeQuery("SELECT 1 FROM " + table + " LIMIT 0")) {}
                 }
+                try (var rows = statement.executeQuery("SELECT i.id,i.path,i.install_stage,c.id,c.instance_id,c.game_version,c.protocol_version,c.loader,c.loader_version FROM instances i LEFT JOIN instance_content_sets c ON c.id=i.applied_content_set_id LIMIT 0")) {}
             }
         } else if (target.kind() == LauncherTarget.Kind.PRISM) {
             findPrism(target.root());
@@ -49,6 +50,18 @@ final class LauncherSetup {
     }
 
     static Path configure(LauncherTarget target, Path installation, String version) throws Exception {
+        return configure(target, installation, version, ModrinthRuntimeSetup::download, ignored -> {});
+    }
+
+    static Path configure(LauncherTarget target, Path installation, String version, java.util.function.Consumer<String> progress) throws Exception {
+        return configure(target, installation, version, ModrinthRuntimeSetup::download, progress);
+    }
+
+    static Path configure(LauncherTarget target, Path installation, String version, ModrinthRuntimeSetup.Downloader downloader) throws Exception {
+        return configure(target, installation, version, downloader, ignored -> {});
+    }
+
+    private static Path configure(LauncherTarget target, Path installation, String version, ModrinthRuntimeSetup.Downloader downloader, java.util.function.Consumer<String> progress) throws Exception {
         preflight(target);
         JsonObject profile = InstallerFiles.json(installation.resolve("versions").resolve(version).resolve(version + ".json"));
         if (!version.equals(profile.get("id").getAsString()) || !"1.21.1".equals(profile.get("inheritsFrom").getAsString())
@@ -63,6 +76,7 @@ final class LauncherSetup {
         if (target.kind() == LauncherTarget.Kind.PRISM) return prism(target, installation, profile, libraries, version, neoSync, base);
         boolean modrinth = target.kind() == LauncherTarget.Kind.MODRINTH;
         boolean beta = target.kind() == LauncherTarget.Kind.SKLAUNCHER_BETA;
+        if (modrinth) for (var library : profile.getAsJsonArray("libraries")) library.getAsJsonObject().addProperty("downloadable", false);
         Path metadata = target.root().resolve(modrinth ? "meta" : "");
         JsonObject vanilla = InstallerFiles.json(installation.resolve("versions/1.21.1/1.21.1.json"));
         JsonArray jvm = profile.getAsJsonObject("arguments").getAsJsonArray("jvm");
@@ -107,11 +121,12 @@ final class LauncherSetup {
         merged.add("libraries", allLibraries);
         String targetVersion = (modrinth ? "1.21.1-" : "") + version;
         merged.addProperty("id", targetVersion);
+        if (modrinth) normalizeTimestamps(merged);
         if (!modrinth) merged.addProperty("jar", "1.21.1");
         if (!beta && !modrinth) merged = profile;
         Path record = metadata.resolve("versions").resolve(targetVersion).resolve(targetVersion + ".json");
         checkRecord(record, merged);
-        for (var entry : libraries.entrySet()) InstallerFiles.copy(entry.getValue(), metadata.resolve("libraries").resolve(entry.getKey()));
+        if (!modrinth) for (var entry : libraries.entrySet()) InstallerFiles.copy(entry.getValue(), metadata.resolve("libraries").resolve(entry.getKey()));
         if (!modrinth) {
             Path vanillaRecord = metadata.resolve("versions/1.21.1/1.21.1.json");
             writeRecord(vanillaRecord, vanilla);
@@ -123,11 +138,24 @@ final class LauncherSetup {
             throw new IOException("The target instance folder already exists. Choose another launcher directory.");
         boolean createdRecord = !Files.exists(record, LinkOption.NOFOLLOW_LINKS);
         boolean createdInstance = !Files.exists(instance, LinkOption.NOFOLLOW_LINKS);
+        if (modrinth) {
+            try (var runtime = ModrinthRuntimeSetup.prepare(target.root(), installation, targetVersion, merged, vanilla, libraries, downloader, progress)) {
+                runtime.publish();
+                try {
+                    InstallerFiles.directory(instance, true);
+                    registerModrinth(target.root(), instanceId, version, overrides, runtime.protocol());
+                    runtime.commit();
+                } catch (Exception failure) {
+                    if (createdInstance && Files.isDirectory(instance, LinkOption.NOFOLLOW_LINKS)) Files.deleteIfExists(instance);
+                    throw failure;
+                }
+            }
+            return instance;
+        }
         try {
             writeRecord(record, merged);
             InstallerFiles.directory(instance, true);
-            if (modrinth) registerModrinth(target.root(), instanceId, version, overrides);
-            else if (beta) registerBeta(target.root(), instanceId, version);
+            if (beta) registerBeta(target.root(), instanceId, version);
             else registerOfficial(target.root(), version, instance);
         } catch (Exception failure) {
             if (createdRecord) {
@@ -168,6 +196,21 @@ final class LauncherSetup {
     private static String argument(JsonArray values, String key) throws IOException {
         for (int i = 0; i + 1 < values.size(); i++) if (key.equals(values.get(i).getAsString())) return values.get(i + 1).getAsString();
         throw new IOException("The installed runtime is missing " + key + ".");
+    }
+
+    private static void normalizeTimestamps(JsonObject metadata) throws IOException {
+        for (String field : java.util.List.of("time", "releaseTime")) {
+            try {
+                String value = metadata.get(field).getAsString();
+                try {
+                    metadata.addProperty(field, java.time.OffsetDateTime.parse(value).toInstant().toString());
+                } catch (java.time.format.DateTimeParseException legacy) {
+                    metadata.addProperty(field, java.time.LocalDateTime.parse(value).toInstant(java.time.ZoneOffset.UTC).toString());
+                }
+            } catch (RuntimeException invalid) {
+                throw new IOException("Invalid Minecraft launcher timestamp: " + field, invalid);
+            }
+        }
     }
 
     private static void checkRecord(Path path, JsonObject expected) throws IOException {
@@ -244,7 +287,7 @@ final class LauncherSetup {
         InstallerFiles.update(path, original, document);
     }
 
-    private static void registerModrinth(Path root, String id, String version, JsonObject overrides) throws Exception {
+    private static void registerModrinth(Path root, String id, String version, JsonObject overrides, int protocol) throws Exception {
         Path database = root.resolve("app.db");
         if (!Files.isRegularFile(database, LinkOption.NOFOLLOW_LINKS)) throw new IOException("Open Modrinth App once before installing NeoSync.");
         Class.forName("org.sqlite.JDBC");
@@ -256,21 +299,32 @@ final class LauncherSetup {
             connection.setAutoCommit(false);
             try {
                 String instance = "local:" + id;
-                try (var query = connection.prepareStatement("SELECT i.path,c.loader_version,json(o.overrides) FROM instances i LEFT JOIN instance_content_sets c ON c.id=i.applied_content_set_id LEFT JOIN instance_launch_overrides o ON o.instance_id=i.id WHERE i.id=?")) {
+                try (var query = connection.prepareStatement("SELECT i.path,c.loader_version,json(o.overrides),c.instance_id,c.game_version,c.loader,i.install_stage FROM instances i LEFT JOIN instance_content_sets c ON c.id=i.applied_content_set_id LEFT JOIN instance_launch_overrides o ON o.instance_id=i.id WHERE i.id=?")) {
                     query.setString(1, instance);
                     try (var rows = query.executeQuery()) {
                         if (rows.next()) {
                             if (!id.equals(rows.getString(1)) || !version.equals(rows.getString(2)) || rows.getString(3) == null
+                                    || !instance.equals(rows.getString(4)) || !"1.21.1".equals(rows.getString(5)) || !"neoforge".equals(rows.getString(6))
+                                    || !("installed".equals(rows.getString(7)) || "not_installed".equals(rows.getString(7)))
                                     || !com.google.gson.JsonParser.parseString(rows.getString(3)).getAsJsonObject().get("extra_launch_args").equals(overrides.get("extra_launch_args")))
                                 throw new IOException("The existing Modrinth instance was edited.");
-                            connection.rollback();
+                            try (var update = connection.prepareStatement("UPDATE instances SET install_stage='installed' WHERE id=?")) {
+                                update.setString(1, instance);
+                                update.executeUpdate();
+                            }
+                            try (var update = connection.prepareStatement("UPDATE instance_content_sets SET protocol_version=? WHERE id=(SELECT applied_content_set_id FROM instances WHERE id=?)")) {
+                                update.setInt(1, protocol);
+                                update.setString(2, instance);
+                                update.executeUpdate();
+                            }
+                            connection.commit();
                             return;
                         }
                     }
                 }
                 String content = "content-set:" + id;
                 long now = Instant.now().getEpochSecond();
-                try (var insert = connection.prepareStatement("INSERT INTO instances(id,path,applied_content_set_id,install_stage,launcher_feature_version,update_channel,name,created,modified) VALUES(?,?,?,'not_installed','migrated_launch_hooks','release',?,?,?)")) {
+                try (var insert = connection.prepareStatement("INSERT INTO instances(id,path,applied_content_set_id,install_stage,launcher_feature_version,update_channel,name,created,modified) VALUES(?,?,?,'installed','migrated_launch_hooks','release',?,?,?)")) {
                     insert.setString(1, instance);
                     insert.setString(2, id);
                     insert.setString(3, content);
@@ -279,12 +333,13 @@ final class LauncherSetup {
                     insert.setLong(6, now);
                     insert.executeUpdate();
                 }
-                try (var insert = connection.prepareStatement("INSERT INTO instance_content_sets(id,instance_id,name,source_kind,status,game_version,loader,loader_version,created,modified) VALUES(?,?,'Default','local','available','1.21.1','neoforge',?,?,?)")) {
+                try (var insert = connection.prepareStatement("INSERT INTO instance_content_sets(id,instance_id,name,source_kind,status,game_version,protocol_version,loader,loader_version,created,modified) VALUES(?,?,'Default','local','available','1.21.1',?,'neoforge',?,?,?)")) {
                     insert.setString(1, content);
                     insert.setString(2, instance);
-                    insert.setString(3, version);
-                    insert.setLong(4, now);
+                    insert.setInt(3, protocol);
+                    insert.setString(4, version);
                     insert.setLong(5, now);
+                    insert.setLong(6, now);
                     insert.executeUpdate();
                 }
                 try (var insert = connection.prepareStatement("INSERT INTO instance_links(instance_id,link_kind) VALUES(?,'unmanaged')")) {

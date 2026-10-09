@@ -94,6 +94,24 @@ metadata argument parser preserves spaces. Keep those generated overrides when
 editing the instance. Verified shared libraries may remain after a failed import;
 runtime metadata and instance registration are rolled back on registration failure.
 
+Beta.8 completes the Minecraft client, applicable libraries and native JARs,
+assets and logging before registering a Modrinth instance as installed. Downloads
+use official HTTPS locations and size/hash verification; the installer reports
+progress and checks available space. A new installation can require hundreds of
+megabytes of assets. The local NeoSync libraries are non-downloadable in Modrinth
+metadata so a launcher repair does not replace the fork.
+
+The installer writes `neosync-runtime.json` beside the custom version metadata.
+Preparing a server revision verifies that record, the local NeoSync runtime and
+required Minecraft files, then publishes the revision's client JAR and native
+directory before updating the instance inventory. Missing or changed official Minecraft resources
+require rerunning the installer, which repairs them using verified staging and
+restores their prior bytes if registration fails. Modified local NeoSync libraries
+and metadata remain rejected. The server game-directory argument uses
+Modrinth's own directory placeholder and a validated relative revision path so
+spaces in the launcher root survive its argument parser. Unsupported relative
+paths retain manual activation.
+
 Reopen the launcher and launch the new NeoSync instance. After accepting server
 mods, choose **Prepare in SKlauncher 4.0 Beta** or **Prepare in Modrinth App**.
 NeoSync creates a version and an instance for that specific revision. Their game

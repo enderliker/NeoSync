@@ -23,6 +23,11 @@ installed server that served the real Create manifest. The remote Azure/Prism
 join remains unvalidated. [Beta.5](release-notes/0.1.0-beta.5.md) remains
 available with its public IPv4 NAT and first-run configuration fixes.
 
+The unpublished [beta.8 candidate notes](release-notes/0.1.0-beta.8.md) describe
+authorized CurseForge packaging, Modrinth runtime completion and the local checks
+completed so far. Installed download/restart/join acceptance, actual Modrinth Play,
+CI and final release artifacts are still pending.
+
 ## NeoForge 21.1.252 source validation
 
 On September 27, 2026, the source imported upstream commit
@@ -104,7 +109,7 @@ publicly trusted [HTTPS manifest service](phase-2.md#server-setup).
 
 ## Graphical installer development
 
-The unreleased beta.7 installer lets users select Prism, Minecraft Launcher,
+The beta.8 development installer lets users select Prism, Minecraft Launcher,
 SKlauncher stable/beta, Modrinth or an existing custom folder. Runtime installation
 and launcher registration are automatic. No Python scripts are required by users.
 Published beta.6 and older installers keep their historical UI and assets.
@@ -118,6 +123,25 @@ The release workflow tests JARs on Linux, builds the Windows wrapper from those
 same bytes, verifies it, and exports all six artifacts with checksums.
 It uploads review artifacts and does not publish or replace a GitHub release.
 Use `prepare_release.py --windows-exe <exe>` to include it in a verified export.
+
+## Authorized CurseForge builds
+
+The NeoSync owner supplied provider approval on October 9, 2026 for embedding the
+recoverable key in public NeoSync client/server builds. Forks must apply for their
+own key. Use of NeoSync's CurseForge API functionality is subject to the
+[CurseForge 3rd Party API Terms and Conditions](https://support.curseforge.com/en/support/solutions/articles/9000207405).
+An API key embedded in an authorized NeoSync build does not grant permission to
+reuse or redistribute that key. Forks and third-party distributions must obtain
+their own applicable authorization.
+
+For local authorized packaging, set `NEOSYNC_CURSEFORGE_KEY_FILE` to the private
+file path and use `--no-build-cache --no-configuration-cache` for every Gradle
+invocation. Never place the key value in shell arguments or source. The official
+release workflow uses `NEOSYNC_CURSEFORGE_KEY` from the repository secret through
+a temporary private file; it still creates review artifacts without publishing.
+Pass `--curseforge-key-file <private-file>` to `scripts/prepare_release.py` along
+with the ordinary check/export and `--windows-exe` options. The default validator
+refuses embedded access. Source archives never contain the access resource.
 
 ## Packaging and validation
 

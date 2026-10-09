@@ -17,8 +17,7 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -74,7 +73,7 @@ public abstract class CreateLauncherProfile extends DefaultTask {
 
     @TaskAction
     public void createLauncherProfile() throws IOException {
-        var time = LocalDateTime.now().format(DateTimeFormatter.ISO_DATE_TIME);
+        var time = Instant.now().toString();
 
         getLogger().info("Collecting libraries for Launcher Profile");
         var libraries = getEarlyDisplay().get().resolve(getRepositoryURLs().get(), getLibraryFiles().get());

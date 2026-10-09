@@ -109,10 +109,14 @@ public final class ClientDriver {
         if (mode.equals("update") && originalFiles == null) originalFiles = snapshot();
         if (mode.equals("bootstrap") && lastScreen.equals("TitleScreen")) {
             if (++bootstrapFrames < 5) return;
-            require(System.getProperty("neosync.launcher.config") != null, "The external launcher supplied its local NeoSync descriptor");
+            String launcher = settings.getProperty("expectedLauncher", "prism");
+            if (launcher.equals("modrinth"))
+                require("modrinth".equals(System.getProperty("neosync.launcher.kind")) && System.getProperty("neosync.launcher.root") != null,
+                        "Modrinth supplied the local NeoSync runtime arguments");
+            else require(System.getProperty("neosync.launcher.config") != null, "The external launcher supplied its local NeoSync descriptor");
             require(type("net.neoforged.neoforge.neosync.protocol.SyncManifest").getField("NEOSYNC_VERSION").get(null).equals(settings.getProperty("expectedVersion")), "The expected NeoSync build is running");
             require(hasButton(screen, "NeoSync profiles"), "The profile recovery button is visible");
-            screenshot("neosync-prism-startup.png");
+            screenshot("neosync-" + launcher + "-startup.png");
             finish();
             return;
         }
@@ -209,7 +213,7 @@ public final class ClientDriver {
                 evidence.add("Explicitly accepted the displayed source and files.");
             }
         } else if (text.contains("Profile prepared for") && hasButton(screen, "Later")) {
-            String game = paragraphs.stream().filter(line -> line.startsWith("/")).findFirst().orElseThrow();
+            String game = preparedDirectory(paragraphs);
             Files.writeString(Path.of(settings.getProperty("prepared")), game);
             require(label(call(screen, "getFocused")).equals("Later"), "Prepared profile activation defaults to Later");
             evidence.add("Prepared verified isolated game directory: " + game);
@@ -218,12 +222,15 @@ public final class ClientDriver {
                     require(hash(entry.getKey()).equals(entry.getValue()), "Update preserved the previous revision's mod bytes");
             }
             screenshot("neosync-activation.png");
-            if (Boolean.parseBoolean(settings.getProperty("prismRestart", "false"))) {
+            if (Boolean.parseBoolean(settings.getProperty("nativePrepare", "false"))) {
+                click(screen, "Prepare in " + settings.getProperty("launcherName", "Modrinth App"));
+                step = 3;
+            } else if (Boolean.parseBoolean(settings.getProperty("prismRestart", "false"))) {
                 click(screen, "Prepare in Prism Launcher");
                 step = 2;
             } else finish();
         } else if (hasButton(screen, "Restart instructions")) {
-            String game = paragraphs.stream().filter(line -> line.startsWith("/")).findFirst().orElseThrow();
+            String game = preparedDirectory(paragraphs);
             Files.writeString(Path.of(settings.getProperty("prepared")), game);
             evidence.add("Prepared verified isolated game directory: " + game);
             if (mode.equals("update")) {
@@ -239,6 +246,11 @@ public final class ClientDriver {
                 click(screen, "Prepare Prism instance");
                 step = 2;
             } else finish();
+        } else if (step == 3 && text.contains("The installation is ready. No path changes are needed.")) {
+            require(label(call(screen, "getFocused")).equals("Later"), "Native launcher activation defaults to Later");
+            evidence.add("Prepared a verified native " + settings.getProperty("launcherName", "Modrinth App") + " instance.");
+            screenshot("neosync-native-activation.png");
+            finish();
         } else if (step == 2 && hasButton(screen, "Close and launch")) {
             String instance = paragraphs.stream().filter(line -> line.startsWith("Prism instance: ")).findFirst().orElseThrow().substring("Prism instance: ".length());
             Files.writeString(Path.of(settings.getProperty("prismInstance")), instance);
@@ -250,6 +262,12 @@ public final class ClientDriver {
         } else if (hasButton(screen, "Continue to server")) {
             click(screen, "Continue to server");
         }
+    }
+
+    private static String preparedDirectory(List<String> paragraphs) {
+        return paragraphs.stream().filter(line -> {
+            try { return Path.of(line).isAbsolute(); } catch (RuntimeException invalid) { return false; }
+        }).findFirst().orElseThrow();
     }
 
     private static Map<Path, String> snapshot() throws Exception {

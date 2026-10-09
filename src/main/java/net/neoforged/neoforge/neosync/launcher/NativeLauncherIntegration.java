@@ -58,6 +58,7 @@ final class NativeLauncherIntegration {
         }
         if (!foundRuntime || !foundMinecraft) throw new IOException("An ordinary NeoForge runtime cannot activate NeoSync profiles.");
         JsonObject launchOverrides = null;
+        ModrinthRuntime.Verified verified = null;
         if (modrinth) {
             if (!runtime.has("neosyncLaunchOverrides") || !runtime.get("neosyncLaunchOverrides").isJsonObject())
                 throw new IOException("Select Modrinth App in the NeoSync installer before preparing this profile.");
@@ -68,9 +69,12 @@ final class NativeLauncherIntegration {
                     || !SyncJson.string(extra.get(1), 4096).equals("-Dneosync.launcher.root=" + root)
                     || !SyncJson.string(extra.get(2), 128).equals("-Dneosync.launcher.kind=modrinth"))
                 throw new IOException("The Modrinth runtime has invalid local path arguments.");
-            ManagedPaths.directory(Path.of(libraryArgument.substring("-DlibraryDirectory=".length())), false);
+            Path libraryDirectory = ManagedPaths.directory(Path.of(libraryArgument.substring("-DlibraryDirectory=".length())), false);
+            verified = ModrinthRuntime.verify(root, sourceId, runtime, libraryDirectory, token);
         }
         String targetId = (modrinth ? "1.21.1-" : "") + id;
+        Path instance = root.resolve(modrinth ? "profiles" : "instances").resolve(id);
+        String gameDirectory = modrinth ? ModrinthRuntime.gameDirectoryArgument(instance, prepared.gameDirectory()) : prepared.gameDirectory().toString();
         runtime.addProperty("id", targetId);
         if (!modrinth) runtime.addProperty("type", "custom");
         var arguments = runtime.getAsJsonObject("arguments");
@@ -81,18 +85,19 @@ final class NativeLauncherIntegration {
             if (argument.isJsonPrimitive() && argument.getAsString().equals("--gameDir")) {
                 if (++directories > 1 || ++i >= game.size()) throw new IOException("The installed runtime has invalid game-directory arguments.");
                 nextGame.add("--gameDir");
-                nextGame.add(prepared.gameDirectory().toString());
+                nextGame.add(gameDirectory);
             } else {
                 nextGame.add(argument.deepCopy());
             }
         }
         if (directories == 0) {
             nextGame.add("--gameDir");
-            nextGame.add(prepared.gameDirectory().toString());
+            nextGame.add(gameDirectory);
         }
         arguments.add("game", nextGame);
         Path target = versions.resolve(targetId);
-        Path instance = root.resolve(modrinth ? "profiles" : "instances").resolve(id);
+        Path natives = root.resolve("meta/natives").resolve(targetId);
+        boolean createdNatives = modrinth && !Files.exists(natives, LinkOption.NOFOLLOW_LINKS);
         if (Files.exists(instance, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.directory(instance, false);
         if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS) && Files.exists(instance, LinkOption.NOFOLLOW_LINKS))
             throw new IOException("The target launcher instance directory already exists. It was not reused.");
@@ -103,24 +108,28 @@ final class NativeLauncherIntegration {
         if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
             if (!runtime.equals(object(read(target.resolve(targetId + ".json")))))
                 throw new IOException("The prepared launcher runtime was edited. It was not overwritten.");
+            if (modrinth) ModrinthRuntime.materialize(verified, target, targetId, natives, token);
         } else {
             ManagedPaths.directory(versions, false);
             Path stage = ManagedPaths.directory(versions.resolve(".neosync-" + UUID.randomUUID()), true);
             try {
                 Files.write(stage.resolve(targetId + ".json"), metadata, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE);
+                if (modrinth) ModrinthRuntime.materialize(verified, stage, targetId, natives, token);
                 token.check();
                 Files.move(stage, target, StandardCopyOption.ATOMIC_MOVE);
                 created = true;
             } finally {
                 if (Files.exists(stage, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(stage);
+                if (!created && createdNatives && Files.isDirectory(natives, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(natives);
             }
         }
         try {
             ManagedPaths.directory(instance, true);
-            if (modrinth) registerModrinth(root, id, prepared, launchOverrides, token);
+            if (modrinth) registerModrinth(root, id, prepared, launchOverrides, verified.protocolVersion(), token);
             else registerSklauncher(root, id, prepared, token);
         } catch (IOException failure) {
             if (created) ManagedPaths.deleteTree(target);
+            if (createdNatives && Files.isDirectory(natives, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(natives);
             if (createdInstance) Files.deleteIfExists(instance);
             throw failure;
         }
@@ -181,7 +190,7 @@ final class NativeLauncherIntegration {
         }
     }
 
-    private static void registerModrinth(Path root, String id, ProfileStore.Prepared prepared, JsonObject launchOverrides, DiscoveryCancellation token) throws IOException {
+    private static void registerModrinth(Path root, String id, ProfileStore.Prepared prepared, JsonObject launchOverrides, int protocolVersion, DiscoveryCancellation token) throws IOException {
         Path database = root.resolve("app.db");
         if (!Files.isRegularFile(database, LinkOption.NOFOLLOW_LINKS)) throw new IOException("The Modrinth instance database is missing or linked.");
         try {
@@ -192,24 +201,26 @@ final class NativeLauncherIntegration {
                 execute(connection, "BEGIN IMMEDIATE");
                 try {
                     String instanceId = "local:" + id;
-                    try (var query = connection.prepareStatement("SELECT i.path,c.loader_version,c.game_version,c.loader,json(o.overrides) FROM instances i LEFT JOIN instance_content_sets c ON c.id=i.applied_content_set_id LEFT JOIN instance_launch_overrides o ON o.instance_id=i.id WHERE i.id=?")) {
+                    try (var query = connection.prepareStatement("SELECT i.path,c.loader_version,c.game_version,c.loader,json(o.overrides),c.instance_id,i.install_stage FROM instances i LEFT JOIN instance_content_sets c ON c.id=i.applied_content_set_id LEFT JOIN instance_launch_overrides o ON o.instance_id=i.id WHERE i.id=?")) {
                         query.setString(1, instanceId);
                         try (var rows = query.executeQuery()) {
                             if (rows.next()) {
                                 String overrides = rows.getString(5);
                                 if (!id.equals(rows.getString(1)) || !id.equals(rows.getString(2))
                                         || !"1.21.1".equals(rows.getString(3)) || !"neoforge".equals(rows.getString(4))
+                                        || !instanceId.equals(rows.getString(6)) || !java.util.List.of("installed", "not_installed").contains(rows.getString(7))
                                         || overrides == null || !launchOverrides.get("extra_launch_args").equals(object(overrides.getBytes(StandardCharsets.UTF_8)).get("extra_launch_args")))
                                     throw new IOException("The prepared Modrinth instance was edited. It was not overwritten.");
                                 token.check();
-                                execute(connection, "ROLLBACK");
+                                updateReadiness(connection, instanceId, protocolVersion);
+                                execute(connection, "COMMIT");
                                 return;
                             }
                         }
                     }
                     String contentId = "content-set:" + id;
                     long now = Instant.now().getEpochSecond();
-                    try (var insert = connection.prepareStatement("INSERT INTO instances(id,path,applied_content_set_id,install_stage,launcher_feature_version,update_channel,name,created,modified) VALUES(?,?,?,'not_installed','migrated_launch_hooks','release',?,?,?)")) {
+                    try (var insert = connection.prepareStatement("INSERT INTO instances(id,path,applied_content_set_id,install_stage,launcher_feature_version,update_channel,name,created,modified) VALUES(?,?,?,'installed','migrated_launch_hooks','release',?,?,?)")) {
                         insert.setString(1, instanceId);
                         insert.setString(2, id);
                         insert.setString(3, contentId);
@@ -218,12 +229,13 @@ final class NativeLauncherIntegration {
                         insert.setLong(6, now);
                         insert.executeUpdate();
                     }
-                    try (var insert = connection.prepareStatement("INSERT INTO instance_content_sets(id,instance_id,name,source_kind,status,game_version,loader,loader_version,created,modified) VALUES(?,?,'Default','local','available','1.21.1','neoforge',?,?,?)")) {
+                    try (var insert = connection.prepareStatement("INSERT INTO instance_content_sets(id,instance_id,name,source_kind,status,game_version,loader,loader_version,protocol_version,created,modified) VALUES(?,?,'Default','local','available','1.21.1','neoforge',?,?,?,?)")) {
                         insert.setString(1, contentId);
                         insert.setString(2, instanceId);
                         insert.setString(3, id);
-                        insert.setLong(4, now);
+                        insert.setInt(4, protocolVersion);
                         insert.setLong(5, now);
+                        insert.setLong(6, now);
                         insert.executeUpdate();
                     }
                     try (var insert = connection.prepareStatement("INSERT INTO instance_links(instance_id,link_kind) VALUES(?,'unmanaged')")) {
@@ -248,6 +260,18 @@ final class NativeLauncherIntegration {
             }
         } catch (ClassNotFoundException | SQLException failure) {
             throw new IOException("The installed Modrinth database format could not be updated. Your existing instances were preserved.", failure);
+        }
+    }
+
+    private static void updateReadiness(Connection connection, String instanceId, int protocolVersion) throws SQLException {
+        try (var update = connection.prepareStatement("UPDATE instances SET install_stage='installed' WHERE id=?")) {
+            update.setString(1, instanceId);
+            update.executeUpdate();
+        }
+        try (var update = connection.prepareStatement("UPDATE instance_content_sets SET protocol_version=? WHERE id=(SELECT applied_content_set_id FROM instances WHERE id=?)")) {
+            update.setInt(1, protocolVersion);
+            update.setString(2, instanceId);
+            update.executeUpdate();
         }
     }
 

@@ -10,14 +10,21 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.MessageDigest;
 import java.sql.DriverManager;
+import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 import net.neoforged.neoforge.neosync.launcher.LauncherIntegration;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
 import net.neoforged.neoforge.neosync.protocol.InstallationPlan;
@@ -49,15 +56,17 @@ class LauncherIntegrationTest {
             if (modrinth) {
                 var overrides = new com.google.gson.JsonObject();
                 var extra = new com.google.gson.JsonArray();
-                extra.add("-DlibraryDirectory=" + Files.createDirectory(root.resolve("libraries")));
+                extra.add("-DlibraryDirectory=" + Files.createDirectories(root.resolve("neosync/runtime").resolve(LauncherIntegration.versionId(prepared)).resolve("libraries")));
                 extra.add("-Dneosync.launcher.root=" + root);
                 extra.add("-Dneosync.launcher.kind=modrinth");
                 overrides.add("extra_launch_args", extra);
                 metadata.add("neosyncLaunchOverrides", overrides);
             }
             Files.writeString(source.resolve(version + ".json"), metadata.toString());
-            if (modrinth) createModrinthDatabase(root);
-            else Files.writeString(root.resolve("instances.json"), "{\"instances\":[{\"id\":\"personal\",\"name\":\"My world\"}],\"setting\":true}");
+            if (modrinth) {
+                createModrinthDatabase(root);
+                readyModrinthRuntime(root, source, metadata);
+            } else Files.writeString(root.resolve("instances.json"), "{\"instances\":[{\"id\":\"personal\",\"name\":\"My world\"}],\"setting\":true}");
             Path accounts = Files.writeString(root.resolve("accounts.json"), "private fixture");
             var detected = new LauncherIntegration.Detected(kind, root, null);
             String id = LauncherIntegration.createInstallation(detected, prepared, "4.0.44", new DiscoveryCancellation());
@@ -65,7 +74,17 @@ class LauncherIntegrationTest {
             Path record = target.resolve(target.getFileName() + ".json");
             var result = JsonParser.parseString(Files.readString(record)).getAsJsonObject();
             var launchArguments = result.getAsJsonObject("arguments").getAsJsonArray("game");
-            assertEquals(prepared.gameDirectory().toString(), launchArguments.get(3).getAsString());
+            if (modrinth) {
+                String argument = launchArguments.get(3).getAsString();
+                assertTrue(argument.startsWith("${game_directory}/"));
+                Path instance = root.resolve("profiles").resolve(id);
+                assertEquals(prepared.gameDirectory(), instance.resolve(argument.substring("${game_directory}/".length())).normalize());
+                assertFalse(argument.contains(" "));
+                assertTrue(Files.isRegularFile(target.resolve(target.getFileName() + ".jar")));
+                assertTrue(Files.isDirectory(root.resolve("meta/natives").resolve(target.getFileName())));
+                assertEquals(java.util.List.of(argument.replace("${game_directory}", instance.toString())),
+                        java.util.Arrays.asList(argument.replace(" ", "\n").replace("${game_directory}", instance.toString()).split("\n")));
+            } else assertEquals(prepared.gameDirectory().toString(), launchArguments.get(3).getAsString());
             assertEquals("${auth_player_name}", launchArguments.get(1).getAsString());
             assertEquals("private fixture", Files.readString(accounts));
             assertEquals(id, LauncherIntegration.createInstallation(detected, prepared, "4.0.44", new DiscoveryCancellation()));
@@ -82,6 +101,25 @@ class LauncherIntegrationTest {
                     try (var rows = statement.executeQuery("SELECT json(overrides) FROM instance_launch_overrides WHERE instance_id='local:" + id + "'")) {
                         assertTrue(rows.next());
                         assertEquals(metadata.get("neosyncLaunchOverrides"), JsonParser.parseString(rows.getString(1)));
+                    }
+                    try (var rows = statement.executeQuery("SELECT i.install_stage,c.protocol_version FROM instances i JOIN instance_content_sets c ON c.id=i.applied_content_set_id WHERE i.id='local:" + id + "'")) {
+                        assertTrue(rows.next());
+                        assertEquals("installed", rows.getString(1));
+                        assertEquals(767, rows.getInt(2));
+                    }
+                    statement.execute("UPDATE instances SET name='Renamed',install_stage='not_installed' WHERE id='local:" + id + "'");
+                    statement.execute("INSERT INTO instance_sync_preferences(instance_id,feature,enabled) VALUES('local:" + id + "','fixture',1)");
+                }
+                assertEquals(id, LauncherIntegration.createInstallation(detected, prepared, "4.0.44", new DiscoveryCancellation()));
+                try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement()) {
+                    try (var rows = statement.executeQuery("SELECT name,install_stage FROM instances WHERE id='local:" + id + "'")) {
+                        assertTrue(rows.next());
+                        assertEquals("Renamed", rows.getString(1));
+                        assertEquals("installed", rows.getString(2));
+                    }
+                    try (var rows = statement.executeQuery("SELECT enabled FROM instance_sync_preferences WHERE instance_id='local:" + id + "' AND feature='fixture'")) {
+                        assertTrue(rows.next());
+                        assertEquals(1, rows.getInt(1));
                     }
                 }
             } else {
@@ -103,10 +141,109 @@ class LauncherIntegrationTest {
     }
 
     @Test
+    void refusesChangedModrinthResourcesBeforePublishingARevision(@TempDir Path directory) throws Exception {
+        var prepared = prepare(directory);
+        Path root = Files.createDirectory(directory.resolve("modrinth"));
+        Path source = modrinthFixture(root, prepared);
+        Path library = root.resolve("meta/libraries/fixture/runtime/1/runtime-1.jar");
+        Files.writeString(library, "changed library");
+        var detected = new LauncherIntegration.Detected(LauncherIntegration.Kind.MODRINTH, root, null);
+        assertThrows(IOException.class, () -> LauncherIntegration.createInstallation(detected, prepared, "4.0.44", new DiscoveryCancellation()));
+        assertNoModrinthRevision(root, source);
+    }
+
+    @Test
+    void refusesMissingModrinthClientAndUnlistedResources(@TempDir Path directory) throws Exception {
+        var prepared = prepare(directory);
+        Path root = Files.createDirectory(directory.resolve("modrinth"));
+        Path source = modrinthFixture(root, prepared);
+        String version = source.getFileName().toString();
+        var detected = new LauncherIntegration.Detected(LauncherIntegration.Kind.MODRINTH, root, null);
+        byte[] client = Files.readAllBytes(source.resolve(version + ".jar"));
+        Files.delete(source.resolve(version + ".jar"));
+        assertThrows(IOException.class, () -> LauncherIntegration.createInstallation(detected, prepared, "4.0.44", new DiscoveryCancellation()));
+        Files.write(source.resolve(version + ".jar"), client);
+        var descriptor = JsonParser.parseString(Files.readString(source.resolve("neosync-runtime.json"))).getAsJsonObject();
+        descriptor.add("resources", new JsonArray());
+        Files.writeString(source.resolve("neosync-runtime.json"), descriptor.toString());
+        assertThrows(IOException.class, () -> LauncherIntegration.createInstallation(detected, prepared, "4.0.44", new DiscoveryCancellation()));
+        assertNoModrinthRevision(root, source);
+    }
+
+    @Test
+    void refusesModrinthAssetCorruptionAndEscapingDescriptorPaths(@TempDir Path directory) throws Exception {
+        var prepared = prepare(directory);
+        Path root = Files.createDirectory(directory.resolve("modrinth"));
+        Path source = modrinthFixture(root, prepared);
+        String version = source.getFileName().toString();
+        Path index = root.resolve("meta/assets/indexes/17.json");
+        Path temporary = Files.writeString(directory.resolve("asset"), "asset bytes");
+        String sha1 = hash(temporary, "SHA-1");
+        Path asset = Files.createDirectories(root.resolve("meta/assets/objects").resolve(sha1.substring(0, 2))).resolve(sha1);
+        Files.copy(temporary, asset);
+        Files.writeString(index, "{\"objects\":{\"fixture\":{\"hash\":\"" + sha1 + "\",\"size\":" + Files.size(asset) + "}}}");
+        var metadata = JsonParser.parseString(Files.readString(source.resolve(version + ".json"))).getAsJsonObject();
+        var indexMetadata = official(index);
+        indexMetadata.addProperty("id", "17");
+        metadata.add("assetIndex", indexMetadata);
+        Files.writeString(source.resolve(version + ".json"), metadata.toString());
+        var descriptor = JsonParser.parseString(Files.readString(source.resolve("neosync-runtime.json"))).getAsJsonObject();
+        descriptor.add("assetIndex", fileRecord(index, "assets/indexes/17.json"));
+        descriptor.addProperty("metadataSha256", hash(source.resolve(version + ".json"), "SHA-256"));
+        Files.writeString(source.resolve("neosync-runtime.json"), descriptor.toString());
+        Files.writeString(asset, "changed asset");
+        var detected = new LauncherIntegration.Detected(LauncherIntegration.Kind.MODRINTH, root, null);
+        assertThrows(IOException.class, () -> LauncherIntegration.createInstallation(detected, prepared, "4.0.44", new DiscoveryCancellation()));
+        Files.copy(temporary, asset, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+        descriptor.getAsJsonArray("resources").get(0).getAsJsonObject().addProperty("path", "../asset");
+        Files.writeString(source.resolve("neosync-runtime.json"), descriptor.toString());
+        assertThrows(IOException.class, () -> LauncherIntegration.createInstallation(detected, prepared, "4.0.44", new DiscoveryCancellation()));
+        assertNoModrinthRevision(root, source);
+    }
+
+    private static Path modrinthFixture(Path root, ProfileStore.Prepared prepared) throws Exception {
+        String version = "1.21.1-" + LauncherIntegration.versionId(prepared);
+        Path source = Files.createDirectories(root.resolve("meta/versions").resolve(version));
+        Path libraries = Files.createDirectories(root.resolve("neosync/runtime").resolve(LauncherIntegration.versionId(prepared)).resolve("libraries"));
+        var metadata = new JsonObject();
+        metadata.addProperty("id", version);
+        metadata.addProperty("mainClass", "cpw.mods.bootstraplauncher.BootstrapLauncher");
+        metadata.add("libraries", new JsonArray());
+        var arguments = new JsonObject();
+        var game = new JsonArray();
+        for (String argument : java.util.List.of("--gameDir", "${game_directory}", "--fml.neoForgeVersion", "21.1.251-neosync-0.1.0-dev", "--fml.mcVersion", "1.21.1")) game.add(argument);
+        arguments.add("game", game);
+        metadata.add("arguments", arguments);
+        var overrides = new JsonObject();
+        var extra = new JsonArray();
+        extra.add("-DlibraryDirectory=" + libraries);
+        extra.add("-Dneosync.launcher.root=" + root);
+        extra.add("-Dneosync.launcher.kind=modrinth");
+        overrides.add("extra_launch_args", extra);
+        metadata.add("neosyncLaunchOverrides", overrides);
+        readyModrinthRuntime(root, source, metadata);
+        createModrinthDatabase(root);
+        return source;
+    }
+
+    private static void assertNoModrinthRevision(Path root, Path source) throws Exception {
+        try (var entries = Files.list(root.resolve("meta/versions"))) {
+            assertEquals(java.util.List.of(source), entries.toList());
+        }
+        assertFalse(Files.exists(root.resolve("profiles")));
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db"));
+                var statement = connection.createStatement();
+                var rows = statement.executeQuery("SELECT count(*) FROM instances")) {
+            assertTrue(rows.next());
+            assertEquals(1, rows.getInt(1));
+        }
+    }
+
+    @Test
     void unsupportedDatabaseRollsBackTheRuntimeAndInstance(@TempDir Path directory) throws Exception {
         var prepared = prepare(directory);
         Path root = Files.createDirectory(directory.resolve("modrinth"));
-        Path libraries = Files.createDirectory(root.resolve("libraries"));
+        Path libraries = Files.createDirectories(root.resolve("neosync/runtime").resolve(LauncherIntegration.versionId(prepared)).resolve("libraries"));
         String version = "1.21.1-" + LauncherIntegration.versionId(prepared);
         Path source = Files.createDirectories(root.resolve("meta/versions").resolve(version));
         var runtime = new com.google.gson.JsonObject();
@@ -126,6 +263,7 @@ class LauncherIntegrationTest {
         overrides.add("extra_launch_args", extra);
         runtime.add("neosyncLaunchOverrides", overrides);
         Files.writeString(source.resolve(version + ".json"), runtime.toString());
+        readyModrinthRuntime(root, source, runtime);
         createModrinthDatabase(root);
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement()) {
             statement.execute("DROP TABLE instance_sync_preferences");
@@ -137,6 +275,9 @@ class LauncherIntegrationTest {
         }
         try (var entries = Files.list(root.resolve("profiles"))) {
             assertEquals(0, entries.count());
+        }
+        try (var entries = Files.list(root.resolve("meta/natives"))) {
+            assertEquals(1, entries.count());
         }
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db"));
                 var statement = connection.createStatement();
@@ -173,13 +314,95 @@ class LauncherIntegrationTest {
         Class.forName("org.sqlite.JDBC");
         try (var connection = DriverManager.getConnection("jdbc:sqlite:" + root.resolve("app.db")); var statement = connection.createStatement()) {
             statement.execute("CREATE TABLE instances(id TEXT PRIMARY KEY,path TEXT UNIQUE,applied_content_set_id TEXT,install_stage TEXT,launcher_feature_version TEXT,update_channel TEXT,name TEXT,created INTEGER,modified INTEGER)");
-            statement.execute("CREATE TABLE instance_content_sets(id TEXT PRIMARY KEY,instance_id TEXT REFERENCES instances(id),name TEXT,source_kind TEXT,status TEXT,game_version TEXT,loader TEXT,loader_version TEXT,created INTEGER,modified INTEGER)");
+            statement.execute("CREATE TABLE instance_content_sets(id TEXT PRIMARY KEY,instance_id TEXT REFERENCES instances(id),name TEXT,source_kind TEXT,status TEXT,game_version TEXT,loader TEXT,loader_version TEXT,protocol_version INTEGER,created INTEGER,modified INTEGER)");
             statement.execute("CREATE TABLE instance_links(instance_id TEXT PRIMARY KEY REFERENCES instances(id),link_kind TEXT)");
             statement.execute("CREATE TABLE instance_launch_overrides(instance_id TEXT PRIMARY KEY REFERENCES instances(id),overrides JSONB)");
             statement.execute("CREATE TABLE sync_feature_settings(feature TEXT,new_instance_default INTEGER)");
             statement.execute("CREATE TABLE instance_sync_preferences(instance_id TEXT REFERENCES instances(id),feature TEXT,enabled INTEGER)");
             statement.execute("INSERT INTO instances(id,path,name) VALUES('personal','personal','My world')");
         }
+    }
+
+    private static void readyModrinthRuntime(Path root, Path source, JsonObject metadata) throws Exception {
+        String version = metadata.get("id").getAsString();
+        Path libraries = Path.of(metadata.getAsJsonObject("neosyncLaunchOverrides").getAsJsonArray("extra_launch_args").get(0).getAsString().substring("-DlibraryDirectory=".length()));
+        Path client = source.resolve(version + ".jar");
+        try (var zip = new ZipOutputStream(Files.newOutputStream(client))) {
+            zip.putNextEntry(new ZipEntry("version.json"));
+            zip.write("{\"protocol_version\":767}".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        var downloads = new JsonObject();
+        downloads.add("client", official(client));
+        metadata.add("downloads", downloads);
+        Path index = Files.createDirectories(root.resolve("meta/assets/indexes")).resolve("17.json");
+        Files.writeString(index, "{\"objects\":{}}");
+        var indexMetadata = official(index);
+        indexMetadata.addProperty("id", "17");
+        metadata.add("assetIndex", indexMetadata);
+        String loader = "21.1.251-neosync-0.1.0-dev";
+        var localLibraries = new JsonArray();
+        for (String suffix : java.util.List.of("client", "universal")) {
+            String relative = "net/neoforged/neoforge/" + loader + "/neoforge-" + loader + "-" + suffix + ".jar";
+            Path local = Files.createDirectories(libraries.resolve(relative).getParent()).resolve(Path.of(relative).getFileName());
+            Files.writeString(local, "local fork fixture " + suffix);
+            localLibraries.add(fileRecord(local, relative));
+        }
+        var descriptor = new JsonObject();
+        descriptor.addProperty("schemaVersion", 1);
+        descriptor.addProperty("versionId", version);
+        descriptor.addProperty("minecraftVersion", "1.21.1");
+        String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+        descriptor.addProperty("platform", os.contains("windows") ? "windows" : os.contains("linux") ? "linux" : "osx");
+        String architecture = switch (System.getProperty("os.arch").toLowerCase(Locale.ROOT)) {
+            case "amd64", "x86_64", "x64" -> "x86_64";
+            case "arm64", "aarch64" -> "aarch64";
+            case "x86", "i386", "i486", "i586", "i686" -> "x86";
+            default -> "arm";
+        };
+        descriptor.addProperty("architecture", architecture);
+        descriptor.addProperty("protocolVersion", 767);
+        descriptor.addProperty("libraryDirectory", libraries.toString());
+        descriptor.add("client", fileRecord(client, "versions/" + version + "/" + version + ".jar"));
+        descriptor.add("assetIndex", fileRecord(index, "assets/indexes/17.json"));
+        var resources = new JsonArray();
+        String libraryPath = "fixture/runtime/1/runtime-1.jar";
+        Path library = Files.createDirectories(root.resolve("meta/libraries").resolve(libraryPath).getParent()).resolve("runtime-1.jar");
+        Files.writeString(library, "official library fixture");
+        resources.add(fileRecord(library, "libraries/" + libraryPath));
+        var artifact = official(library);
+        artifact.addProperty("path", libraryPath);
+        var libraryDownloads = new JsonObject();
+        libraryDownloads.add("artifact", artifact);
+        var libraryMetadata = new JsonObject();
+        libraryMetadata.addProperty("name", "fixture.runtime:runtime:1");
+        libraryMetadata.add("downloads", libraryDownloads);
+        metadata.getAsJsonArray("libraries").add(libraryMetadata);
+        descriptor.add("resources", resources);
+        descriptor.add("localLibraries", localLibraries);
+        Files.writeString(source.resolve(version + ".json"), metadata.toString());
+        descriptor.addProperty("metadataSha256", hash(source.resolve(version + ".json"), "SHA-256"));
+        Files.writeString(source.resolve("neosync-runtime.json"), descriptor.toString());
+        Files.createDirectories(root.resolve("meta/natives").resolve(version));
+    }
+
+    private static JsonObject official(Path path) throws Exception {
+        var object = new JsonObject();
+        object.addProperty("size", Files.size(path));
+        object.addProperty("sha1", hash(path, "SHA-1"));
+        return object;
+    }
+
+    private static JsonObject fileRecord(Path path, String relative) throws Exception {
+        var object = new JsonObject();
+        object.addProperty("path", relative);
+        object.addProperty("size", Files.size(path));
+        object.addProperty("sha256", hash(path, "SHA-256"));
+        return object;
+    }
+
+    private static String hash(Path path, String algorithm) throws Exception {
+        return HexFormat.of().formatHex(MessageDigest.getInstance(algorithm).digest(Files.readAllBytes(path)));
     }
 
     @Test
