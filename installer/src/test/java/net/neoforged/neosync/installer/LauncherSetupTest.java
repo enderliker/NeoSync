@@ -316,6 +316,21 @@ class LauncherSetupTest {
     }
 
     @Test
+    void canonicalizesOffsetAndMinutePrecisionModrinthTimestamps() throws Exception {
+        modrinthDatabase(false);
+        Path profileFile = runtime.resolve("versions/" + VERSION + "/" + VERSION + ".json");
+        JsonObject profile = InstallerFiles.json(profileFile);
+        profile.addProperty("time", "2026-10-09T14:29-03:00");
+        profile.addProperty("releaseTime", "2026-10-09T17:29");
+        Files.write(profileFile, InstallerFiles.encode(profile));
+        LauncherSetup.configure(new LauncherTarget(LauncherTarget.Kind.MODRINTH, root), runtime, VERSION);
+        String id = "1.21.1-" + VERSION;
+        JsonObject metadata = InstallerFiles.json(root.resolve("meta/versions/" + id + "/" + id + ".json"));
+        assertEquals("2026-10-09T17:29:00Z", metadata.get("time").getAsString());
+        assertEquals("2026-10-09T17:29:00Z", metadata.get("releaseTime").getAsString());
+    }
+
+    @Test
     void rejectsInvalidModrinthTimestampBeforePublishingRuntime() throws Exception {
         modrinthDatabase(false);
         Path profileFile = runtime.resolve("versions/" + VERSION + "/" + VERSION + ".json");

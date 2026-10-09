@@ -203,9 +203,9 @@ final class LauncherSetup {
             try {
                 String value = metadata.get(field).getAsString();
                 try {
-                    java.time.OffsetDateTime.parse(value);
+                    metadata.addProperty(field, java.time.OffsetDateTime.parse(value).toInstant().toString());
                 } catch (java.time.format.DateTimeParseException legacy) {
-                    metadata.addProperty(field, java.time.LocalDateTime.parse(value).atOffset(java.time.ZoneOffset.UTC).toString());
+                    metadata.addProperty(field, java.time.LocalDateTime.parse(value).toInstant(java.time.ZoneOffset.UTC).toString());
                 }
             } catch (RuntimeException invalid) {
                 throw new IOException("Invalid Minecraft launcher timestamp: " + field, invalid);
