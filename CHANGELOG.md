@@ -9,9 +9,17 @@ These summaries describe the behavior at each release. Historical features may
 have been removed; consult the current README and linked release notes before
 installing. Published artifacts and tags remain immutable.
 
-## Unreleased
+## 0.1.0-beta.10
 
-- Reserve 0.1.0-beta.9 for general NeoForge/JarJar inventory corrections and
+- Register prepared SKlauncher server profiles in sibling `instances` directories.
+- Copy each reviewed profile into the sibling instance and register it after both
+  Minecraft and SKlauncher exit, preserving launcher changes made during play.
+- Keep Modrinth instance preparation unchanged.
+
+## 0.1.0-beta.9
+
+- General NeoForge/JarJar inventory corrections and `mods_client` support.
+  Preserve published beta.8 assets and its tag.
   `mods_client` support. Preserve published beta.8 assets and its tag.
 - Keep valid merged metadata, language-library bundles and shared embedded
   dependencies from disabling discovery. Validate the effective client set with
@@ -22,6 +30,8 @@ installing. Published artifacts and tags remain immutable.
   so clients show the error before an ordinary connection attempt.
 - Enable synchronization in new server configurations, preserving existing
   administrator settings and the selected-set validation and consent checks.
+
+## Unreleased
 
 - Reserve 0.1.0-beta.8 for authorized CurseForge builds and complete Modrinth App
   runtime preparation; retain the existing beta.7 draft and installed identity.

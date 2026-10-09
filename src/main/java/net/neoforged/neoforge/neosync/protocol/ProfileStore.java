@@ -322,6 +322,66 @@ public final class ProfileStore {
         }
     }
 
+    /** Copies a consented revision into a launcher-owned store without moving the original profile. */
+    public Prepared export(Prepared prepared, Path instance, String javaFmlVersion, DiscoveryCancellation token) throws IOException {
+        token.check();
+        try (var sourceLock = lock()) {
+            verify(prepared, javaFmlVersion, token);
+            var destination = new ProfileStore(ManagedPaths.directory(instance, false).resolve("neosync"), null);
+            if (destination.root.equals(root)) return prepared;
+            long bytes = prepared.manifest().files().stream().mapToLong(SyncManifest.Artifact::size).sum();
+            if (Files.getFileStore(instance).getUsableSpace() < Math.addExact(bytes, SPACE_RESERVE))
+                throw new IOException("Not enough free disk space for the launcher profile copy and a reserve.");
+            ManagedPaths.directory(destination.root, true);
+            try (var lock = destination.lock()) {
+                Path profile = ManagedPaths.directory(destination.root.resolve("profiles").resolve(prepared.profileId()), true);
+                Path revisions = ManagedPaths.directory(profile.resolve("revisions"), true);
+                Path target = revisions.resolve(prepared.revisionId());
+                if (Files.exists(target, LinkOption.NOFOLLOW_LINKS)) {
+                    var existing = destination.readRevision(destination.readProfile(profile), prepared.revisionId());
+                    if (!existing.digest().equals(prepared.digest()) || !existing.identity().equals(prepared.identity()))
+                        throw new IOException("The launcher profile association changed. It was not overwritten.");
+                    destination.verify(existing, javaFmlVersion, token);
+                    return existing;
+                }
+                if (Files.exists(profile.resolve("profile.json"), LinkOption.NOFOLLOW_LINKS))
+                    throw new IOException("The launcher profile already contains a different revision. It was not overwritten.");
+                Path stage = ManagedPaths.directory(revisions.resolve(".neosync-" + UUID.randomUUID()), true);
+                Path pointer = profile.resolve(UUID.randomUUID() + ".tmp");
+                boolean published = false;
+                try {
+                    Path game = ManagedPaths.directory(stage.resolve("game"), true);
+                    Path mods = ManagedPaths.directory(game.resolve("mods"), true);
+                    for (var file : prepared.manifest().files()) {
+                        copy(prepared.gameDirectory().resolve("mods").resolve(file.sha256() + ".jar"), mods.resolve(file.sha256() + ".jar"), file.size(), token);
+                        JarMetadata.verify(mods.resolve(file.sha256() + ".jar"), file, javaFmlVersion, token);
+                    }
+                    verifyActiveMods(mods, prepared.manifest(), javaFmlVersion, token);
+                    ManagedPaths.directory(game.resolve("config"), true);
+                    ManagedPaths.directory(game.resolve("logs"), true);
+                    Path original = prepared.gameDirectory().getParent();
+                    ManagedPaths.writeNew(stage.resolve("manifest.json"), ManagedPaths.read(original.resolve("manifest.json"), SyncManifest.MAX_BYTES));
+                    ManagedPaths.writeNew(stage.resolve("consent.json"), ManagedPaths.read(original.resolve("consent.json"), SyncManifest.MAX_BYTES));
+                    ManagedPaths.writeNew(game.resolve("neosync-profile.json"), json(destination.markerRecord(prepared.profileId(), prepared.revisionId(), prepared.digest())));
+                    ManagedPaths.writeNew(pointer, json(profileRecord(new Profile(prepared.profileId(), prepared.identity(), prepared.revisionId(), "none"))));
+                    synchronized (token) {
+                        token.check();
+                        ManagedPaths.move(stage, target);
+                        published = true;
+                        ManagedPaths.move(pointer, profile.resolve("profile.json"));
+                    }
+                    var result = destination.readRevision(destination.readProfile(profile), prepared.revisionId());
+                    destination.verify(result, javaFmlVersion, token);
+                    return result;
+                } finally {
+                    Files.deleteIfExists(pointer);
+                    if (Files.exists(stage, LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(stage);
+                    if (published && !Files.exists(profile.resolve("profile.json"), LinkOption.NOFOLLOW_LINKS)) ManagedPaths.deleteTree(target);
+                }
+            }
+        }
+    }
+
     private static void verifyActiveMods(Path mods, SyncManifest manifest, String javaFmlVersion, DiscoveryCancellation token) throws IOException {
         var active = JarMetadata.activeMods(manifest.files().stream().map(file -> mods.resolve(file.sha256() + ".jar")).toList(), javaFmlVersion, token);
         if (!active.keySet().equals(manifest.activeMods().keySet()) || active.entrySet().stream().anyMatch(entry -> !SyncManifest.sameVersion(entry.getValue(), manifest.activeMods().get(entry.getKey()))))

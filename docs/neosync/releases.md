@@ -7,10 +7,10 @@ NeoSync-<neosync-version>-neoforge-<base-version>
 NeoSync-0.1.0-beta.6-neoforge-21.1.252
 ```
 
-The current published prerelease is **0.1.0-beta.6** for Minecraft Java Edition 1.21.1,
-NeoForge 21.1.252 and Java 21. See the [release notes](release-notes/0.1.0-beta.6.md)
-for validation and limits. Linux and Windows CI passed on the tagged source
-commit before publication. Earlier releases and their artifacts remain unchanged.
+The current published prerelease is **0.1.0-beta.10** for Minecraft Java Edition
+1.21.1, NeoForge 21.1.256 and Java 21. See the
+[release notes](release-notes/0.1.0-beta.10.md) for validation and limits.
+Earlier releases and their artifacts remain unchanged.
 
 Beta.6 includes declared NeoForge JarJar mods in the manifest entry for their
 containing file, including Create's bundled Flywheel and Ponder dependencies.
