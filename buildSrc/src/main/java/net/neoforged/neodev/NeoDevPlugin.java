@@ -420,9 +420,11 @@ public class NeoDevPlugin implements Plugin<Project> {
                     project.getDependencies().create("org.xerial:sqlite-jdbc:3.46.1.3"),
                     project.getDependencies().create("org.slf4j:slf4j-api:2.0.9"));
             installerExtras.setTransitive(false);
-            task.from(project.provider(() -> installerExtras.getFiles().stream().map(project::zipTree).toList()), spec -> {
-                spec.exclude("META-INF/MANIFEST.MF", "META-INF/versions/**", "module-info.class");
-            });
+            for (var extraFile : installerExtras.getFiles()) {
+                task.from(project.zipTree(extraFile), spec -> {
+                    spec.exclude("META-INF/MANIFEST.MF", "META-INF/versions/**", "module-info.class");
+                });
+            }
             task.from(project.zipTree(project.provider(installerConfig::getSingleFile)), spec -> {
                 spec.exclude("com/google/gson/**", "META-INF/maven/com.google.code.gson/**", "META-INF/proguard/gson.pro");
                 spec.exclude("META-INF/MANIFEST.MF", "big_logo.png", "icons/neoforged_16x16.png", "icons/neoforged_background_16x16.png",
