@@ -46,6 +46,31 @@ class ProfileStoreTest {
     }
 
     @Test
+    void exportsConsentedRevisionsWithoutSharingModFilesOrAcceptingTamperedCopies(@TempDir Path directory) throws Exception {
+        var store = ProfileStore.open(directory);
+        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
+        var original = prepare(store, plan(store, jar), jar);
+        Path instance = Files.createDirectories(directory.resolve("instances/server"));
+        var exported = store.export(original, instance, "4.0.44", new DiscoveryCancellation());
+        assertTrue(exported.gameDirectory().startsWith(instance));
+        assertEquals(original.digest(), exported.digest());
+        assertEquals(original, store.prepared(original.identity()).orElseThrow());
+        Path originalMod = original.gameDirectory().resolve("mods").resolve(original.manifest().files().getFirst().sha256() + ".jar");
+        Path exportedMod = exported.gameDirectory().resolve("mods").resolve(originalMod.getFileName());
+        assertFalse(Files.isSameFile(originalMod, exportedMod));
+        assertEquals(exported, store.export(original, instance, "4.0.44", new DiscoveryCancellation()));
+        assertEquals(exported, ProfileStore.open(exported.gameDirectory()).export(exported, instance, "4.0.44", new DiscoveryCancellation()));
+        Files.writeString(exportedMod, "tampered copy");
+        assertThrows(IOException.class, () -> store.export(original, instance, "4.0.44", new DiscoveryCancellation()));
+        store.verify(original, "4.0.44", new DiscoveryCancellation());
+        var cancelled = new DiscoveryCancellation();
+        cancelled.close();
+        Path canceledInstance = Files.createDirectory(directory.resolve("canceled"));
+        assertThrows(IOException.class, () -> store.export(original, canceledInstance, "4.0.44", cancelled));
+        assertFalse(Files.exists(canceledInstance.resolve("neosync")));
+    }
+
+    @Test
     void recoversAnOlderRevisionEvenWhenTheNewestRecordIsDamaged(@TempDir Path directory) throws Exception {
         var store = ProfileStore.open(directory);
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());

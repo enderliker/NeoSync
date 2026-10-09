@@ -272,6 +272,14 @@ public final class NeoSyncClient {
                     screen.show(List.of("Verifying the profile and preparing it in " + detected.kind().displayName() + "..."), "Cancel", "", null);
                     run(token -> net.neoforged.neoforge.neosync.launcher.LauncherIntegration.createInstallation(detected, prepared,
                             FMLLoader.versionInfo().fmlVersion(), token), id -> {
+                                if (detected.kind() == net.neoforged.neoforge.neosync.launcher.LauncherIntegration.Kind.SKLAUNCHER_BETA) {
+                                    screen.show(List.of("The server instance is prepared in SKlauncher's instances folder.",
+                                            "Close Minecraft and SKlauncher. Registration finishes after both have closed.",
+                                            "Reopen SKlauncher, select NeoSync " + prepared.manifest().displayName() + " / " + prepared.manifest().revision() + ", and press Play.",
+                                            "Choosing Later keeps the preparation; registration waits for SKlauncher to close."),
+                                            "Later", "Close Minecraft", minecraft::stop);
+                                    return;
+                                }
                                 screen.show(List.of("The installation is ready. No path changes are needed.",
                                         "Reopen " + detected.kind().displayName() + " and select NeoSync " + prepared.manifest().displayName() + " / " + prepared.manifest().revision() + ".",
                                         "Press Play in the launcher to start the prepared profile.",
