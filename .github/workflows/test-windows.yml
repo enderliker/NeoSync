@@ -46,10 +46,29 @@ jobs:
         run: .\gradlew.bat :neoforge:setup -PvalidateAccessTransformers --max-workers=2 --console=plain
 
       - name: Build, check formatting, and run unit tests
-        run: .\gradlew.bat assemble checkFormatting :tests:runUnitTests --max-workers=2 --console=plain
+        run: .\gradlew.bat assemble checkFormatting :installer:test :tests:runUnitTests :neoforge:installerJar --max-workers=2 --console=plain
+
+      - name: Build and verify Windows executable
+        run: |
+          $installer = @(Get-ChildItem projects/neoforge/build/libs/*-installer.jar)
+          if ($installer.Count -ne 1) { throw 'Expected one installer.' }
+          ./scripts/build_windows_installer.ps1 -InstallerJar $installer[0].FullName
+          $executable = @(Get-ChildItem build/windows-installer/*.exe)[0]
+          $report = Join-Path $PWD 'build/windows-installer/check.txt'
+          $process = Start-Process -FilePath $executable.FullName -ArgumentList '--wrapper-check', $report -WindowStyle Hidden -Wait -PassThru
+          if ($process.ExitCode -ne 0) { throw 'Windows installer check failed.' }
+          Get-Content -LiteralPath $report
 
       - name: Test installed dedicated server
         run: .\gradlew.bat :neoforge:testProductionServer --max-workers=2 --console=plain
+
+      - name: Upload Windows installer
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: neosync-windows-${{ github.sha }}
+          path: build/windows-installer/*-installer.exe
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Store failure reports
         if: failure()

@@ -66,7 +66,7 @@ in its description and authors. Existing license and copyright notices remain
 intact. Distinct product branding does not replace the fork's license obligations
 or imply endorsement by NeoForged or Mojang.
 
-The installed build uses a resource-only variant of FML `earlydisplay` 4.0.44.
+The installed build uses a resource-only variant of FML `earlydisplay` 4.0.45.
 `brandEarlyDisplay` and `brandEarlyDisplaySources` replace its three graphics
 while preserving every class, source file, service registration, font, and module
 identifier. The historical resource names stay because FML loads them directly
@@ -75,7 +75,7 @@ icon paths while replacing their contents. Minecraft's own graphics and
 third-party credits remain intact.
 
 The startup library uses the separate local Maven identity
-`io.github.enderliker.neosync:earlydisplay:4.0.44-neosync-<version>`. It is embedded
+`io.github.enderliker.neosync:earlydisplay:4.0.45-neosync-<version>`. It is embedded
 in the installer with a nonempty download URL pointing to the same NeoSync GitHub
 release. Neither the upstream dependency nor its shared cache is overwritten.
 Both the binary and matching source archive carry the license and change notice.

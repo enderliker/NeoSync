@@ -396,9 +396,9 @@ public class NeoDevPlugin implements Plugin<Project> {
 
         var installerConfig = configurations.getExecutableTool(Tools.LEGACYINSTALLER);
         // TODO: signing?
-        // We want to inherit the executable JAR manifest from LegacyInstaller.
+        // Keep the executable manifest first and retain LegacyInstaller attribution.
         // - Jar tasks have special manifest handling, so use Zip.
-        // - The manifest must be the first entry in the jar so LegacyInstaller has to be the first input.
+        // - The manifest must be the first entry in the jar.
         var installerJar = tasks.register("installerJar", Zip.class, task -> {
             task.setGroup(INTERNAL_GROUP);
             task.getArchiveBaseName().set("NeoSync");
@@ -410,8 +410,23 @@ public class NeoDevPlugin implements Plugin<Project> {
             task.setMetadataCharset("UTF-8");
             task.getDestinationDirectory().convention(project.getExtensions().getByType(BasePluginExtension.class).getLibsDirectory());
 
-            task.from(project.zipTree(project.provider(installerConfig::getSingleFile)).matching(pattern -> pattern.include("META-INF/MANIFEST.MF")));
+            var installerProject = project.getRootProject().project(":installer");
+            task.dependsOn(installerProject.getTasks().named("classes"), installerProject.getTasks().named("executableManifest"));
+            task.from(installerProject.getLayout().getBuildDirectory().dir("installer-manifest"));
+            task.from(installerProject.getLayout().getBuildDirectory().dir("classes/java/main"));
+            task.from(installerProject.getLayout().getBuildDirectory().dir("resources/main"));
+            var installerExtras = project.getConfigurations().detachedConfiguration(
+                    project.getDependencies().create("com.google.code.gson:gson:2.11.0"),
+                    project.getDependencies().create("org.xerial:sqlite-jdbc:3.46.1.3"),
+                    project.getDependencies().create("org.slf4j:slf4j-api:2.0.9"));
+            installerExtras.setTransitive(false);
+            for (var extraFile : installerExtras.getFiles()) {
+                task.from(project.zipTree(extraFile), spec -> {
+                    spec.exclude("META-INF/MANIFEST.MF", "META-INF/versions/**", "module-info.class");
+                });
+            }
             task.from(project.zipTree(project.provider(installerConfig::getSingleFile)), spec -> {
+                spec.exclude("com/google/gson/**", "META-INF/maven/com.google.code.gson/**", "META-INF/proguard/gson.pro");
                 spec.exclude("META-INF/MANIFEST.MF", "big_logo.png", "icons/neoforged_16x16.png", "icons/neoforged_background_16x16.png",
                         "icons/neoforged_background_32x32.png", "icons/neoforged_background_128x128.png");
             });
@@ -492,6 +507,9 @@ public class NeoDevPlugin implements Plugin<Project> {
         project.getExtensions().getByType(JavaPluginExtension.class).withSourcesJar();
         var sourcesJarProvider = project.getTasks().named("sourcesJar", Jar.class);
         sourcesJarProvider.configure(task -> {
+            task.from(project.getRootProject().file("installer/src/main/java"));
+            task.from(project.getRootProject().file("installer/windows"), spec -> spec.into("neosync-installer/windows"));
+            task.from(project.getRootProject().file("installer/src/main/resources/launchers"), spec -> spec.into("launchers"));
             task.setPreserveFileTimestamps(false);
             task.setReproducibleFileOrder(true);
             task.dependsOn("brandEarlyDisplaySources");
@@ -725,6 +743,7 @@ public class NeoDevPlugin implements Plugin<Project> {
 
             var destinationDir = project.getLayout().getBuildDirectory().dir("production-server");
             task.getInstallationDir().set(destinationDir);
+            task.getServerLauncher().set(destinationDir.map(dir -> dir.file("server.jar")));
         });
 
         project.getTasks().register("runProductionServer", RunProductionServer.class, task -> {

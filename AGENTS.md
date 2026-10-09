@@ -319,7 +319,14 @@ revisions. Prism instances support pre-launch verification and restart handoff.
 Current development discovers supported local NeoSync Prism runtimes and offers
 consented Minecraft Launcher installation creation without manual directory edits.
 Minecraft Launcher still requires selecting and launching the installation;
-SKlauncher and unsupported launchers retain manual activation. Do not label opening
+October 8 development adds SKlauncher 3.2 installation creation and local runtime
+setup plus consented native instances for SKlauncher 4.0 Beta and Modrinth App.
+The graphical installer handles runtime installation and registration for all five
+supported launchers without user scripts. Windows packaging includes an EXE that
+embeds the same JAR and discovers installed Java 21.
+These launchers require reopening, selecting the instance and pressing Play;
+actual launcher gameplay acceptance remains separate from source/schema tests.
+Unsupported launchers retain manual activation. Do not label opening
 a launcher as automatically launching Minecraft. See [Phase 6](docs/neosync/phase-6.md)
 and [launcher guidance](docs/neosync/launchers.md).
 

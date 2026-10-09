@@ -1,9 +1,11 @@
 # Unreleased source and launcher changes
 
-These changes reserve the unreleased 0.1.0-beta.7 version, dated September 29,
-2026, based on NeoForge 21.1.252 and Minecraft 1.21.1. They do not alter published
+These changes reserve the unreleased 0.1.0-beta.7 version for Minecraft 1.21.1.
+The September 29 work used NeoForge 21.1.252; October 8 development updates it to
+21.1.256 and adds SKlauncher/Modrinth integration. They do not alter published
 beta.6 or earlier artifacts. Installed acceptance below is limited to its exact
 fixture and the production launcher harness, not general launcher compatibility.
+See [October 8 source and validation notes](upstream-2026-10-08.md).
 
 ## Exact source priority
 
@@ -63,6 +65,10 @@ Release validation continues to reject embedded credentials by default.
 
 ## Launcher consent and limits
 
+October 8 development extends launcher support and imports NeoForge 1.21.1
+upstream through `a2d6402a3c1eec093aef7e7d10ac5145906c199e` (base 21.1.256).
+The September 29 validation below remains historical evidence for its own build.
+
 The prepared-profile screen shows the detected launcher, exact future game
 directory, isolation explanation, and **Later**, focused by default. Later does
 not create launcher installations or close Minecraft. A separate action prepares
@@ -72,9 +78,11 @@ the installation; a second consent action closes/restarts the game.
 | --- | --- |
 | Prism | Discovers a local descriptor or a supported local NeoSync component plus the actual ancestor executable. Can create the descriptor after consent, export a verified server instance and use the existing `--dir` / `--launch` handoff. No command-line sessions are copied. |
 | Minecraft Launcher | Detects brand/executable and the installed library directory. Creates a distinct installation with its game directory filled automatically after consent. Preserves existing profiles/settings and never reads account files. Select and press Play in the launcher; automatic game launch is not claimed. |
-| SKlauncher | Detects known brand/executable; manual installed-version route, copy path and open directory helpers. No undocumented profile mutation or assumed restart command. |
+| SKlauncher 3.2 | Reuses the existing bounded, atomic official profile writer after consent; adds an isolated installation and preserves unrelated profiles. Reopen and select it, then press Play. |
+| SKlauncher 4.0 Beta | Distinguishes the 4.x launcher version, installs the local runtime through the GUI, then prepares native custom instances and per-revision version metadata after consent. Uses an explicit game argument because the launcher rebases instance directories on startup. Reopen, select and press Play. |
+| Modrinth App | Recognizes both Modrinth and its `theseus` brand. The GUI installs NeoSync metadata and libraries; consented preparation registers a native instance and content set in a SQLite transaction. Unsupported schemas fail without changing existing instances. Reopen, select and press Play. |
 | Lunar Client | Detected and explicitly reports no verified NeoSync 1.21.1 custom-runtime adapter. Offers the supported launcher route instead. |
-| MultiMC, ATLauncher, Modrinth App, CurseForge App | Identified where brand or native ancestor names provide evidence; no automatic runtime compatibility claim. |
+| MultiMC, ATLauncher, CurseForge App | Identified where brand or native ancestor names provide evidence; no automatic runtime compatibility claim. |
 | Unknown / detached launcher | Does not guess the launcher from unrelated profile files or relaunch Java with session arguments. Manual instructions remain available. |
 
 Prism still requires an actually installed NeoSync runtime, not ordinary NeoForge.

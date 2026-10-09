@@ -98,10 +98,10 @@ final class ProfileBrowser {
     private void activation(ProfileStore.Prepared revision) {
         var detected = net.neoforged.neoforge.neosync.launcher.LauncherIntegration.detect(minecraft.gameDirectory.toPath());
         if (detected.canCreateInstallation()) {
-            screen.menu(NeoSyncClient.activationReview(revision, detected), "Later", List.of(new DiscoveryScreen.Choice("Create Minecraft installation", () -> run(() -> {
-                net.neoforged.neoforge.neosync.launcher.LauncherIntegration.createInstallation(detected.installation(), revision, FMLLoader.versionInfo().fmlVersion(), token);
-                return () -> screen.show(List.of("The verified installation is ready in Minecraft Launcher. No path changes are needed.",
-                        "Close Minecraft, open the launcher and select NeoSync " + revision.manifest().displayName() + " / " + revision.manifest().revision() + "."),
+            screen.menu(NeoSyncClient.activationReview(revision, detected), "Later", List.of(new DiscoveryScreen.Choice("Prepare in " + detected.kind().displayName(), () -> run(() -> {
+                net.neoforged.neoforge.neosync.launcher.LauncherIntegration.createInstallation(detected, revision, FMLLoader.versionInfo().fmlVersion(), token);
+                return () -> screen.show(List.of("The verified installation is ready in " + detected.kind().displayName() + ". No path changes are needed.",
+                        "Close Minecraft, reopen the launcher and select NeoSync " + revision.manifest().displayName() + " / " + revision.manifest().revision() + "."),
                         "Later", "Close Minecraft", minecraft::stop);
             }))));
             return;

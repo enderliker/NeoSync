@@ -41,7 +41,7 @@ jobs:
         run: ./gradlew :neoforge:setup -PvalidateAccessTransformers --max-workers=2 --console=plain
 
       - name: Build, check formatting, and run unit tests
-        run: ./gradlew assemble checkFormatting :tests:runUnitTests --max-workers=2 --console=plain
+        run: ./gradlew assemble checkFormatting :installer:test :tests:runUnitTests --max-workers=2 --console=plain
 
       - name: Store failure reports
         if: failure()

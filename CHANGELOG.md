@@ -11,7 +11,22 @@ installing. Published artifacts and tags remain immutable.
 
 ## Unreleased
 
+- Add a graphical launcher selector with original icons, detected paths, disabled
+  missing directories and a custom-folder option. Install and register launchers
+  automatically without Python steps.
+- Build and verify a Windows EXE embedding the same installer JAR, with Java 21
+  detection and release-workflow packaging.
+- Add **Accept all** for the complete reviewed mod set, retaining the separate
+  default-negative source confirmation before downloading.
+
 - Reserve 0.1.0-beta.7 for development; no release or published artifact is replaced.
+- Update the Minecraft 1.21.1 base to NeoForge 21.1.256: FancyModLoader 4.0.45,
+  Mixin 0.16.4+mixin.0.8.7, MixinExtras 0.5.5 and upstream's loading-overlay
+  shader-color fix, preserving NeoSync's branding and integration hooks.
+- Add consented installation creation for SKlauncher 3.2 and native server
+  instances for SKlauncher 4.0 Beta and Modrinth App. The GUI installs their
+  runtimes automatically, with optional developer import tooling. Existing
+  profiles are preserved; accounts are not copied or queried.
 - Restore exact CurseForge resolution after Modrinth without metadata caching or
   persisted API-derived provider metadata; retain explicit eligible-only hosting.
 - Inject optional provider access at build time without source literals; exclude
