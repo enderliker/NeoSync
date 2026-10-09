@@ -20,13 +20,13 @@ public record RequirementReport(boolean ready, int missingFiles, List<String> li
         var lines = new ArrayList<String>();
         boolean ready = manifest.loaderVersion().equals(loaderVersion) && manifest.neoForgeVersion().equals(neoForgeVersion);
         lines.add(manifest.displayName());
-        int modCount = manifest.files().stream().mapToInt(file -> file.mods().size()).sum();
+        int modCount = manifest.activeMods().size();
         lines.add("Required: " + count(modCount, "mod") + " in " + count(manifest.files().size(), "file") + ".");
         if (!ready) lines.add("Required loader: NeoSync " + manifest.loaderVersion() + " with NeoForge " + manifest.neoForgeVersion() + ". Your loader version differs.");
         int missing = 0;
         for (var file : manifest.files()) {
             boolean exactFile = loadedHashes.contains(file.sha256());
-            boolean activeMods = file.mods().stream().allMatch(mod -> mod.version().equals(loadedMods.get(mod.id())));
+            boolean activeMods = file.mods().stream().allMatch(mod -> !manifest.activeMods().containsKey(mod.id()) || SyncManifest.sameVersion(manifest.activeMods().get(mod.id()), loadedMods.get(mod.id())));
             if (!exactFile || !activeMods) {
                 missing++;
                 ready = false;
@@ -36,7 +36,10 @@ public record RequirementReport(boolean ready, int missingFiles, List<String> li
             for (var mod : file.mods()) {
                 String current = loadedMods.get(mod.id());
                 lines.add(mod.displayName() + " (" + mod.id() + ") " + mod.version()
+                        + (!manifest.activeMods().containsKey(mod.id()) ? " — inactive bundled candidate"
+                                : !SyncManifest.sameVersion(mod.version(), manifest.activeMods().get(mod.id())) ? " — selected version: " + manifest.activeMods().get(mod.id()) : "")
                         + (current == null ? " — not loaded" : " — loaded: " + current));
+                if (!SyncManifest.sameVersion(mod.version(), manifest.activeMods().get(mod.id()))) continue;
                 for (var dependency : mod.dependencies()) {
                     String installed = loadedMods.get(dependency.id());
                     if (installed != null && dependency.range().containsVersion(new org.apache.maven.artifact.versioning.DefaultArtifactVersion(installed))) {

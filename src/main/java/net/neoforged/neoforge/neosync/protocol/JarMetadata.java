@@ -10,6 +10,7 @@ import com.electronwill.nightconfig.toml.TomlParser;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.nio.channels.FileChannel;
@@ -25,6 +26,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.jar.Manifest;
 import java.util.zip.CRC32;
@@ -33,21 +35,30 @@ import java.util.zip.ZipFile;
 import org.apache.maven.artifact.versioning.DefaultArtifactVersion;
 import org.apache.maven.artifact.versioning.VersionRange;
 
-/** Bounded metadata inspection for javafml JARs and declared NeoForge JarJar entries; no classes are loaded. */
+/** Bounded metadata inspection for NeoForge JARs and declared JarJar entries; no classes are loaded. */
 public final class JarMetadata {
     private static final int MAX_ENTRY = 512 * 1024;
     private static final int MAX_METADATA = 4 * 1024 * 1024;
-    private static final int MAX_ARCHIVE_ENTRIES = 32768;
-    private static final int MAX_ALL_ENTRIES = 65536;
+    private static final int MAX_ARCHIVE_ENTRIES = 65534;
+    private static final int MAX_ALL_ENTRIES = 131072;
     private static final int MAX_NESTED_JARS = 32;
     private static final long MAX_NESTED_JAR_BYTES = 64L * 1024 * 1024;
     private static final long MAX_NESTED_TOTAL_BYTES = 256L * 1024 * 1024;
     private static final long MAX_NESTED_EXPANSION = 256L * 1024 * 1024;
+    private static final int MAX_NESTED_DEPTH = 4;
     private static final String MOD_METADATA = "META-INF/neoforge.mods.toml";
     private static final String JARJAR_PREFIX = "META-INF/jarjar/";
     private static final String JARJAR_METADATA = JARJAR_PREFIX + "metadata.json";
+    private static final String LANGUAGE_SERVICE = "META-INF/services/net.neoforged.neoforgespi.language.IModLanguageLoader";
 
     private record Archive(List<SyncManifest.Mod> mods, Map<String, ZipEntry> nested, long expansion, int entries) {}
+
+    private static final class Budget {
+        int entries;
+        int jars;
+        long bytes;
+        long expansion;
+    }
 
     private JarMetadata() {}
 
@@ -91,6 +102,80 @@ public final class JarMetadata {
         return mods;
     }
 
+    public static Map<String, String> activeMods(List<Path> paths, String javaFmlVersion, DiscoveryCancellation token) throws IOException {
+        var temporary = new ArrayList<Path>();
+        var extracted = new HashMap<String, Path>();
+        var fingerprints = new HashMap<Path, ArtifactFiles.Fingerprint>();
+        long[] copied = { 0 };
+        try {
+            for (Path path : paths) {
+                fingerprints.put(path, ArtifactFiles.fingerprint(path, token));
+                inspect(path, javaFmlVersion, token);
+            }
+            var selected = net.neoforged.jarjar.selection.JarSelector.detectAndSelect(paths,
+                    (path, entry) -> {
+                        try (var zip = new ZipFile(path.toFile())) {
+                            String name = entry.toString().replace('\\', '/');
+                            return zip.getEntry(name) == null ? Optional.empty() : Optional.of(new ByteArrayInputStream(read(zip, name, true, token)));
+                        } catch (IOException failure) {
+                            throw new UncheckedIOException(failure);
+                        }
+                    }, (path, entry) -> {
+                        String name = entry.toString().replace('\\', '/');
+                        String key = path + "|" + name;
+                        if (extracted.containsKey(key)) return Optional.of(extracted.get(key));
+                        try (var zip = new ZipFile(path.toFile())) {
+                            ZipEntry archive = zip.getEntry(name);
+                            if (!nestedPath(name) || archive == null || archive.getSize() < 1 || archive.getSize() > MAX_NESTED_JAR_BYTES
+                                    || (copied[0] += archive.getSize()) > SyncManifest.MAX_TOTAL_BYTES)
+                                throw new IOException("The selected JarJar inventory exceeds its extraction limit.");
+                            Path target = Files.createTempFile("neosync-selection-", ".jar");
+                            temporary.add(target);
+                            copyNested(zip, archive, target, token);
+                            extracted.put(key, target);
+                            return Optional.of(target);
+                        } catch (IOException failure) {
+                            throw new UncheckedIOException(failure);
+                        }
+                    }, Path::toString, failures -> new IOException("The selected client artifacts have incompatible JarJar version ranges."));
+            var active = new HashMap<String, String>();
+            var modules = new HashMap<String, List<SyncManifest.Mod>>();
+            var moduleFiles = new HashMap<String, Path>();
+            var activePaths = new ArrayList<>(paths);
+            activePaths.addAll(selected);
+            for (Path path : activePaths.stream().distinct().toList()) {
+                try (var zip = new ZipFile(path.toFile())) {
+                    if (zip.getEntry(MOD_METADATA) == null) continue;
+                    String version = new Manifest(new ByteArrayInputStream(read(zip, "META-INF/MANIFEST.MF", false, token))).getMainAttributes().getValue("Implementation-Version");
+                    var mods = parseMods(zip, version, javaFmlVersion, token);
+                    String module = mods.getFirst().id();
+                    var previous = modules.get(module);
+                    int comparison = previous == null ? 1 : new DefaultArtifactVersion(mods.getFirst().version()).compareTo(new DefaultArtifactVersion(previous.getFirst().version()));
+                    // FML groups mod files by their first mod ID and retains the newest version.
+                    if (comparison == 0 && !ArtifactFiles.fingerprint(path, token).sha256().equals(ArtifactFiles.fingerprint(moduleFiles.get(module), token).sha256()))
+                        throw new IOException("The selected client artifacts contain ambiguous equal-version modules: " + module);
+                    if (comparison > 0) {
+                        modules.put(module, mods);
+                        moduleFiles.put(module, path);
+                    }
+                }
+            }
+            for (var mods : modules.values()) for (var mod : mods) {
+                if (active.putIfAbsent(mod.id(), mod.version()) != null)
+                    throw new IOException("The selected client artifacts load duplicate mod IDs: " + mod.id());
+            }
+            for (Path path : paths) {
+                if (!fingerprints.get(path).equals(ArtifactFiles.fingerprint(path, token)))
+                    throw new IOException("A selected artifact changed during JarJar selection.");
+            }
+            return Map.copyOf(active);
+        } catch (UncheckedIOException failure) {
+            throw failure.getCause();
+        } finally {
+            for (Path path : temporary) Files.deleteIfExists(path);
+        }
+    }
+
     public static void verify(Path path, SyncManifest.Artifact expected, String javaFmlVersion, DiscoveryCancellation token) throws IOException {
         var before = ArtifactFiles.fingerprint(path, token);
         if (!before.sha256().equals(expected.sha256()) || before.size() != expected.size()) throw new IOException("The artifact changed before metadata verification.");
@@ -102,7 +187,8 @@ public final class JarMetadata {
         if (actual.size() != reviewed.size()) throw new IOException("The JAR's mod IDs or versions differ from the reviewed manifest.");
         for (var mod : actual) {
             var expectedMod = reviewed.get(mod.id());
-            if (expectedMod == null || !mod.version().equals(expectedMod.version()) || !mod.displayName().equals(expectedMod.displayName()))
+            if (expectedMod == null || !mod.version().equals(expectedMod.version()) || !mod.displayName().equals(expectedMod.displayName())
+                    || expectedMod.embedded() && !mod.embedded())
                 throw new IOException("The JAR's mod IDs, versions, or names differ from the reviewed manifest.");
             if (!dependencyKeys(mod).equals(dependencyKeys(expectedMod)))
                 throw new IOException("The JAR's client dependencies differ from the reviewed manifest: " + mod.id());
@@ -115,42 +201,47 @@ public final class JarMetadata {
     }
 
     private static List<SyncManifest.Mod> inspectContents(Path path, String javaFmlVersion, DiscoveryCancellation token) throws IOException {
-        int count = checkDirectory(path);
-        try (var zip = new ZipFile(path.toFile())) {
-            var outer = inspectArchive(zip, count, true, javaFmlVersion, token);
-            var nestedPaths = declaredNested(zip, outer.nested(), token);
-            var mods = new ArrayList<>(outer.mods());
-            long nestedBytes = 0;
-            long nestedExpansion = 0;
-            int allEntries = outer.entries();
-            for (String nestedPath : nestedPaths) {
-                token.check();
-                ZipEntry entry = outer.nested().get(nestedPath);
-                if (entry.getSize() < 1 || entry.getSize() > MAX_NESTED_JAR_BYTES
-                        || (nestedBytes += entry.getSize()) > MAX_NESTED_TOTAL_BYTES)
-                    throw new IOException("The declared nested JARs exceed the size limit.");
-                Path temporary = Files.createTempFile("neosync-jarjar-", ".jar");
-                try {
-                    copyNested(zip, entry, temporary, token);
-                    int nestedCount = checkDirectory(temporary);
-                    try (var nested = new ZipFile(temporary.toFile())) {
-                        var inspected = inspectArchive(nested, nestedCount, false, javaFmlVersion, token);
-                        allEntries += inspected.entries();
-                        nestedExpansion += inspected.expansion();
-                        if (allEntries > MAX_ALL_ENTRIES || nestedExpansion > MAX_NESTED_EXPANSION)
-                            throw new IOException("The nested JARs exceed the archive expansion limit.");
-                        mods.addAll(inspected.mods());
-                    }
-                } finally {
-                    Files.deleteIfExists(temporary);
-                }
-            }
+        try {
+            var mods = inspectTree(path, javaFmlVersion, token, 0, new Budget());
             var ids = new HashSet<String>();
             for (var mod : mods) if (!ids.add(mod.id())) throw new IOException("The JAR contains duplicate top-level or embedded mod IDs.");
             if (mods.size() > 8192) throw new IOException("The JAR contains too many mods.");
             return List.copyOf(mods);
+        } catch (IOException e) {
+            throw new IOException(path.getFileName() + ": " + e.getMessage(), e);
         } catch (RuntimeException e) {
-            throw new IOException("The JAR metadata is invalid or unsupported.", e);
+            throw new IOException(path.getFileName() + ": The JAR metadata is invalid or unsupported.", e);
+        }
+    }
+
+    private static List<SyncManifest.Mod> inspectTree(Path path, String javaFmlVersion, DiscoveryCancellation token, int depth, Budget budget) throws IOException {
+        int count = checkDirectory(path);
+        try (var zip = new ZipFile(path.toFile())) {
+            var outer = inspectArchive(zip, count, depth == 0, javaFmlVersion, token);
+            budget.entries += outer.entries();
+            if (depth > 0) budget.expansion += outer.expansion();
+            if (budget.entries > MAX_ALL_ENTRIES || budget.expansion > MAX_NESTED_EXPANSION)
+                throw new IOException("The nested JARs exceed the archive expansion limit.");
+            var nestedPaths = declaredNested(zip, outer.nested(), token);
+            var mods = new ArrayList<>(outer.mods());
+            for (String nestedPath : nestedPaths) {
+                token.check();
+                if (depth >= MAX_NESTED_DEPTH || ++budget.jars > MAX_NESTED_JARS)
+                    throw new IOException("The declared nested JARs exceed the depth or count limit.");
+                ZipEntry entry = outer.nested().get(nestedPath);
+                if (entry.getSize() < 1 || entry.getSize() > MAX_NESTED_JAR_BYTES
+                        || (budget.bytes += entry.getSize()) > MAX_NESTED_TOTAL_BYTES)
+                    throw new IOException("The declared nested JARs exceed the size limit.");
+                Path temporary = Files.createTempFile("neosync-jarjar-", ".jar");
+                try {
+                    copyNested(zip, entry, temporary, token);
+                    for (var mod : inspectTree(temporary, javaFmlVersion, token, depth + 1, budget))
+                        mods.add(new SyncManifest.Mod(mod.id(), mod.version(), mod.displayName(), mod.dependencies(), true));
+                } finally {
+                    Files.deleteIfExists(temporary);
+                }
+            }
+            return List.copyOf(mods);
         }
     }
 
@@ -172,19 +263,27 @@ public final class JarMetadata {
             expansion += size;
             boolean nestedJar = false;
             if (lower.endsWith(".jar")) {
-                String fileName = name.startsWith(JARJAR_PREFIX) ? name.substring(JARJAR_PREFIX.length()) : "";
-                if (!outer || fileName.length() > 128 || !fileName.matches(SyncManifest.FILE_PATTERN))
+                if (!nestedPath(name))
                     throw new IOException("The JAR contains an undeclared or deeply nested archive.");
                 nested.put(name, entry);
                 nestedJar = true;
             }
             if (lower.startsWith("meta-inf/jarjar/") && !nestedJar
-                    && (!outer || !name.equals(JARJAR_PREFIX) && !name.equals(JARJAR_METADATA)))
+                    && !name.equals(JARJAR_PREFIX) && !name.equals(JARJAR_METADATA))
                 throw new IOException("The JAR contains an unsupported JarJar entry.");
             if (lower.startsWith("meta-inf/services/net.neoforged.") || lower.startsWith("meta-inf/services/cpw.mods.")
-                    || lower.startsWith("meta-inf/services/net.minecraftforge.") || lower.equals("meta-inf/mods.toml")
-                    || lower.equals("fabric.mod.json") || lower.equals("quilt.mod.json") || lower.endsWith("neosync-profile.json"))
-                throw new IOException("Alternative loaders and loader service providers are not supported.");
+                    || lower.startsWith("meta-inf/services/net.minecraftforge.")) {
+                boolean inactiveForge = lower.startsWith("meta-inf/services/net.minecraftforge.") && zip.getEntry(LANGUAGE_SERVICE) != null;
+                if (!inactiveForge && !name.equals(LANGUAGE_SERVICE))
+                    throw new IOException("Unsupported loader service provider: " + name);
+                String providers = new String(read(zip, LANGUAGE_SERVICE, true, token), StandardCharsets.UTF_8);
+                for (String line : providers.split("\\R")) {
+                    String provider = line.split("#", 2)[0].strip();
+                    if (!provider.isEmpty() && !provider.matches("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+"))
+                        throw new IOException("Invalid NeoForge language service provider.");
+                }
+            }
+            if (lower.endsWith("neosync-profile.json")) throw new IOException("A JAR cannot contain NeoSync profile records.");
             if (lower.equals("meta-inf/neoforge.mods.toml") && !name.equals(MOD_METADATA)
                     || lower.equals("meta-inf/manifest.mf") && !name.equals("META-INF/MANIFEST.MF"))
                 throw new IOException("The JAR has a noncanonical metadata entry.");
@@ -196,11 +295,15 @@ public final class JarMetadata {
         if (names.size() != count) throw new IOException("The JAR directory is inconsistent.");
         var attributes = new Manifest(new ByteArrayInputStream(read(zip, "META-INF/MANIFEST.MF", false, token))).getMainAttributes();
         String type = attributes.getValue("FMLModType");
-        if (attributes.getValue("Class-Path") != null || Boolean.parseBoolean(attributes.getValue("Multi-Release")))
+        if (attributes.getValue("Class-Path") != null)
             throw new IOException("Unsupported JAR loading arrangement.");
-        if (!outer && "GAMELIBRARY".equals(type)) {
-            if (zip.getEntry(MOD_METADATA) != null) throw new IOException("A declared game library also contains mod metadata.");
-            return new Archive(List.of(), Map.of(), expansion, count);
+        boolean modMetadata = zip.getEntry(MOD_METADATA) != null;
+        if (!modMetadata) {
+            if (zip.getEntry("fabric.mod.json") != null || zip.getEntry("quilt.mod.json") != null || zip.getEntry("META-INF/mods.toml") != null)
+                throw new IOException("The JAR is missing NeoForge mod metadata.");
+            if (type != null && !Set.of("LIBRARY", "GAMELIBRARY").contains(type) || outer && !"LIBRARY".equals(type))
+                throw new IOException("Unsupported JAR loading arrangement.");
+            return new Archive(List.of(), Map.copyOf(nested), expansion, count);
         }
         if (type != null && !type.equals("MOD")) throw new IOException("Unsupported JAR loading arrangement.");
         return new Archive(parseMods(zip, attributes.getValue("Implementation-Version"), javaFmlVersion, token), Map.copyOf(nested), expansion, count);
@@ -208,7 +311,7 @@ public final class JarMetadata {
 
     private static void validateEntryName(String name, String lower, Set<String> names) throws IOException {
         if (name.isEmpty() || name.length() > 1024 || name.startsWith("/") || name.contains("\\") || name.codePoints().anyMatch(Character::isISOControl)
-                || !names.add(lower) || names.size() > MAX_ARCHIVE_ENTRIES)
+                || !names.add(lower.startsWith("assets/") || lower.startsWith("data/") ? name : lower) || names.size() > MAX_ARCHIVE_ENTRIES)
             throw new IOException("The JAR contains ambiguous or unsafe entry names.");
         String[] parts = name.split("/", -1);
         for (int i = 0; i < parts.length; i++) {
@@ -218,8 +321,20 @@ public final class JarMetadata {
     }
 
     private static List<String> declaredNested(ZipFile zip, Map<String, ZipEntry> nested, DiscoveryCancellation token) throws IOException {
+        var active = new HashMap<>(nested);
+        if (zip.getEntry(MOD_METADATA) != null && zip.getEntry("fabric.mod.json") != null) {
+            var fabric = SyncJson.parse(read(zip, "fabric.mod.json", true, token), MAX_ENTRY).getAsJsonObject();
+            if (fabric.has("jars")) {
+                for (var value : SyncJson.array(fabric.get("jars"), 0, MAX_NESTED_JARS)) {
+                    var item = SyncJson.object(value, Set.of("file"), Set.of());
+                    String path = SyncJson.string(item.get("file"), 256);
+                    if (!nestedPath(path)) throw new IOException("Invalid inactive Fabric archive path.");
+                    active.remove(path);
+                }
+            }
+        }
         if (zip.getEntry(JARJAR_METADATA) == null) {
-            if (!nested.isEmpty()) throw new IOException("The JAR contains nested archives without JarJar metadata.");
+            if (!active.isEmpty()) throw new IOException("The JAR contains nested archives without JarJar metadata.");
             return List.of();
         }
         var root = SyncJson.object(SyncJson.parse(read(zip, JARJAR_METADATA, true, token), MAX_ENTRY), Set.of("jars"), Set.of());
@@ -227,9 +342,10 @@ public final class JarMetadata {
         var identities = new HashSet<String>();
         var paths = new HashSet<String>();
         for (var value : SyncJson.array(root.get("jars"), 0, MAX_NESTED_JARS)) {
-            var item = SyncJson.object(value, Set.of("identifier", "version", "path", "isObfuscated"), Set.of());
+            var item = SyncJson.object(value, Set.of("identifier", "version", "path"), Set.of("isObfuscated"));
             var identifier = SyncJson.object(item.get("identifier"), Set.of("group", "artifact"), Set.of());
-            String group = SyncJson.matching(identifier.get("group"), 128, "[A-Za-z0-9][A-Za-z0-9._+-]*");
+            String group = identifier.get("group").isJsonPrimitive() && identifier.get("group").getAsJsonPrimitive().isString()
+                    && identifier.get("group").getAsString().isEmpty() ? "" : SyncJson.matching(identifier.get("group"), 128, "[A-Za-z0-9][A-Za-z0-9._+-]*");
             String artifact = SyncJson.matching(identifier.get("artifact"), 128, "[A-Za-z0-9][A-Za-z0-9._+-]*");
             if (!identities.add(group + ":" + artifact)) throw new IOException("JarJar metadata repeats an artifact identifier.");
             var version = SyncJson.object(item.get("version"), Set.of("range", "artifactVersion"), Set.of());
@@ -237,15 +353,20 @@ public final class JarMetadata {
             String artifactVersion = SyncJson.string(version.get("artifactVersion"), 128);
             if (!declaredRange.containsVersion(new DefaultArtifactVersion(artifactVersion)))
                 throw new IOException("JarJar metadata has an inconsistent artifact version.");
-            SyncJson.bool(item.get("isObfuscated"));
+            if (item.has("isObfuscated")) SyncJson.bool(item.get("isObfuscated"));
             String path = SyncJson.string(item.get("path"), 256);
-            String fileName = path.startsWith(JARJAR_PREFIX) ? path.substring(JARJAR_PREFIX.length()) : "";
-            if (fileName.length() > 128 || !fileName.matches(SyncManifest.FILE_PATTERN) || !nested.containsKey(path) || !paths.add(path))
-                throw new IOException("JarJar metadata has an undeclared, missing, or duplicate archive path.");
-            result.add(path);
+            if (!nestedPath(path) || !nested.containsKey(path))
+                throw new IOException("JarJar metadata has an undeclared or missing archive path.");
+            active.remove(path);
+            if (paths.add(path)) result.add(path);
         }
-        if (paths.size() != nested.size()) throw new IOException("The JAR contains an archive absent from JarJar metadata.");
+        if (!active.isEmpty()) throw new IOException("The JAR contains an archive absent from JarJar metadata.");
         return List.copyOf(result);
+    }
+
+    private static boolean nestedPath(String path) {
+        int prefix = path.startsWith(JARJAR_PREFIX) ? JARJAR_PREFIX.length() : path.startsWith("META-INF/jars/") ? "META-INF/jars/".length() : -1;
+        return prefix >= 0 && path.substring(prefix).length() <= 128 && path.substring(prefix).matches(SyncManifest.FILE_PATTERN);
     }
 
     private static void copyNested(ZipFile zip, ZipEntry entry, Path temporary, DiscoveryCancellation token) throws IOException {
@@ -270,11 +391,13 @@ public final class JarMetadata {
                 .decode(ByteBuffer.wrap(read(zip, MOD_METADATA, true, token))).toString();
         boundToml(text);
         UnmodifiableConfig config = new TomlParser().parse(new StringReader(text));
-        if (!"javafml".equals(string(config, "modLoader", ""))) throw new IOException("Only javafml mod artifacts are supported.");
-        if (!range(string(config, "loaderVersion", "")).containsVersion(new DefaultArtifactVersion(javaFmlVersion)))
+        String language = string(config, "modLoader", "");
+        if (!language.matches("[a-z][a-z0-9_]{1,63}")) throw new IOException("Invalid NeoForge language loader: " + language);
+        VersionRange languageRange = range(string(config, "loaderVersion", ""));
+        if (language.equals("javafml") && !languageRange.containsVersion(new DefaultArtifactVersion(javaFmlVersion)))
             throw new IOException("The mod requires a different Java FML language loader.");
         if (string(config, "license", "").isBlank()) throw new IOException("The mod metadata has no license.");
-        if (config.contains("features") || config.contains("services")) throw new IOException("Custom feature and service requirements are not supported.");
+        if (config.contains("services")) throw new IOException("Custom service requirements are not supported.");
         Object rawMods = config.get("mods");
         if (!(rawMods instanceof List<?> list) || list.isEmpty() || list.size() > 64) throw new IOException("The JAR has an invalid mod list.");
         var result = new ArrayList<SyncManifest.Mod>();
@@ -288,6 +411,12 @@ public final class JarMetadata {
             if (!id.matches("[a-z][a-z0-9_]{1,63}") || !ids.add(id)
                     || !validDisplay(version) || version.contains("${") || !validDisplay(name) || name.contains("${"))
                 throw new IOException("Unsupported or duplicate mod identity metadata.");
+            Object features = config.get(List.of("features", id));
+            if (features != null) {
+                if (!(features instanceof UnmodifiableConfig featureConfig) || featureConfig.valueMap().keySet().stream().anyMatch(key -> !key.equals("javaVersion"))
+                        || !range(string(featureConfig, "javaVersion", "")).containsVersion(new DefaultArtifactVersion("21")))
+                    throw new IOException("Unsupported mod feature requirements: " + id);
+            }
             result.add(new SyncManifest.Mod(id, version, name, dependencies(config, id)));
         }
         return List.copyOf(result);
@@ -320,7 +449,7 @@ public final class JarMetadata {
 
     private static VersionRange range(String value) throws IOException {
         try {
-            return VersionRange.createFromVersionSpec(value);
+            return VersionRange.createFromVersionSpec(value.equals("*") ? "[0,)" : value);
         } catch (org.apache.maven.artifact.versioning.InvalidVersionSpecificationException e) {
             throw new IOException("Invalid metadata version range.", e);
         }

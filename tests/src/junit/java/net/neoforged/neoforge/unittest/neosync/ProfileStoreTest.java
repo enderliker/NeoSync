@@ -113,6 +113,31 @@ class ProfileStoreTest {
     }
 
     @Test
+    void rejectsFalseActiveInventoryBeforePublishingAProfile(@TempDir Path directory) throws Exception {
+        var store = ProfileStore.open(directory);
+        String nested = "META-INF/jarjar/hidden.jar";
+        String declaration = JarMetadataTest.jarjarEntry("hidden", "1.0", nested);
+        byte[] library = JarMetadataTest.jarBytes(JarMetadataTest.TOML.replace("test_mod", "hidden_mod"), Map.of());
+        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of(nested, library,
+                "META-INF/jarjar/metadata.json", ("{\"jars\":[" + declaration + "]}").getBytes(StandardCharsets.UTF_8)));
+        var root = JsonParser.parseString(new String(InstallationPlanTest.manifest(), StandardCharsets.UTF_8)).getAsJsonObject();
+        var artifact = net.neoforged.neoforge.neosync.protocol.ArtifactFiles.fingerprint(jar, new DiscoveryCancellation());
+        var file = root.getAsJsonArray("files").get(0).getAsJsonObject();
+        file.addProperty("sha256", artifact.sha256());
+        file.addProperty("size", artifact.size());
+        var mod = file.getAsJsonArray("mods").get(0).deepCopy().getAsJsonObject();
+        mod.addProperty("id", "hidden_mod");
+        mod.addProperty("embedded", true);
+        file.getAsJsonArray("mods").add(mod);
+        root.addProperty("schemaVersion", 2);
+        root.add("activeMods", JsonParser.parseString("[{\"id\":\"test_mod\",\"version\":\"1.0\"}]"));
+        byte[] bytes = root.toString().getBytes(StandardCharsets.UTF_8);
+        var plan = InstallationPlan.create(InstallationPlanTest.endpoint(bytes), bytes, Set.of(artifact.sha256()), null, "0.1.0-dev", "21.1.251");
+        assertThrows(IOException.class, () -> prepare(store, plan, jar));
+        assertTrue(store.history().revisions().isEmpty());
+    }
+
+    @Test
     void preservesPreviousRevisionOnCancellationAndDiskFailure(@TempDir Path directory) throws Exception {
         var store = ProfileStore.open(directory);
         Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());

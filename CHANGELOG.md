@@ -11,6 +11,18 @@ installing. Published artifacts and tags remain immutable.
 
 ## Unreleased
 
+- Reserve 0.1.0-beta.9 for general NeoForge/JarJar inventory corrections and
+  `mods_client` support. Preserve published beta.8 assets and its tag.
+- Keep valid merged metadata, language-library bundles and shared embedded
+  dependencies from disabling discovery. Validate the effective client set with
+  NeoForge's JarJar selector and verify enclosing JAR hashes after restart.
+- Classify `mods_client` JARs as CLIENT automatically and use the existing
+  administrator selection, exact sources, consent and isolated profile flow.
+- Advertise unavailable synchronization when enabled startup validation fails,
+  so clients show the error before an ordinary connection attempt.
+- Enable synchronization in new server configurations, preserving existing
+  administrator settings and the selected-set validation and consent checks.
+
 - Reserve 0.1.0-beta.8 for authorized CurseForge builds and complete Modrinth App
   runtime preparation; retain the existing beta.7 draft and installed identity.
 - Finish Modrinth's client, libraries, assets and logging before registering an

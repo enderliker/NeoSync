@@ -37,6 +37,15 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class ModEnvironmentTest {
     @Test
+    void keepsAdministratorClientOnlyInventoryWithoutProviderRequests(@TempDir Path directory) throws Exception {
+        Path jar = JarMetadataTest.jar(directory, JarMetadataTest.TOML, Map.of());
+        var detected = ModEnvironmentDetector.detect(List.of(new AdminSelection.Candidate(jar, "Client-only mod", ModEnvironment.CLIENT)), (service, path, body, token) -> {
+            throw new AssertionError("An explicitly client-only inventory must retain its environment.");
+        });
+        assertEquals(ModEnvironment.CLIENT, detected.getFirst().environment());
+    }
+
+    @Test
     void requiresExplicitWholeFileDeclarations(@TempDir Path directory) throws Exception {
         for (var side : ModEnvironment.values()) {
             String declaration = side == ModEnvironment.UNKNOWN ? "" : "\n[modproperties.test_mod]\nneosyncSide=\"" + side.name() + "\"\n";
@@ -71,7 +80,7 @@ class ModEnvironmentTest {
         Path config = directory.resolve("config/neosync-server.json");
         var selection = new AdminSelection(config, List.of(candidate), 25565);
         assertTrue(selection.state().getAsJsonArray("files").get(0).getAsJsonObject().get("selected").getAsBoolean());
-        assertFalse(selection.state().get("enabled").getAsBoolean());
+        assertTrue(selection.state().get("enabled").getAsBoolean());
         var request = AdminSelectionTest.request(selection, "automatic");
         request.getAsJsonArray("files").remove(0);
         selection.save(bytes(request.toString()));

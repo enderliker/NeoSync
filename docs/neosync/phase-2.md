@@ -37,9 +37,11 @@ contacted, and a server-hosted source does not expose a download endpoint yet.
 
 ## Server setup
 
-Discovery is disabled when `config/neosync-server.json` is absent or has
-`"enabled": false`. Enable it only after selecting the actual client-required
-JARs. For example:
+In this milestone, discovery was disabled when `config/neosync-server.json` was
+absent or had `"enabled": false`. Development beta.9 creates new configurations
+with `"enabled": true` while preserving existing choices. Review the actual
+client-required JARs and startup result as described in
+[server administration](administration.md). An explicit configuration can use:
 
 ```json
 {

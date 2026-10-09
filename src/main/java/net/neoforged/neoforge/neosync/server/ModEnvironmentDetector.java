@@ -35,6 +35,10 @@ public final class ModEnvironmentDetector {
         var environments = new HashMap<Path, ModEnvironment>();
         var token = new DiscoveryCancellation();
         for (var candidate : candidates) {
+            if (candidate.environment() == ModEnvironment.CLIENT) {
+                environments.put(candidate.path(), ModEnvironment.CLIENT);
+                continue;
+            }
             try {
                 environments.put(candidate.path(), JarMetadata.environment(candidate.path(), token));
             } catch (IOException | RuntimeException failure) {

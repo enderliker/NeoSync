@@ -28,22 +28,24 @@ import org.junit.jupiter.api.io.TempDir;
 
 class AdminSelectionTest {
     @Test
-    void createsDisabledDefaultsOnFirstStartAndPreservesExistingConfig(@TempDir Path directory) throws Exception {
+    void createsEnabledDefaultsOnFirstStartAndPreservesExistingConfig(@TempDir Path directory) throws Exception {
         Path config = directory.resolve("config/neosync-server.json");
         new AdminSelection(config, List.of(), 25565);
         var defaults = JsonParser.parseString(Files.readString(config)).getAsJsonObject();
-        assertFalse(defaults.get("enabled").getAsBoolean());
+        assertTrue(defaults.get("enabled").getAsBoolean());
         assertEquals("managed-https", defaults.get("mode").getAsString());
         assertEquals("https", defaults.get("adminTransport").getAsString());
         assertEquals(6742, defaults.get("adminPort").getAsInt());
         assertEquals(8443, defaults.get("httpsPort").getAsInt());
         assertEquals(25565, defaults.get("gamePort").getAsInt());
         defaults.addProperty("adminPort", 7654);
+        defaults.addProperty("enabled", false);
         Files.writeString(config, defaults.toString());
         byte[] original = Files.readAllBytes(config);
         var restarted = new AdminSelection(config, List.of(), 25566);
         assertArrayEquals(original, Files.readAllBytes(config));
         assertEquals(7654, restarted.transport().adminPort());
+        assertFalse(restarted.state().get("enabled").getAsBoolean());
     }
 
     @Test

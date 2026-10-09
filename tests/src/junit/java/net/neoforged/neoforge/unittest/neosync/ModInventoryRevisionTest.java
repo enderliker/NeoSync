@@ -7,6 +7,7 @@ package net.neoforged.neoforge.unittest.neosync;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -24,6 +25,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 class ModInventoryRevisionTest {
+    @Test
+    void tracksClientOnlyJarsWithoutLoadingThemAndRejectsDuplicateNames(@TempDir Path directory) throws Exception {
+        Path mods = Files.createDirectory(directory.resolve("mods"));
+        Path client = Files.createDirectory(directory.resolve("mods_client"));
+        Files.writeString(client.resolve("client.jar"), "client file");
+        Path record = directory.resolve("config/inventory.json");
+        var revision = ModInventoryRevision.update(mods, List.of("client.jar"), record, Instant.now(), new DiscoveryCancellation());
+        assertEquals("client.jar", revision.files().getFirst().fileName());
+        assertFalse(Files.exists(mods.resolve("client.jar")));
+        Files.writeString(mods.resolve("client.jar"), "server file");
+        assertThrows(IOException.class, () -> ModInventoryRevision.update(mods, List.of("client.jar"), record, Instant.now(), new DiscoveryCancellation()));
+    }
+
     private static final Instant FIRST = Instant.parse("2026-09-29T12:34:56.123456789Z");
     private static final Instant NEXT = FIRST.plusSeconds(60);
 

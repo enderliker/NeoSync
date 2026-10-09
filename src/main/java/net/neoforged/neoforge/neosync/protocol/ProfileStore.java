@@ -253,6 +253,7 @@ public final class ProfileStore {
                     }
                     complete += artifact.size();
                 }
+                verifyActiveMods(mods, plan.manifest(), javaFmlVersion, token);
                 ManagedPaths.directory(game.resolve("config"), true);
                 ManagedPaths.directory(game.resolve("logs"), true);
                 ManagedPaths.writeNew(staging.resolve("manifest.json"), plan.manifestBytes());
@@ -302,6 +303,7 @@ public final class ProfileStore {
             }
         }
         if (!expected.isEmpty()) throw new IOException("The prepared profile is missing mod files.");
+        verifyActiveMods(mods, prepared.manifest(), javaFmlVersion, token);
         Path directory = prepared.gameDirectory().getParent();
         var audit = SyncJson.object(SyncJson.parse(ManagedPaths.read(directory.resolve("consent.json"), SyncManifest.MAX_BYTES), SyncManifest.MAX_BYTES),
                 Set.of("schemaVersion", "manifestSha256", "host", "gamePort", "origin", "serverId", "acceptedAt", "unverifiedSourcesAccepted", "files"), Set.of());
@@ -318,6 +320,12 @@ public final class ProfileStore {
                 throw new IOException("Invalid local provider audit URL.");
             }
         }
+    }
+
+    private static void verifyActiveMods(Path mods, SyncManifest manifest, String javaFmlVersion, DiscoveryCancellation token) throws IOException {
+        var active = JarMetadata.activeMods(manifest.files().stream().map(file -> mods.resolve(file.sha256() + ".jar")).toList(), javaFmlVersion, token);
+        if (!active.keySet().equals(manifest.activeMods().keySet()) || active.entrySet().stream().anyMatch(entry -> !SyncManifest.sameVersion(entry.getValue(), manifest.activeMods().get(entry.getKey()))))
+            throw new IOException("The selected JARs load a different mod inventory from the reviewed manifest.");
     }
 
     public void recordLaunch() throws IOException {

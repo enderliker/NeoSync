@@ -64,6 +64,11 @@ NeoSync fields strictly. A malformed NeoSync field must produce a synchronizatio
 error without crashing server-list rendering. Do not interpret malformed or
 unsupported capabilities as permission to download or as a valid empty manifest.
 
+Development beta.9 advertises `{"protocols":[1,2],"unavailable":true}` when
+enabled synchronization fails startup validation. It contains no manifest digest
+or port. Clients report the unavailable mod set and direct administrators to the
+startup log; it is not an absent capability or permission to connect normally.
+
 ## Explicit HTTP discovery (capability version 2)
 
 Unreleased beta.4 supports an opt-in HTTP transport using an incompatible status
@@ -218,7 +223,7 @@ reserved `.invalid` domains; it must never be used as a live download inventory.
 
 | Field | Meaning |
 | --- | --- |
-| `schemaVersion` | Manifest format, exactly `1` |
+| `schemaVersion` | Manifest format: legacy `1` or development `2` |
 | `serverId` | Persistent server UUID for the local association |
 | `revision` | Opaque snapshot label; not an ordered or security-sensitive version counter |
 | `displayName` | Plain server label for review |
@@ -230,6 +235,8 @@ reserved `.invalid` domains; it must never be used as a live download inventory.
 | `files[].required` | Always `true` in the MVP; optional selections need a later contract |
 | `files[].mods` | Declared mod IDs, versions, display names, and client dependency constraints associated with the artifact |
 | `files[].sources` | Ordered candidates; the client determines actual trust locally |
+| `activeMods` | Schema 2 only: effective client mod IDs and versions chosen from the selected artifacts |
+| `files[].mods[].embedded` | Schema 2 only: identifies metadata inside a declared nested JAR |
 
 Multiple mod IDs may map to one artifact. A library or language-provider JAR may
 have an empty `mods` array, but still appears as a file in the review and requires
@@ -237,6 +244,27 @@ consent. UI totals distinguish declared mod IDs, artifact count, and bytes.
 Embedded IDs must identify their enclosing artifact; installing both the outer
 JAR and an extracted copy is not allowed. Confirm the effective loader-selected
 set at startup rather than assuming that every nested candidate becomes active.
+
+Schema 2 allows repeated embedded mod IDs across enclosing artifacts and retains
+every inspected candidate for byte-bound metadata verification. Top-level mod IDs
+remain unique. Active IDs and versions must appear in the inspected set; a
+top-level version cannot be omitted or replaced. Validate dependencies of active
+versions only. NeoForge's JarJar selector derives this inventory from the selected
+files and rejects incompatible declared ranges. Recompute it before publishing a
+prepared profile and when verifying it; a server claim alone is insufficient.
+Compare readiness and revision changes against this effective inventory and all
+outer JAR hashes. Schema 1 remains readable; older clients reject schema 2.
+
+Bounded inspection accepts merged archives with authoritative NeoForge metadata,
+declared recursive JarJar libraries, optional JarJar fields, multi-release JARs,
+custom NeoForge languages and language services, and case-distinct resource
+entries. It still rejects alternate-only loaders, unsupported loader services,
+unsafe paths and class/metadata aliases. Language names are not assumed to be
+mod IDs; declared mod dependencies and normal FML language validation remain
+authoritative. Archives are limited to 65,534 entries each, 131,072 across a tree,
+32 declared nested JARs and depth 4, with the existing byte/expansion budgets.
+Minecraft/NeoForge dependency ranges follow FML 4's 1.21-to-1.21.1 and
+21.0.166-to-21.1 compatibility matrix.
 
 Version 1 requires an exact installed loader match before downloads. Show a loader
 upgrade requirement when it differs; do not replace NeoSync, NeoForge, Minecraft,

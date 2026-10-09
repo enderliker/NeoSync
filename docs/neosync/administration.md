@@ -3,8 +3,9 @@
 The dedicated server starts an HTTPS administrator panel by default at
 **https://MACHINE-IP:6742**. It is separate from the game port and from
 the manifest/download service. On the first server start, NeoSync creates
-`config/neosync-server.json` with synchronization disabled and the HTTPS defaults;
-an existing file is preserved. The panel starts before synchronization is enabled.
+`config/neosync-server.json` with synchronization enabled (`"enabled": true`) and
+the HTTPS defaults; an existing file, including an explicit disabled choice, is
+preserved. The panel starts before the synchronization inventory is validated.
 Java 21 with `keytool` is required for first-time certificate generation.
 
 ## First sign-in
@@ -34,15 +35,16 @@ and do not survive restart. Sign out when finished.
 
 ## Select client requirements
 
-The panel lists JARs from the loaded server `mods` inventory. Enable synchronization,
+The panel lists JARs from the loaded server `mods` inventory. Review synchronization,
 choose the server name, and select only files needed by clients, including required
 dependencies. NeoSync does not assume that every server mod belongs on the client.
 Development automatically checks CLIENT and BOTH files in the first-run selection
 and suggests newly added files in the panel. SERVER and UNKNOWN files remain
 unchecked. Saved administrator choices are preserved, including unchecked files;
 legacy configurations without review tracking keep their existing selection.
-Review and save suggestions before restarting. Synchronization remains disabled
-by default, and player download consent is unchanged.
+Review and save suggestions before restarting. New configurations enable
+synchronization by default; publication still requires a valid selected set and
+permitted sources, and player download consent is unchanged.
 
 Environment detection reads explicit local `[modproperties.<modId>]`
 `neosyncSide="CLIENT"`, `"BOTH"`, or `"SERVER"` declarations for every mod in a
@@ -67,8 +69,8 @@ only when the dependency is actually distributed as a separate JAR.
 
 - **Modrinth → CurseForge:** development resolves the exact existing JAR through
   Modrinth SHA-512, then fresh CurseForge fingerprints, SHA-1 and size. Both server
-  and client need a credential-bearing build for CurseForge. Published betas
-  retain Modrinth-only resolution. Clients independently verify the live provider
+  and client need a credential-bearing build for CurseForge. Official beta.8
+  includes authorized access; beta.6 and earlier remain Modrinth-only. Clients independently verify the live provider
   identity and both provider and manifest hashes.
 - **Providers, then eligible server hosting:** only for your own unpublished server-specific mod.
   Check all three authorship, exclusive-distribution and distribution-rights
@@ -100,6 +102,31 @@ The panel preserves that existing transport configuration when saving selections
 The generated local certificate is not a public certificate authority.
 
 ## Client inventory revision
+
+### Client-only JARs (development beta.9)
+
+NeoSync creates `mods_client` beside the server's `mods` directory. Place
+client-only JARs there when loading them on a dedicated server would fail.
+NeoForge continues loading only `mods`; NeoSync inspects `mods_client` without
+loading its classes. Every JAR in this folder is automatically classified CLIENT
+and suggested for client download without a side question or provider-side lookup.
+An existing saved exclusion remains respected. Save the panel selection and
+restart to publish added files through the existing synchronization flow.
+
+The folder supplements the selected server inventory; it does not replace it.
+Use distinct filenames across both folders. Missing selected files, symbolic links,
+duplicate names, invalid metadata and unsatisfied client dependencies block
+publication. Exact provider resolution, permitted external sources, restricted
+hosting, client consent and hash verification apply equally to both folders.
+Third-party JARs are not served directly merely because they are in `mods_client`.
+
+Beta.9 uses NeoForge's JarJar selector to derive the versions loaded by the
+selected client artifacts. Shared embedded dependencies remain inside their
+enclosing JARs. If enabled synchronization cannot initialize, status advertises
+its unavailability and clients show an administrator/startup error instead of
+treating the endpoint as an ordinary server. Review `NeoSync discovery enabled`
+in the boot log before inviting players. Client and server need the matching
+beta.9 build; beta.8 binaries and tags remain unchanged.
 
 Development writes `config/neosync-client-inventory.json` at server startup using
 only the JARs in the saved client download selection (`files` in

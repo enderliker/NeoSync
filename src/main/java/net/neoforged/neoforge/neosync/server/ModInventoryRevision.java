@@ -82,7 +82,7 @@ public record ModInventoryRevision(String digest, Instant changedAt, List<SyncRe
         for (String name : selectedFiles) {
             token.check();
             if (!name.matches(SyncManifest.FILE_PATTERN) || name.length() > 128) throw new IOException("Unsupported mod inventory file name.");
-            Path path = modsDirectory.resolve(name);
+            Path path = selectedPath(modsDirectory, name);
             var fingerprint = ArtifactFiles.fingerprint(path, token);
             total += fingerprint.size();
             if (current.size() >= 2048 || total > SyncManifest.MAX_TOTAL_BYTES) throw new IOException("The mod inventory exceeds its limits.");
@@ -137,6 +137,19 @@ public record ModInventoryRevision(String digest, Instant changedAt, List<SyncRe
             Files.deleteIfExists(temporary);
         }
         return new ModInventoryRevision(digest, detectedAt, snapshot, added, replaced, removed);
+    }
+
+    static Path selectedPath(Path modsDirectory, String name) throws IOException {
+        if (name.length() > 128 || !name.matches(SyncManifest.FILE_PATTERN)) throw new IOException("Unsupported selected file name.");
+        ManagedPaths.directory(modsDirectory, false);
+        Path clientDirectory = modsDirectory.resolveSibling("mods_client");
+        Path server = modsDirectory.resolve(name);
+        if (!Files.exists(clientDirectory, LinkOption.NOFOLLOW_LINKS)) return server;
+        ManagedPaths.directory(clientDirectory, false);
+        Path client = clientDirectory.resolve(name);
+        if (!Files.exists(client, LinkOption.NOFOLLOW_LINKS)) return server;
+        if (Files.exists(server, LinkOption.NOFOLLOW_LINKS)) throw new IOException("A file appears in both mods and mods_client: " + name);
+        return client;
     }
 
     private static String digest(Map<String, File> files) {

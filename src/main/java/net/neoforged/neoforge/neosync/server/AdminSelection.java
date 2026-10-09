@@ -59,7 +59,7 @@ public final class AdminSelection {
             if (inventory.putIfAbsent(name, new Entry(candidate, fingerprint)) != null) throw new IOException("Duplicate administrator inventory file.");
         }
         defaults = new JsonObject();
-        defaults.addProperty("enabled", false);
+        defaults.addProperty("enabled", true);
         defaults.addProperty("displayName", "NeoSync server");
         defaults.addProperty("mode", "managed-https");
         defaults.addProperty("adminTransport", "https");

@@ -37,6 +37,16 @@ class InstallationPlanTest {
     }
 
     @Test
+    void reviewsLibraryOnlyArtifactsThroughTheExistingConsentFlow() throws Exception {
+        var root = com.google.gson.JsonParser.parseString(new String(manifest(), StandardCharsets.UTF_8)).getAsJsonObject();
+        root.getAsJsonArray("files").get(0).getAsJsonObject().add("mods", new com.google.gson.JsonArray());
+        var plan = plan(root.toString().getBytes(StandardCharsets.UTF_8));
+        assertEquals(1, plan.files().size());
+        assertTrue(plan.reviewLines().stream().anyMatch(line -> line.contains("0 mods in 1 file")));
+        assertThrows(IOException.class, () -> plan.accept(false, true));
+    }
+
+    @Test
     void snapshotsBytesAndSeparatesAvailableFilesFromActivation() throws Exception {
         byte[] bytes = manifest();
         var plan = InstallationPlan.create(endpoint(bytes), bytes, Set.of(SyncProtocolTest.HASH), null, "0.1.0-dev", "21.1.251");

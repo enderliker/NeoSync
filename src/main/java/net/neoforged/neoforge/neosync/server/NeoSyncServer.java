@@ -38,12 +38,15 @@ import net.neoforged.neoforge.internal.versions.neoforge.NeoForgeVersion;
 import net.neoforged.neoforge.neosync.protocol.ArtifactFiles;
 import net.neoforged.neoforge.neosync.protocol.DiscoveryCancellation;
 import net.neoforged.neoforge.neosync.protocol.JarMetadata;
+import net.neoforged.neoforge.neosync.protocol.ManagedPaths;
+import net.neoforged.neoforge.neosync.protocol.ModEnvironment;
 import net.neoforged.neoforge.neosync.protocol.SyncCapability;
 import net.neoforged.neoforge.neosync.protocol.SyncJson;
 import net.neoforged.neoforge.neosync.protocol.SyncManifest;
 import net.neoforged.neoforge.neosync.protocol.SyncRevision;
 import net.neoforged.neoforge.neosync.provider.ProviderHttpClient;
 import net.neoforged.neoforgespi.language.IModFileInfo;
+import net.neoforged.neoforgespi.locating.IModFile;
 import org.jetbrains.annotations.Nullable;
 import org.slf4j.Logger;
 
@@ -52,6 +55,7 @@ public final class NeoSyncServer {
     private static final Logger LOGGER = LogUtils.getLogger();
     @Nullable
     private static volatile State state;
+    private static volatile boolean discoveryUnavailable;
     @Nullable
     private static AdminService admin;
 
@@ -84,24 +88,35 @@ public final class NeoSyncServer {
 
     public static String decorateStatus(String originalJson) {
         State current = state;
-        return current == null ? originalJson : current.decorate(originalJson);
+        if (current != null) return current.decorate(originalJson);
+        if (!discoveryUnavailable) return originalJson;
+        var object = JsonParser.parseString(originalJson).getAsJsonObject();
+        var unavailable = new JsonObject();
+        var protocols = new JsonArray();
+        protocols.add(1);
+        protocols.add(2);
+        unavailable.add("protocols", protocols);
+        unavailable.addProperty("unavailable", true);
+        object.add("neosync", unavailable);
+        return object.toString();
     }
 
     @SubscribeEvent
     public static void start(ServerAboutToStartEvent event) {
         if (!event.getServer().isDedicatedServer()) return;
         stopService();
+        discoveryUnavailable = true;
         Path configPath = FMLPaths.CONFIGDIR.get().resolve("neosync-server.json");
         AdminSecrets secrets = null;
         try {
             secrets = AdminSecrets.open(FMLPaths.CONFIGDIR.get().resolve("neosync-admin"));
             Path mods = FMLPaths.MODSDIR.get().toAbsolutePath().normalize();
-            var candidates = ModList.get().getModFiles().stream()
-                    .filter(info -> info.getFile().getFilePath().getFileSystem() == java.nio.file.FileSystems.getDefault())
-                    .filter(info -> mods.equals(info.getFile().getFilePath().toAbsolutePath().normalize().getParent()))
-                    .map(info -> new AdminSelection.Candidate(info.getFile().getFilePath(), info.getMods().stream()
+            var candidates = new java.util.ArrayList<>(loadedArtifacts().entrySet().stream()
+                    .filter(entry -> mods.equals(entry.getKey().getParent()))
+                    .map(entry -> new AdminSelection.Candidate(entry.getKey(), entry.getValue().stream().flatMap(info -> info.getMods().stream())
                             .map(mod -> mod.getDisplayName() + " " + mod.getVersion()).collect(java.util.stream.Collectors.joining(", "))))
-                    .sorted(java.util.Comparator.comparing(candidate -> candidate.path().getFileName().toString())).toList();
+                    .sorted(java.util.Comparator.comparing(candidate -> candidate.path().getFileName().toString())).toList());
+            for (Path path : clientArtifacts(mods)) candidates.add(new AdminSelection.Candidate(path, path.getFileName().toString(), ModEnvironment.CLIENT));
             var detected = ModEnvironmentDetector.detect(candidates, new ProviderHttpClient());
             var selection = new AdminSelection(configPath, detected, event.getServer().getPort());
             var adminSettings = selection.transport();
@@ -122,6 +137,7 @@ public final class NeoSyncServer {
             }
             var config = SyncJson.object(SyncJson.parse(configBytes, SyncManifest.MAX_BYTES), Set.of("enabled"),
                     Set.of("mode", "bindAddress", "port", "httpsPort", "httpPort", "adminTransport", "adminPort", "gamePort", "displayName", "files", "reviewedFiles", "keyStore", "passwordEnvironment", "hosting"));
+            discoveryUnavailable = SyncJson.bool(config.get("enabled"));
             var selectedFiles = new java.util.ArrayList<String>();
             if (config.has("files")) {
                 for (var entry : SyncJson.array(config.get("files"), 0, 2048)) {
@@ -167,6 +183,7 @@ public final class NeoSyncServer {
                     "/.well-known/neosync/v1/servers/" + gamePort + "/revision.json",
                     revision.bytes());
             state = new State(service, capability, inventory);
+            discoveryUnavailable = false;
             inventory = null;
             if (!hosted.isEmpty()) LOGGER.info("NeoSync publicly hosts {} administrator-declared exclusive artifacts. Minecraft login restrictions do not protect these downloads.", hosted.size());
             LOGGER.info("NeoSync discovery enabled for {} client artifacts on port {}. Public {} port: {}", parsed.files().size(), service.port(), capability.transport().toUpperCase(java.util.Locale.ROOT), httpsPort);
@@ -190,6 +207,7 @@ public final class NeoSyncServer {
         }
         State previous = state;
         state = null;
+        discoveryUnavailable = false;
         if (previous != null) {
             previous.service.close();
             closeInventory(previous.inventory);
@@ -228,15 +246,17 @@ public final class NeoSyncServer {
     }
 
     private static byte[] createManifest(JsonObject config, HostingPolicy policy, @Nullable HostedInventory inventory) throws IOException {
-        var loadedFiles = new HashMap<Path, IModFileInfo>();
-        ModList.get().getModFiles().forEach(info -> loadedFiles.put(info.getFile().getFilePath().toAbsolutePath().normalize(), info));
+        var loadedFiles = new HashMap<>(loadedArtifacts());
         var loadedVersions = new HashMap<String, String>();
         for (var mod : ModList.get().getMods()) {
             if (loadedVersions.putIfAbsent(mod.getModId(), mod.getVersion().toString()) != null)
                 throw new IOException("The loaded server inventory has duplicate mod IDs.");
         }
         Path modsDirectory = FMLPaths.MODSDIR.get().toAbsolutePath().normalize();
+        var clientFiles = new HashSet<>(clientArtifacts(modsDirectory));
+        for (Path path : clientFiles) loadedFiles.put(path, List.of());
         var files = new JsonArray();
+        var selectedPaths = new java.util.ArrayList<Path>();
         var names = new HashSet<String>();
         var cancellation = new DiscoveryCancellation();
         long total = 0;
@@ -248,7 +268,7 @@ public final class NeoSyncServer {
             var selection = SyncJson.object(entry, Set.of("fileName"), Set.of("sources", "hosting", "resolveProviders"));
             if (selection.has("resolveProviders")) {
                 if (!SyncJson.bool(selection.get("resolveProviders"))) throw new IOException("Invalid automatic provider selection.");
-                Path path = modsDirectory.resolve(SyncJson.matching(selection.get("fileName"), 128, SyncManifest.FILE_PATTERN));
+                Path path = ModInventoryRevision.selectedPath(modsDirectory, SyncJson.matching(selection.get("fileName"), 128, SyncManifest.FILE_PATTERN));
                 if (!loadedFiles.containsKey(path)) throw new IOException("A selected provider file is not in the loaded server inventory.");
                 var fingerprint = ArtifactFiles.fingerprint(path, cancellation);
                 if (selection.has("sources") || selection.has("hosting")) {
@@ -268,9 +288,9 @@ public final class NeoSyncServer {
             var selection = entry.getAsJsonObject().deepCopy();
             if (selection.has("resolveProviders")) {
                 selection.remove("resolveProviders");
-                var provider = resolved.get(modsDirectory.resolve(selection.get("fileName").getAsString()));
+                var provider = resolved.get(ModInventoryRevision.selectedPath(modsDirectory, selection.get("fileName").getAsString()));
                 if (provider != null) {
-                    Path selectedPath = modsDirectory.resolve(selection.get("fileName").getAsString());
+                    Path selectedPath = ModInventoryRevision.selectedPath(modsDirectory, selection.get("fileName").getAsString());
                     selection.add("sources", provider.identity().id().equals("curseforge")
                             ? net.neoforged.neoforge.neosync.provider.CurseForgeProvider.sources(selectedPath, automatic.get(selectedPath), cancellation)
                             : net.neoforged.neoforge.neosync.provider.AutomaticSources.sources(provider));
@@ -280,9 +300,10 @@ public final class NeoSyncServer {
             String fileName = SyncJson.matching(selection.get("fileName"), 128, SyncManifest.FILE_PATTERN);
             if (!names.add(fileName)) throw new IOException("Duplicate selected client file.");
             SyncManifest.parseSources(selection.get("sources"));
-            Path path = modsDirectory.resolve(fileName);
-            var info = loadedFiles.get(path);
-            if (info == null) throw new IOException("A selected client file is not in the loaded server inventory: " + fileName);
+            Path path = ModInventoryRevision.selectedPath(modsDirectory, fileName);
+            selectedPaths.add(path);
+            var infos = loadedFiles.get(path);
+            if (infos == null) throw new IOException("A selected client file is not in the loaded server inventory: " + fileName);
             var fingerprint = ArtifactFiles.fingerprint(path, cancellation);
             if (automatic.containsKey(path) && !automatic.get(path).equals(fingerprint)) throw new IOException("The selected file changed after provider resolution.");
             if (policy.validateSelection(selection, fingerprint.sha256())) {
@@ -298,17 +319,21 @@ public final class NeoSyncServer {
             file.addProperty("required", true);
             file.add("sources", selection.get("sources").deepCopy());
             var selectedVersions = new HashMap<String, String>();
-            for (var modInfo : info.getMods()) {
-                if (selectedVersions.putIfAbsent(modInfo.getModId(), modInfo.getVersion().toString()) != null)
-                    throw new IOException("The selected client file has duplicate loaded mod IDs: " + fileName);
+            for (var info : infos) {
+                if (!info.getFile().getFilePath().equals(path)) continue;
+                for (var modInfo : info.getMods()) {
+                    if (selectedVersions.putIfAbsent(modInfo.getModId(), modInfo.getVersion().toString()) != null)
+                        throw new IOException("The selected client file has duplicate loaded mod IDs: " + fileName);
+                }
             }
-            file.add("mods", manifestMods(JarMetadata.inspect(path, FMLLoader.versionInfo().fmlVersion(), cancellation), selectedVersions, loadedVersions));
+            var inspected = JarMetadata.inspect(path, FMLLoader.versionInfo().fmlVersion(), cancellation);
+            file.add("mods", manifestMods(inspected, selectedVersions, loadedVersions, clientFiles.contains(path)));
             if (!fingerprint.equals(ArtifactFiles.fingerprint(path, cancellation)))
                 throw new IOException("The selected file changed during metadata inspection: " + fileName);
             files.add(file);
         }
         var manifest = new JsonObject();
-        manifest.addProperty("schemaVersion", 1);
+        manifest.addProperty("schemaVersion", 2);
         manifest.addProperty("serverId", serverId().toString());
         manifest.addProperty("revision", "inventory-" + SyncManifest.sha256(files.toString().getBytes(StandardCharsets.UTF_8)).substring(0, 16));
         manifest.addProperty("displayName", SyncJson.string(config.get("displayName"), 128));
@@ -319,23 +344,71 @@ public final class NeoSyncServer {
         loader.addProperty("neoForgeVersion", NeoForgeVersion.getVersion());
         manifest.add("loader", loader);
         manifest.add("files", files);
+        var active = new JsonArray();
+        for (var entry : JarMetadata.activeMods(selectedPaths, FMLLoader.versionInfo().fmlVersion(), cancellation).entrySet().stream().sorted(Map.Entry.comparingByKey()).toList()) {
+            var value = new JsonObject();
+            value.addProperty("id", entry.getKey());
+            value.addProperty("version", entry.getValue());
+            active.add(value);
+        }
+        manifest.add("activeMods", active);
         return manifest.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static List<Path> clientArtifacts(Path modsDirectory) throws IOException {
+        Path clientDirectory = modsDirectory.resolveSibling("mods_client");
+        ManagedPaths.directory(clientDirectory, true);
+        var result = new java.util.ArrayList<Path>();
+        try (var entries = Files.newDirectoryStream(clientDirectory, "*.jar")) {
+            for (Path path : entries) {
+                if (result.size() >= 2048) throw new IOException("The mods_client inventory exceeds the file limit.");
+                if (!Files.isRegularFile(path, LinkOption.NOFOLLOW_LINKS)) throw new IOException("mods_client must contain regular JARs, not symbolic links.");
+                ModInventoryRevision.selectedPath(modsDirectory, path.getFileName().toString());
+                result.add(path);
+            }
+        }
+        return List.copyOf(result);
+    }
+
+    private static Map<Path, List<IModFileInfo>> loadedArtifacts() {
+        var result = new HashMap<Path, java.util.ArrayList<IModFileInfo>>();
+        var infos = new java.util.ArrayList<IModFileInfo>(ModList.get().getModFiles());
+        infos.addAll(FMLLoader.getLoadingModList().getPlugins());
+        for (var info : infos) {
+            IModFile file = info.getFile();
+            var visited = new HashSet<IModFile>();
+            while (file.getDiscoveryAttributes().parent() != null && visited.add(file))
+                file = file.getDiscoveryAttributes().parent();
+            Path path = file.getFilePath();
+            if (path.getFileSystem() != java.nio.file.FileSystems.getDefault()) continue;
+            var entries = result.computeIfAbsent(path.toAbsolutePath().normalize(), ignored -> new java.util.ArrayList<>());
+            if (!entries.contains(info)) entries.add(info);
+        }
+        var immutable = new HashMap<Path, List<IModFileInfo>>();
+        result.forEach((path, entries) -> immutable.put(path, List.copyOf(entries)));
+        return Map.copyOf(immutable);
     }
 
     static JsonArray manifestMods(List<SyncManifest.Mod> inspected, Map<String, String> selectedVersions,
             Map<String, String> loadedVersions) throws IOException {
+        return manifestMods(inspected, selectedVersions, loadedVersions, false);
+    }
+
+    private static JsonArray manifestMods(List<SyncManifest.Mod> inspected, Map<String, String> selectedVersions,
+            Map<String, String> loadedVersions, boolean clientOnly) throws IOException {
         var mods = new JsonArray();
         var inspectedIds = new HashSet<String>();
         for (var inspectedMod : inspected) {
             String id = inspectedMod.id();
             if (!inspectedIds.add(id)) throw new IOException("The selected JAR contains duplicate mod IDs: " + id);
-            if (!inspectedMod.version().equals(loadedVersions.get(id))
-                    || selectedVersions.containsKey(id) && !inspectedMod.version().equals(selectedVersions.get(id)))
+            if (!clientOnly && (!inspectedMod.embedded() && !SyncManifest.sameVersion(inspectedMod.version(), loadedVersions.get(id))
+                    || selectedVersions.containsKey(id) && !SyncManifest.sameVersion(inspectedMod.version(), selectedVersions.get(id))))
                 throw new IOException("The selected JAR differs from the loaded server inventory: " + id);
             var mod = new JsonObject();
             mod.addProperty("id", id);
             mod.addProperty("version", inspectedMod.version());
             mod.addProperty("displayName", inspectedMod.displayName());
+            mod.addProperty("embedded", inspectedMod.embedded());
             var dependencies = new JsonArray();
             for (var inspectedDependency : inspectedMod.dependencies()) {
                 var dependency = new JsonObject();
