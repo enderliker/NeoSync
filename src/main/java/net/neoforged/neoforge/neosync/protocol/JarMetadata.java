@@ -50,6 +50,9 @@ public final class JarMetadata {
     private static final String JARJAR_PREFIX = "META-INF/jarjar/";
     private static final String JARJAR_METADATA = JARJAR_PREFIX + "metadata.json";
     private static final String LANGUAGE_SERVICE = "META-INF/services/net.neoforged.neoforgespi.language.IModLanguageLoader";
+    private static final Set<String> LIBRARY_SERVICES = Set.of(
+            "META-INF/services/net.neoforged.neoforgespi.earlywindow.GraphicsBootstrapper",
+            "META-INF/services/net.neoforged.neoforgespi.locating.IModFileCandidateLocator");
 
     private record Archive(List<SyncManifest.Mod> mods, Map<String, ZipEntry> nested, long expansion, int entries) {}
 
@@ -147,6 +150,7 @@ public final class JarMetadata {
                 try (var zip = new ZipFile(path.toFile())) {
                     if (zip.getEntry(MOD_METADATA) == null) continue;
                     String version = new Manifest(new ByteArrayInputStream(read(zip, "META-INF/MANIFEST.MF", false, token))).getMainAttributes().getValue("Implementation-Version");
+                    if (libraryArchive(zip, token)) continue;
                     var mods = parseMods(zip, version, javaFmlVersion, token);
                     String module = mods.getFirst().id();
                     var previous = modules.get(module);
@@ -246,6 +250,7 @@ public final class JarMetadata {
     }
 
     private static Archive inspectArchive(ZipFile zip, int count, boolean outer, String javaFmlVersion, DiscoveryCancellation token) throws IOException {
+        boolean library = libraryArchive(zip, token);
         var names = new HashSet<String>();
         var nested = new HashMap<String, ZipEntry>();
         long expansion = 0;
@@ -274,13 +279,15 @@ public final class JarMetadata {
             if (lower.startsWith("meta-inf/services/net.neoforged.") || lower.startsWith("meta-inf/services/cpw.mods.")
                     || lower.startsWith("meta-inf/services/net.minecraftforge.")) {
                 boolean inactiveForge = lower.startsWith("meta-inf/services/net.minecraftforge.") && zip.getEntry(LANGUAGE_SERVICE) != null;
-                if (!inactiveForge && !name.equals(LANGUAGE_SERVICE))
+                boolean libraryService = outer && library && zip.getEntry(JARJAR_METADATA) != null && LIBRARY_SERVICES.contains(name);
+                if (!inactiveForge && !name.equals(LANGUAGE_SERVICE) && !libraryService)
                     throw new IOException("Unsupported loader service provider: " + name);
-                String providers = new String(read(zip, LANGUAGE_SERVICE, true, token), StandardCharsets.UTF_8);
+                String providers = StandardCharsets.UTF_8.newDecoder().onMalformedInput(CodingErrorAction.REPORT)
+                        .decode(ByteBuffer.wrap(read(zip, inactiveForge ? LANGUAGE_SERVICE : name, true, token))).toString();
                 for (String line : providers.split("\\R")) {
                     String provider = line.split("#", 2)[0].strip();
                     if (!provider.isEmpty() && !provider.matches("[A-Za-z_$][A-Za-z0-9_$]*(\\.[A-Za-z_$][A-Za-z0-9_$]*)+"))
-                        throw new IOException("Invalid NeoForge language service provider.");
+                        throw new IOException("Invalid NeoForge service provider.");
                 }
             }
             if (lower.endsWith("neosync-profile.json")) throw new IOException("A JAR cannot contain NeoSync profile records.");
@@ -297,6 +304,8 @@ public final class JarMetadata {
         String type = attributes.getValue("FMLModType");
         if (attributes.getValue("Class-Path") != null)
             throw new IOException("Unsupported JAR loading arrangement.");
+        // FML treats LIBRARY containers as services, even when they carry a copy of their nested mod metadata.
+        if (library) return new Archive(List.of(), Map.copyOf(nested), expansion, count);
         boolean modMetadata = zip.getEntry(MOD_METADATA) != null;
         if (!modMetadata) {
             if (zip.getEntry("fabric.mod.json") != null || zip.getEntry("quilt.mod.json") != null || zip.getEntry("META-INF/mods.toml") != null)
@@ -307,6 +316,11 @@ public final class JarMetadata {
         }
         if (type != null && !type.equals("MOD")) throw new IOException("Unsupported JAR loading arrangement.");
         return new Archive(parseMods(zip, attributes.getValue("Implementation-Version"), javaFmlVersion, token), Map.copyOf(nested), expansion, count);
+    }
+
+    private static boolean libraryArchive(ZipFile zip, DiscoveryCancellation token) throws IOException {
+        return "LIBRARY".equals(new Manifest(new ByteArrayInputStream(read(zip, "META-INF/MANIFEST.MF", false, token)))
+                .getMainAttributes().getValue("FMLModType"));
     }
 
     private static void validateEntryName(String name, String lower, Set<String> names) throws IOException {
